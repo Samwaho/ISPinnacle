@@ -21,7 +21,6 @@ import { useRouter } from "next/navigation";
 import { DEFAULT_REDIRECT_URL } from "@/routes";
 import { useTRPC } from "@/trpc/client";
 import FormSuccess from "../FormSuccess";
-import Link from "next/link";
 import {
   InputOTP,
   InputOTPGroup,
@@ -30,10 +29,12 @@ import {
 } from "../ui/input-otp";
 import { FaLock } from "react-icons/fa";
 import { Loader2 } from "lucide-react";
+import { useSession } from "next-auth/react";
 
 export const LoginForm = () => {
   const t = useTRPC();
   const router = useRouter();
+  const { update: updateSession } = useSession();
   const [twoFactorEnabled, setTwoFactorEnabled] = useState(false);
   const {
     mutate: login,
@@ -42,11 +43,13 @@ export const LoginForm = () => {
     data,
   } = useMutation(
     t.user.login.mutationOptions({
-      onSuccess: (data) => {
+      onSuccess: async (data) => {
         if (data?.verifyEmail || data?.twoFactorEnabled) {
           setTwoFactorEnabled(data?.twoFactorEnabled ?? false);
           return;
         }
+        // Update the session to reflect the new login state
+        await updateSession();
         router.push(DEFAULT_REDIRECT_URL);
       },
     })

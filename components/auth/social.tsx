@@ -18,9 +18,9 @@ const Social = () => {
   };
   return (
     <div className="flex flex-row items-center w-full">
-        <Button variant="outline" size="lg" className="w-full cursor-pointer" onClick={handleGoogleSignIn}>
+        <Button variant="gradient2" size="lg" className="w-full cursor-pointer" onClick={handleGoogleSignIn}>
             <FcGoogle className="size-5" />
-            <span className="text-sm">Continue with Google</span>
+            <span className="text-sm">Google</span>
         </Button>
     </div>
   )

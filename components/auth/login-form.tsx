@@ -28,6 +28,8 @@ import {
   InputOTPSeparator,
   InputOTPSlot,
 } from "../ui/input-otp";
+import { FaLock } from "react-icons/fa";
+import { Loader2 } from "lucide-react";
 
 export const LoginForm = () => {
   const t = useTRPC();
@@ -63,10 +65,12 @@ export const LoginForm = () => {
   };
   return (
     <CardWrapper
-      headerLabel="Sign in"
+      headerLabel="Sign into your account"
       backButtonLabel="Don't have an account?"
       backButtonLink="/auth/register"
       showSocial
+      icon={<FaLock className="size-6 text-fuchsia-600" />}
+      showForgotPassword
     >
       <Form {...form}>
         <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-8">
@@ -138,9 +142,6 @@ export const LoginForm = () => {
                     </FormItem>
                   )}
                 />
-                <Button variant="link" className="w-full text-center" asChild>
-                  <Link href="/auth/reset">Forgot password?</Link>
-                </Button>
               </>
             )}
           </div>
@@ -149,9 +150,11 @@ export const LoginForm = () => {
           <FormSuccess message={data?.message ?? ""} />
           <Button
             type="submit"
+            variant="gradient"
             className="w-full cursor-pointer"
             disabled={isPending}
           >
+            {isPending && <Loader2 className="size-4 animate-spin" />}
             {isPending && !twoFactorEnabled
               ? "Logging in..."
               : isPending && twoFactorEnabled

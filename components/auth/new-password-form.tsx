@@ -20,6 +20,8 @@ import { useMutation } from "@tanstack/react-query";
 import { useTRPC } from "@/trpc/client";
 import FormSuccess from "../FormSuccess";
 import { useSearchParams } from "next/navigation";
+import { FaLock } from "react-icons/fa";
+import { Loader2 } from "lucide-react";
 
 export const NewPasswordForm = () => {
   const searchParams = useSearchParams();
@@ -45,9 +47,10 @@ export const NewPasswordForm = () => {
   };
   return (
     <CardWrapper
-      headerLabel="Reset your password"
+      headerLabel="Set your new password"
       backButtonLabel="Back to login"
       backButtonLink="/auth/login"
+      icon={<FaLock className="size-6 text-fuchsia-600" />}
     >
       <Form {...form}>
         <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-8">
@@ -95,10 +98,12 @@ export const NewPasswordForm = () => {
           <FormSuccess message={data?.message ?? ""} />
           <Button
             type="submit"
+            variant="gradient"
             className="w-full cursor-pointer"
             disabled={isPending}
           >
-            {isPending ? "Resetting..." : "Reset password"}
+            {isPending && <Loader2 className="size-4 animate-spin" />}
+            {isPending ? "Setting new password..." : "Set new password"}
           </Button>
         </form>
       </Form>

@@ -19,6 +19,8 @@ import FormError from "../FormError";
 import { useMutation } from "@tanstack/react-query";
 import { useTRPC } from "@/trpc/client";
 import FormSuccess from "../FormSuccess";
+import { FaLock } from "react-icons/fa";
+import { Loader2 } from "lucide-react";
 
 export const ResetForm = () => {
   const t = useTRPC();
@@ -43,6 +45,7 @@ export const ResetForm = () => {
       headerLabel="Reset your password"
       backButtonLabel="Back to login"
       backButtonLink="/auth/login"
+      icon={<FaLock className="size-6 text-fuchsia-600" />}
     >
       <Form {...form}>
         <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-8">
@@ -70,10 +73,12 @@ export const ResetForm = () => {
           <FormSuccess message={data?.message ?? ""} />
           <Button
             type="submit"
+            variant="gradient"
             className="w-full cursor-pointer"
             disabled={isPending}
           >
-            {isPending ? "Sending..." : "Send reset link"}
+            {isPending && <Loader2 className="size-4 animate-spin" />}
+            {isPending ? "Sending reset link..." : "Send reset link"}
           </Button>
         </form>
       </Form>

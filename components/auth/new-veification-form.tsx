@@ -7,6 +7,7 @@ import { useMutation } from "@tanstack/react-query";
 import { useTRPC } from "@/trpc/client";
 import FormError from "../FormError";
 import FormSuccess from "../FormSuccess";
+import { FaEnvelope } from "react-icons/fa";
 
 export const NewVerificationForm = () => {
   const searchParams = useSearchParams();
@@ -27,9 +28,10 @@ export const NewVerificationForm = () => {
 
   return (
     <CardWrapper
-      headerLabel="Verify your email"
+      headerLabel="Verify your email address"
       backButtonLabel="Back to login"
       backButtonLink="/auth/login"
+      icon={<FaEnvelope className="size-6 text-fuchsia-600" />}
     >
       {isPending && (
         <div className="flex flex-col items-center justify-center">

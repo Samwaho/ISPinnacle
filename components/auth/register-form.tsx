@@ -19,6 +19,8 @@ import FormError from "../FormError";
 import { useMutation } from "@tanstack/react-query";
 import { useTRPC } from "@/trpc/client";
 import FormSuccess from "../FormSuccess";
+import { FaUser } from "react-icons/fa";
+import { Loader2 } from "lucide-react";
 
 export const RegisterForm = () => {
   const t = useTRPC();
@@ -43,10 +45,11 @@ export const RegisterForm = () => {
   };
   return (
     <CardWrapper
-      headerLabel="Create an account"
+      headerLabel="Create your account"
       backButtonLabel="Already have an account?"
       backButtonLink="/auth/login"
       showSocial
+      icon={<FaUser className="size-6 text-fuchsia-600" />}
     >
       <Form {...form}>
         <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-8">
@@ -130,10 +133,12 @@ export const RegisterForm = () => {
           <FormError message={error?.message ?? ""} />
           <Button
             type="submit"
+            variant="gradient"
             className="w-full cursor-pointer"
             disabled={isPending}
           >
-            {isPending ? "Registering..." : "Register"}
+            {isPending && <Loader2 className="size-4 animate-spin" />}
+            {isPending ? "Creating account..." : "Create account"}
           </Button>
         </form>
       </Form>

@@ -19,6 +19,30 @@ enum Role {
   USER
 }
 
+enum OrganizationPermission {
+  VIEW_ORGANIZATION_DETAILS
+  MANAGE_ORGANIZATION_DETAILS
+  MANAGE_MEMBERS
+  MANAGE_SETTINGS
+  MANAGE_ROLES
+}
+
+enum OrganizationInvitationStatus {
+  PENDING
+  ACCEPTED
+  REJECTED
+}
+
+enum PaymentGateway {
+  MPESA
+  KOPOKOPO
+}
+
+enum SMSGateway {
+  TEXT_SMS
+  ZETATEL
+}
+
 model User {
   id            String          @id @default(cuid())
   name          String?
@@ -32,6 +56,8 @@ model User {
   updatedAt DateTime @updatedAt
   isTwoFactorEnabled Boolean @default(false)
   twoFactorConfirmation TwoFactorConfirmation?
+  organizations Organization[]
+  memberships OrganizationMember[]
 }
 
 model Account {
@@ -88,4 +114,70 @@ model TwoFactorConfirmation {
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([userId])
+}
+
+model Organization {
+  id String @id @default(cuid())
+  name String
+  email String
+  phone String
+  logo String?
+  description String?
+  website String?
+  paymentGateway PaymentGateway?
+  smsGateway SMSGateway?
+  ownerId String
+  owner User @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  members OrganizationMember[]
+  roles OrganizationRole[]
+  invitations OrganizationInvitation[]
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([ownerId])
+  @@index([ownerId])
+}
+
+model OrganizationRole {
+  id String @id @default(cuid())
+  name String
+  description String?
+  isDefault Boolean @default(false)
+  permissions OrganizationPermission[]
+  members OrganizationMember[]
+  organizationId String
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  invitations OrganizationInvitation[]
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([name, organizationId])
+}
+
+model OrganizationMember {
+  id String @id @default(cuid())
+  organizationId String
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  userId String
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  roleId String?
+  role OrganizationRole? @relation(fields: [roleId], references: [id], onDelete: SetNull)
+
+  @@unique([organizationId, userId])
+  @@index([organizationId, userId])
+}
+
+model OrganizationInvitation {
+  id String @id @default(cuid())
+  email String
+  token String
+  organizationId String
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  roleId String
+  role OrganizationRole? @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  expires DateTime
+  status OrganizationInvitationStatus @default(PENDING)
+
+  @@unique([email, organizationId, token])
+  @@index([email, organizationId, token])
 }

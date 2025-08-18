@@ -47,7 +47,7 @@ export const userRouter = createTRPCRouter({
   login: baseProcedure.input(loginSchema).mutation(async ({ input }) => {
     const { email, password, twoFactorToken } = input;
 
-    const existingUser = await prisma.user.findFirst({
+    const existingUser = await prisma.user.findUnique({
       where: { email },
     });
     if (!existingUser || !existingUser.email || !existingUser.password) {
@@ -98,7 +98,7 @@ export const userRouter = createTRPCRouter({
         });
 
         const existingTwoFactorConfirmation =
-          await prisma.twoFactorConfirmation.findFirst({
+          await prisma.twoFactorConfirmation.findUnique({
             where: { userId: existingUser.id },
           });
         if (existingTwoFactorConfirmation) {
@@ -160,7 +160,7 @@ export const userRouter = createTRPCRouter({
       if (hasExpired) {
         throw new TRPCError({ code: "NOT_FOUND", message: "Token expired" });
       }
-      const existingUser = await prisma.user.findFirst({
+      const existingUser = await prisma.user.findUnique({
         where: { email: verificationToken.email },
       });
       if (!existingUser) {
@@ -179,7 +179,7 @@ export const userRouter = createTRPCRouter({
     .input(resetSchema)
     .mutation(async ({ input }) => {
       const { email } = input;
-      const existingUser = await prisma.user.findFirst({
+      const existingUser = await prisma.user.findUnique({
         where: { email },
       });
       if (!existingUser) {
@@ -204,7 +204,7 @@ export const userRouter = createTRPCRouter({
       if (hasExpired) {
         throw new TRPCError({ code: "NOT_FOUND", message: "Token expired" });
       }
-      const existingUser = await prisma.user.findFirst({
+      const existingUser = await prisma.user.findUnique({
         where: { email: resetToken.email },
       });
       if (!existingUser) {

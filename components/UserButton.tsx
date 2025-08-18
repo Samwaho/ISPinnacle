@@ -5,16 +5,16 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "./ui/dropdown-menu";
-import { useCurrentUser } from "@/hooks/use-current-user";
-import { signOut } from "next-auth/react";
 import { Button } from "./ui/button";
 import { LoginButton } from "./auth/login-button";
 import { Separator } from "./ui/separator";
 import Link from "next/link";
 import { Building2, User } from "lucide-react";
+import { getCurrentUser } from "@/lib/server-hooks";
+import { LogoutButton } from "./auth/logout-button";
 
-export const UserButton = () => {
-  const user = useCurrentUser();
+export const UserButton = async () => {
+  const user = await getCurrentUser();
 
   if (!user) {
     return (
@@ -53,9 +53,9 @@ export const UserButton = () => {
           </Link>
         </DropdownMenuItem>
         <DropdownMenuItem>
-          <Button className="w-full h-8 bg-transparent border border-red-500 hover:bg-red-50 dark:hover:bg-transparent dark:hover:border-red-300 text-red-500 cursor-pointer" onClick={() => signOut()}>
-            Log out
-          </Button>
+          <LogoutButton>
+            Logout
+          </LogoutButton>
         </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>

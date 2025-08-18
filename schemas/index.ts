@@ -1,3 +1,4 @@
+import { OrganizationPermission } from "@/lib/generated/prisma";
 import { z } from "zod";
 
 export const loginSchema = z.object({
@@ -27,4 +28,30 @@ export const newPasswordSchema = z.object({
 }).refine((data) => data.password === data.confirmPassword, {
     message: "Passwords do not match",
     path: ["confirmPassword"],
+});
+
+export const organizationSchema = z.object({
+    name: z.string().min(1, "Name is required"),
+    email: z.string().email("Invalid email address"),
+    phone: z.string().min(1, "Phone is required"),
+    logo: z.string().optional(),
+    description: z.string().optional(),
+    website: z.string().optional(),
+});
+
+export const updateOrganizationSchema = organizationSchema.extend({
+    id: z.string().min(1, "Organization ID is required"),
+});
+
+export const memberSchema = z.object({
+    name: z.string().min(1, "Name is required"),
+    email: z.string().email("Invalid email address"),
+    role: z.string().min(1, "Role is required"),
+});
+
+export const roleSchema = z.object({
+    name: z.string().min(1, "Name is required"),
+    description: z.string().optional(),
+    permissions: z.array(z.nativeEnum(OrganizationPermission)).optional(),
+    memberCount: z.number().optional(),
 });

@@ -36,6 +36,9 @@ export default auth(async (req) => {
   // if (!isLoggedIn && !isPublicRoute) {
   //   return Response.redirect(new URL("/auth/login", req.nextUrl));
   // }
+  if (!isLoggedIn && !isPublicRoute) {
+    return Response.redirect(new URL("/auth/login", req.nextUrl));
+  }
 
   return null;
 });

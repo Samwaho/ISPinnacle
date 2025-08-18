@@ -1,26 +1,13 @@
 "use client";
 import { ThreeDMarquee } from "@/components/ui/3d-marquee";
-import Header from "./Header";
 import { useMemo } from "react";
 import { motion } from "motion/react";
-import image1 from "@/public/1.png";
-import image2 from "@/public/2.png";
-import image3 from "@/public/3.png";
-import image4 from "@/public/4.png";
-import image5 from "@/public/5.png";
-import image6 from "@/public/6.png";
-import image7 from "@/public/7.png";
-import image8 from "@/public/8.png";
-import image9 from "@/public/9.png";
-import image10 from "@/public/10.png";
-import image11 from "@/public/11.png";
-import image12 from "@/public/12.png";
 import Link from "next/link";
 
 export function Hero() {
   const baseImages = [
-    image1, image2, image3, image4, image5, image6,
-    image7, image8, image9, image10, image11, image12
+    "/1.png", "/2.png", "/3.png", "/4.png", "/5.png", "/6.png",
+    "/7.png", "/8.png", "/9.png", "/10.png", "/11.png", "/12.png"
   ];
 
   // Create a stable random arrangement using useMemo
@@ -40,13 +27,6 @@ export function Hero() {
   return (
     <div className="flex min-h-screen w-full flex-col items-center">
       <div className="relative flex flex-1 w-full flex-col items-center overflow-hidden">
-       
-        {/* Header */}
-        <div className="sticky top-0 z-50 w-full">
-          <div className="w-full bg-background/30 backdrop-blur-md border-b border-border/50 shadow-sm">
-            <Header />
-          </div>
-        </div>
         
         <motion.div 
           initial={{ opacity: 0, y: 20 }}
@@ -99,7 +79,7 @@ export function Hero() {
         <div className="absolute inset-0 z-0">
           <ThreeDMarquee
             className="pointer-events-none absolute inset-0 h-full w-full"
-            images={randomImages.map((image) => image.src)}
+            images={randomImages}
           />
         </div>
       </div>

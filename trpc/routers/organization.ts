@@ -1,5 +1,5 @@
 import { createTRPCRouter, protectedProcedure } from "../init";
-import { organizationSchema, updateOrganizationSchema, createRoleSchema, updateRoleSchema, deleteRoleSchema, inviteMemberSchema, acceptInvitationSchema, rejectInvitationSchema, resendInvitationSchema, cancelInvitationSchema } from "@/schemas";
+import { organizationSchema, updateOrganizationSchema, createRoleSchema, updateRoleSchema, deleteRoleSchema, inviteMemberSchema, acceptInvitationSchema, rejectInvitationSchema, resendInvitationSchema, cancelInvitationSchema, updateMemberRoleSchema, removeMemberSchema } from "@/schemas";
 import { prisma } from "@/lib/db";
 import { defaultOrganizationRoles } from "@/lib/default-data";
 import { z } from "zod";
@@ -563,6 +563,112 @@ export const organizationRouter = createTRPCRouter({
       return {
         success: true,
         message: "Invitation cancelled successfully",
+      };
+    }),
+  updateMemberRole: protectedProcedure
+    .input(updateMemberRoleSchema)
+    .mutation(async ({ input }) => {
+      const { organizationId, memberId, roleId } = input;
+      const canManageMembers = await hasPermissions(organizationId, [OrganizationPermission.MANAGE_MEMBERS]);
+      if (!canManageMembers) {
+        throw new TRPCError({ 
+          code: "FORBIDDEN", 
+          message: "You are not authorized to update member roles" 
+        });
+      }
+
+      const member = await prisma.organizationMember.findUnique({
+        where: { id: memberId },
+        include: { user: true },
+      });
+
+      if (!member) {
+        throw new TRPCError({ 
+          code: "NOT_FOUND", 
+          message: "Member not found" 
+        });
+      }
+
+      // If roleId is provided, verify it exists
+      if (roleId) {
+        const role = await prisma.organizationRole.findFirst({
+          where: { 
+            id: roleId,
+            organizationId,
+          },
+        });
+
+        if (!role) {
+          throw new TRPCError({ 
+            code: "NOT_FOUND", 
+            message: "Role not found" 
+          });
+        }
+      }
+
+      const updatedMember = await prisma.organizationMember.update({
+        where: { id: memberId },
+        data: {
+          roleId: roleId || null,
+        },
+        include: { user: true, role: true },
+      });
+
+      return {
+        success: true,
+        message: "Member role updated successfully",
+        member: updatedMember,
+      };
+    }),
+  removeMember: protectedProcedure
+    .input(removeMemberSchema)
+    .mutation(async ({ input }) => {
+      const { organizationId, memberId } = input;
+      const canManageMembers = await hasPermissions(organizationId, [OrganizationPermission.MANAGE_MEMBERS]);
+      if (!canManageMembers) {
+        throw new TRPCError({ 
+          code: "FORBIDDEN", 
+          message: "You are not authorized to remove members" 
+        });
+      }
+
+      const member = await prisma.organizationMember.findUnique({
+        where: { id: memberId },
+        include: { user: true },
+      });
+
+      if (!member) {
+        throw new TRPCError({ 
+          code: "NOT_FOUND", 
+          message: "Member not found" 
+        });
+      }
+
+      // Prevent removing the last owner
+      const organization = await prisma.organization.findUnique({
+        where: { id: organizationId },
+        include: {
+          members: true,
+        },
+      });
+
+      if (organization && organization.ownerId === member.userId) {
+        const otherMembers = organization.members.filter(m => m.userId !== member.userId);
+        if (otherMembers.length === 0) {
+          throw new TRPCError({ 
+            code: "FORBIDDEN", 
+            message: "Cannot remove the last owner. Please reassign or delete the organization." 
+          });
+        }
+      }
+
+      await prisma.organizationMember.delete({
+        where: { id: memberId },
+      });
+
+      return {
+        success: true,
+        message: "Member removed successfully",
       };
     }),
 });

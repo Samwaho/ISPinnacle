@@ -17,6 +17,7 @@ import { FaShieldHalved } from "react-icons/fa6";
 import { OrganizationDetails } from "@/components/organization/organization-details";
 import { RoleCreateForm } from "@/components/organization/role-create-form";
 import { RoleEditForm } from "@/components/organization/role-edit-form";
+import { MemberEditForm } from "@/components/organization/member-edit-form";
 import { InvitationForm } from "@/components/organization/invitation-form";
 import { OrganizationPermission } from "@/lib/generated/prisma";
 import { DeleteConfirmationDialog } from "@/components/ui/delete-confirmation-dialog";
@@ -93,6 +94,24 @@ const OrganizationDetailPage = () => {
     })
   );
 
+  const {
+    mutate: removeMember,
+    isPending: isRemovingMember,
+  } = useMutation(
+    t.organization.removeMember.mutationOptions({
+      onSuccess: () => {
+        toast.success("Member removed successfully");
+        queryClient.invalidateQueries({
+          queryKey: ["organization", "getOrganizationMembers", { id: id as string }],
+        });
+        setDeletingMember(null);
+      },
+      onError: (error) => {
+        toast.error(error.message || "Failed to remove member");
+      },
+    })
+  );
+
   const [selectedMembers, setSelectedMembers] = React.useState<
     { name: string; email: string; role: string }[]
   >([]);
@@ -118,6 +137,23 @@ const OrganizationDetailPage = () => {
     name: string;
     memberCount?: number;
     isDefault?: boolean;
+  } | null>(null);
+  const [editingMember, setEditingMember] = React.useState<{
+    id: string;
+    user: {
+      name: string | null;
+      email: string;
+    };
+    role?: {
+      id: string;
+      name: string;
+    } | null;
+  } | null>(null);
+  const [deletingMember, setDeletingMember] = React.useState<{
+    id: string;
+    name: string;
+    email: string;
+    isOwner?: boolean;
   } | null>(null);
   const [showInvitationForm, setShowInvitationForm] = React.useState(false);
 
@@ -159,6 +195,39 @@ const OrganizationDetailPage = () => {
 
   const handleCancelInvitation = (invitationId: string) => {
     cancelInvitation({ invitationId });
+  };
+
+  const handleEditMember = (member: {
+    id: string;
+    name: string;
+    email: string;
+    role: string;
+    userId: string;
+  }) => {
+    setEditingMember({
+      id: member.id,
+      user: {
+        name: member.name,
+        email: member.email,
+      },
+      role: member.role !== "No Role" ? { id: "", name: member.role } : null,
+    });
+  };
+
+  const handleDeleteMember = (member: {
+    id: string;
+    name: string;
+    email: string;
+    role: string;
+    userId: string;
+    isOwner?: boolean;
+  }) => {
+    setDeletingMember({
+      id: member.id,
+      name: member.name,
+      email: member.email,
+      isOwner: member.isOwner,
+    });
   };
 
   return (
@@ -204,30 +273,52 @@ const OrganizationDetailPage = () => {
             <TabsTrigger value="details">Details</TabsTrigger>
           </TabsList>
           <TabsContent value="members">
-                      <div className="flex justify-between items-center mb-4">
-              <h3 className="text-lg font-bold">Organization Members</h3>
-              {userPermissions?.canManageMembers && !permissionsLoading && (
-                <Button 
-                  variant="gradient" 
-                  size="sm"
-                  onClick={() => setShowInvitationForm(true)}
-                >
-                  Invite Member
-                </Button>
-              )}
-            </div>
-            <DataTable
-              columns={columns}
-              data={
-                members?.map((member) => ({
-                  name: member.user.name ?? "Unknown",
-                  email: member.user.email,
-                  role: member.role?.name ?? "No Role",
-                })) ?? []
-              }
-              filterPlaceholder="Search members..."
-              onRowSelectionChange={setSelectedMembers}
-            />
+            {editingMember ? (
+              <MemberEditForm
+                member={editingMember}
+                organizationId={id as string}
+                roles={roles?.map((role) => ({
+                  id: role.id,
+                  name: role.name,
+                  description: role.description,
+                })) ?? []}
+                onCancel={() => setEditingMember(null)}
+              />
+            ) : (
+              <>
+                <div className="flex justify-between items-center mb-4">
+                  <h3 className="text-lg font-bold">Organization Members</h3>
+                  {userPermissions?.canManageMembers && !permissionsLoading && (
+                    <Button 
+                      variant="gradient" 
+                      size="sm"
+                      onClick={() => setShowInvitationForm(true)}
+                    >
+                      Invite Member
+                    </Button>
+                  )}
+                </div>
+                <DataTable
+                  columns={columns({ 
+                    onEditMember: handleEditMember,
+                    onDeleteMember: handleDeleteMember,
+                    canManageMembers: userPermissions?.canManageMembers || false
+                  })}
+                  data={
+                    members?.map((member) => ({
+                      id: member.id,
+                      name: member.user.name ?? "Unknown",
+                      email: member.user.email,
+                      role: member.role?.name ?? "No Role",
+                      userId: member.userId,
+                      isOwner: organization?.ownerId === member.userId,
+                    })) ?? []
+                  }
+                  filterPlaceholder="Search members..."
+                  onRowSelectionChange={setSelectedMembers}
+                />
+              </>
+            )}
           </TabsContent>
           <TabsContent value="invitations">
             <div className="flex justify-between items-center mb-4">
@@ -311,7 +402,7 @@ const OrganizationDetailPage = () => {
          </Tabs>
        </div>
        
-       {/* Delete Confirmation Dialog */}
+       {/* Delete Role Confirmation Dialog */}
        <DeleteConfirmationDialog
          isOpen={!!deletingRole}
          onClose={() => setDeletingRole(null)}
@@ -330,6 +421,28 @@ const OrganizationDetailPage = () => {
              : ""
          }`}
          isLoading={isDeletingRole}
+         variant="destructive"
+       />
+
+       {/* Delete Member Confirmation Dialog */}
+       <DeleteConfirmationDialog
+         isOpen={!!deletingMember}
+         onClose={() => setDeletingMember(null)}
+         onConfirm={() => {
+           if (deletingMember) {
+             removeMember({
+               memberId: deletingMember.id,
+               organizationId: id as string,
+             });
+           }
+         }}
+         title="Remove Member"
+         description={`Are you sure you want to remove "${deletingMember?.name}" (${deletingMember?.email}) from this organization? This action cannot be undone.${
+           deletingMember?.isOwner
+             ? " This is the organization owner and cannot be removed."
+             : ""
+         }`}
+         isLoading={isRemovingMember}
          variant="destructive"
        />
 

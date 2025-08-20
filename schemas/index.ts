@@ -100,3 +100,14 @@ export const resendInvitationSchema = z.object({
 export const cancelInvitationSchema = z.object({
     invitationId: z.string().min(1, "Invitation ID is required"),
 });
+
+export const updateMemberRoleSchema = z.object({
+    memberId: z.string().min(1, "Member ID is required"),
+    organizationId: z.string().min(1, "Organization ID is required"),
+    roleId: z.string().optional(), // Optional to allow removing role
+});
+
+export const removeMemberSchema = z.object({
+    memberId: z.string().min(1, "Member ID is required"),
+    organizationId: z.string().min(1, "Organization ID is required"),
+});

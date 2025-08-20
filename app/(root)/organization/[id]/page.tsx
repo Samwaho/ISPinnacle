@@ -23,6 +23,7 @@ import { InvitationForm } from "@/components/organization/invitation-form";
 import { OrganizationPermission } from "@/lib/generated/prisma";
 import { DeleteConfirmationDialog } from "@/components/ui/delete-confirmation-dialog";
 import { Skeleton } from "@/components/ui/skeleton";
+import Link from "next/link";
 
 const OrganizationDetailPage = () => {
   const { id } = useParams();
@@ -269,7 +270,11 @@ const OrganizationDetailPage = () => {
             )}
           </div>
         </div>
-        <Button variant="gradient" className="w-full md:w-auto ">ISP Management</Button>
+        <Link href={`/${id}/isp`}>
+          <Button variant="gradient" className="w-full md:w-auto ">
+            ISP Management
+          </Button>
+        </Link>
       </div>
       
       <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 mt-4">

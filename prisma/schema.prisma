@@ -43,6 +43,40 @@ enum SMSGateway {
   ZETATEL
 }
 
+enum OrganizationCustomerStatus {
+  ACTIVE
+  INACTIVE
+  EXPIRED
+}
+
+enum OrganizationStationType {
+  APARTMENT
+  HOUSE
+  OFFICE
+  OTHER
+}
+
+enum OrganizationPackageDurationType {
+  MONTH
+  YEAR
+  WEEK
+  DAY
+  HOUR
+  MINUTE
+}
+
+enum OrganizationPackageType {
+  PPPOE
+  HOTSPOT
+}
+
+enum RecurringIntervalType {
+  DAILY
+  WEEKLY
+  MONTHLY
+  YEARLY
+}
+
 model User {
   id            String          @id @default(cuid())
   name          String?
@@ -133,6 +167,11 @@ model Organization {
   roles OrganizationRole[]
   invitations OrganizationInvitation[]
   activities OrganizationActivity[]
+  customers OrganizationCustomer[]
+  stations OrganizationStation[]
+  packages OrganizationPackage[]
+  expenses OrganizationExpense[]
+  customerPayments OrganizationCustomerPayment[]
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -193,4 +232,105 @@ model OrganizationActivity {
   activity String
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+}
+
+model OrganizationCustomer {
+  id String @id @default(cuid())
+  organizationId String
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  name String
+  email String?
+  phone String?
+  address String?
+  expiryDate DateTime?
+  pppoeUsername String?
+  pppoePassword String?
+  hotspotUsername String?
+  hotspotPassword String?
+  status OrganizationCustomerStatus @default(ACTIVE)
+  stationId String?
+  station OrganizationStation? @relation(fields: [stationId], references: [id], onDelete: SetNull)
+  packageId String?
+  package OrganizationPackage? @relation(fields: [packageId], references: [id], onDelete: SetNull)
+  payments OrganizationCustomerPayment[]
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([organizationId, email])
+  @@index([organizationId, email])
+}
+
+model OrganizationStation {
+  id String @id @default(cuid())
+  organizationId String
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  name String
+  description String?
+  location String?
+  type OrganizationStationType @default(APARTMENT)
+  customers OrganizationCustomer[]
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model OrganizationPackage {
+  id String @id @default(cuid())
+  organizationId String
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  name String
+  description String?
+  price Float
+  duration Int
+  durationType OrganizationPackageDurationType @default(MONTH)
+  type OrganizationPackageType @default(PPPOE)
+  addressPool String
+  maxDevices Int?
+  downloadSpeed Int
+  uploadSpeed Int
+  burstDownloadSpeed Int?
+  burstUploadSpeed Int?
+  burstThresholdDownload Int?
+  burstThresholdUpload Int?
+  burstDuration Int?
+  isActive Boolean @default(true)
+  customers OrganizationCustomer[]
+  payments OrganizationCustomerPayment[]
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model OrganizationExpense {
+  id String @id @default(cuid())
+  organizationId String
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  name String
+  description String?
+  amount Float
+  date DateTime
+  isRecurring Boolean @default(false)
+  recurringInterval Int?
+  recurringIntervalType RecurringIntervalType?
+  recurringStartDate DateTime?
+  recurringEndDate DateTime?
+  isPaid Boolean @default(false)
+  paidAt DateTime?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model OrganizationCustomerPayment {
+  id String @id @default(cuid())
+  organizationId String
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  customerId String
+  customer OrganizationCustomer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  packageId String?
+  package OrganizationPackage? @relation(fields: [packageId], references: [id], onDelete: SetNull)
+  amount Float
+  date DateTime
+  isPaid Boolean @default(false)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([organizationId, customerId])
 }

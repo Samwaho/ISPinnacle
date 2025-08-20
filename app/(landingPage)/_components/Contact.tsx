@@ -76,7 +76,7 @@ export function Contact() {
             Get in Touch
           </h2>
           <p className="text-muted-foreground max-w-2xl mx-auto text-lg">
-            Have questions? We'd love to hear from you. Send us a message and we'll respond as soon as possible.
+            Have questions? We&apos;d love to hear from you. Send us a message and we&apos;ll respond as soon as possible.
           </p>
         </motion.div>
 
@@ -89,7 +89,7 @@ export function Contact() {
             transition={{ duration: 0.5 }}
             className="space-y-8"
           >
-            <div className="bg-card rounded-xl p-8 shadow-sm">
+            <div className="bg-card rounded-xl p-8 glow">
               <h3 className="text-xl font-semibold mb-6">Contact Information</h3>
               <div className="space-y-6">
                 <div className="flex items-center gap-4">
@@ -138,7 +138,7 @@ export function Contact() {
               </div>
             </div>
 
-            <div className="bg-card rounded-xl p-8 shadow-sm">
+            <div className="bg-card rounded-xl p-8 glow">
               <h3 className="text-xl font-semibold mb-4">Support Hours</h3>
               <div className="space-y-2">
                 <div className="flex justify-between">
@@ -163,7 +163,7 @@ export function Contact() {
             whileInView={{ opacity: 1, x: 0 }}
             viewport={{ once: true }}
             transition={{ duration: 0.5 }}
-            className="bg-card rounded-xl p-8 shadow-sm"
+            className="bg-card rounded-xl p-8 glow"
           >
             <Form {...form}>
               <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
@@ -230,7 +230,7 @@ export function Contact() {
 
                 <Button 
                   type="submit" 
-                  className="w-full bg-gradient-custom text-white hover:text-white"
+                  className="w-full bg-gradient-custom text-white"
                   disabled={isSubmitting}
                 >
                   {isSubmitting ? (

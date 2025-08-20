@@ -55,3 +55,23 @@ export const roleSchema = z.object({
     permissions: z.array(z.nativeEnum(OrganizationPermission)).optional(),
     memberCount: z.number().optional(),
 });
+
+export const createRoleSchema = z.object({
+    organizationId: z.string().min(1, "Organization ID is required"),
+    name: z.string().min(1, "Name is required"),
+    description: z.string().optional(),
+    permissions: z.array(z.nativeEnum(OrganizationPermission)),
+});
+
+export const updateRoleSchema = z.object({
+    id: z.string().min(1, "Role ID is required"),
+    organizationId: z.string().min(1, "Organization ID is required"),
+    name: z.string().min(1, "Name is required"),
+    description: z.string().optional(),
+    permissions: z.array(z.nativeEnum(OrganizationPermission)),
+});
+
+export const deleteRoleSchema = z.object({
+    id: z.string().min(1, "Role ID is required"),
+    organizationId: z.string().min(1, "Organization ID is required"),
+});

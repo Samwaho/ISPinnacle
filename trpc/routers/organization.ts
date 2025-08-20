@@ -1,5 +1,5 @@
 import { createTRPCRouter, protectedProcedure } from "../init";
-import { organizationSchema, updateOrganizationSchema } from "@/schemas";
+import { organizationSchema, updateOrganizationSchema, createRoleSchema, updateRoleSchema, deleteRoleSchema } from "@/schemas";
 import { prisma } from "@/lib/db";
 import { defaultOrganizationRoles } from "@/lib/default-data";
 import { z } from "zod";
@@ -90,6 +90,96 @@ export const organizationRouter = createTRPCRouter({
         message: "Organization deleted successfully",
       };
     }),
+  createRole: protectedProcedure
+    .input(createRoleSchema)
+    .mutation(async ({ input }) => {
+      const { organizationId, name, description, permissions } = input;
+      const canManageRoles = await hasPermissions(organizationId, [OrganizationPermission.MANAGE_ROLES]);
+      if (!canManageRoles) throw new TRPCError({ code: "FORBIDDEN", message: "You are not authorized to create roles in this organization" });
+      
+      const role = await prisma.organizationRole.create({
+        data: {
+          name,
+          description,
+          permissions,
+          organizationId,
+        },
+      });
+      return {
+        success: true,
+        message: "Role created successfully",
+        role,
+      };
+    }),
+  updateRole: protectedProcedure
+    .input(updateRoleSchema)
+    .mutation(async ({ input }) => {
+      const { id, organizationId, name, description, permissions } = input;
+      const canManageRoles = await hasPermissions(organizationId, [OrganizationPermission.MANAGE_ROLES]);
+      if (!canManageRoles) throw new TRPCError({ code: "FORBIDDEN", message: "You are not authorized to update roles in this organization" });
+      
+      // Check if role exists and get current data
+      const existingRole = await prisma.organizationRole.findUnique({
+        where: { id },
+      });
+      
+      if (!existingRole) {
+        throw new TRPCError({ code: "NOT_FOUND", message: "Role not found" });
+      }
+      
+      // Prevent changing name of default roles
+      if (existingRole.isDefault && existingRole.name !== name) {
+        throw new TRPCError({ code: "FORBIDDEN", message: "Cannot change the name of default roles" });
+      }
+      
+      const role = await prisma.organizationRole.update({
+        where: { id },
+        data: {
+          name,
+          description,
+          permissions,
+        },
+      });
+      return {
+        success: true,
+        message: "Role updated successfully",
+        role,
+      };
+    }),
+  deleteRole: protectedProcedure
+    .input(deleteRoleSchema)
+    .mutation(async ({ input }) => {
+      const { id, organizationId } = input;
+      const canManageRoles = await hasPermissions(organizationId, [OrganizationPermission.MANAGE_ROLES]);
+      if (!canManageRoles) throw new TRPCError({ code: "FORBIDDEN", message: "You are not authorized to delete roles in this organization" });
+      
+      // Check if role exists and is not default
+      const role = await prisma.organizationRole.findUnique({
+        where: { id },
+        include: { members: true },
+      });
+      
+      if (!role) {
+        throw new TRPCError({ code: "NOT_FOUND", message: "Role not found" });
+      }
+      
+      if (role.isDefault) {
+        throw new TRPCError({ code: "FORBIDDEN", message: "Cannot delete default roles" });
+      }
+      
+      if (role.members.length > 0) {
+        throw new TRPCError({ code: "FORBIDDEN", message: "Cannot delete role with active members. Please reassign or remove members first." });
+      }
+      
+      await prisma.organizationRole.delete({
+        where: { id },
+      });
+      
+      return {
+        success: true,
+        message: "Role deleted successfully",
+      };
+    }),
   getMyOrganizations: protectedProcedure.query(async ({ ctx }) => {
     const organizations = await prisma.organization.findMany({
       where: {
@@ -162,5 +252,49 @@ export const organizationRouter = createTRPCRouter({
         ...role,
         memberCount: role.members.length,
       }));
+    }),
+  getUserPermissions: protectedProcedure
+    .input(
+      z.object({
+        id: z.string(),
+      })
+    )
+    .query(async ({ input, ctx }) => {
+      const member = await prisma.organizationMember.findUnique({
+        where: {
+          organizationId_userId: {
+            organizationId: input.id,
+            userId: ctx.session.user.id!,
+          },
+        },
+        include: {
+          role: true,
+        },
+      });
+
+      if (!member) {
+        return {
+          canView: false,
+          canEdit: false,
+          canManageMembers: false,
+          canManageRoles: false,
+          canManageSettings: false,
+          isOwner: false,
+        };
+      }
+
+      const permissions = member.role?.permissions || [];
+      const organization = await prisma.organization.findUnique({
+        where: { id: input.id },
+      });
+
+      return {
+        canView: permissions.includes(OrganizationPermission.VIEW_ORGANIZATION_DETAILS),
+        canEdit: permissions.includes(OrganizationPermission.MANAGE_ORGANIZATION_DETAILS),
+        canManageMembers: permissions.includes(OrganizationPermission.MANAGE_MEMBERS),
+        canManageRoles: permissions.includes(OrganizationPermission.MANAGE_ROLES),
+        canManageSettings: permissions.includes(OrganizationPermission.MANAGE_SETTINGS),
+        isOwner: organization?.ownerId === ctx.session.user.id,
+      };
     }),
 });

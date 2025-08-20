@@ -42,8 +42,15 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
     },
   },
   callbacks: {
-    async signIn({ user, account }) {
-      if (account?.provider !== "credentials") return true;
+    async signIn({ user, account, profile }) {
+      // Handle OAuth providers (Google, etc.)
+      if (account?.provider !== "credentials") {
+        // For OAuth providers, let NextAuth handle the account linking
+        // This will trigger OAuthAccountNotLinked error if needed
+        return true;
+      }
+
+      // Handle credentials provider
       const existingUser = await prisma.user.findUnique({
         where: {
           id: user.id,

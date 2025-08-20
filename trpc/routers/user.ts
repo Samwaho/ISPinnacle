@@ -4,6 +4,8 @@ import {
   newPasswordSchema,
   registerSchema,
   resetSchema,
+  acceptInvitationSchema,
+  rejectInvitationSchema,
 } from "@/schemas";
 import bcrypt from "bcryptjs";
 import { prisma } from "@/lib/db";
@@ -25,7 +27,7 @@ import z from "zod";
 export const userRouter = createTRPCRouter({
   // Register a new user
   register: baseProcedure.input(registerSchema).mutation(async ({ input }) => {
-    const { email, password, name } = input;
+    const { email, password, name, invitationToken } = input;
     const hashedPassword = await bcrypt.hash(password, 10);
     const existingUser = await prisma.user.findUnique({
       where: { email },
@@ -33,9 +35,64 @@ export const userRouter = createTRPCRouter({
     if (existingUser) {
       throw new TRPCError({ code: "CONFLICT", message: "User already exists" });
     }
-    await prisma.user.create({
+    
+    // Create the user
+    const user = await prisma.user.create({
       data: { email, password: hashedPassword, name },
     });
+
+    // If there's an invitation token, accept the invitation
+    if (invitationToken) {
+      try {
+        // Find the invitation
+        const invitation = await prisma.organizationInvitation.findFirst({
+          where: {
+            token: invitationToken,
+            email,
+            status: "PENDING",
+          },
+          include: {
+            organization: true,
+            role: true,
+          },
+        });
+
+        if (invitation && invitation.expires > new Date()) {
+          // Create organization membership
+          await prisma.organizationMember.create({
+            data: {
+              organizationId: invitation.organizationId,
+              userId: user.id,
+              roleId: invitation.roleId,
+            },
+          });
+
+          // Update invitation status
+          await prisma.organizationInvitation.update({
+            where: { id: invitation.id },
+            data: { status: "ACCEPTED" },
+          });
+
+          // Send verification email
+          const verificationToken = await generateVerificationToken(email);
+          await sendVerificationEmail(
+            verificationToken.email,
+            verificationToken.token
+          );
+
+          return { 
+            success: true, 
+            message: "Account created and invitation accepted! Please verify your email. Check your inbox.",
+            organization: invitation.organization,
+          };
+        }
+      } catch (error) {
+        console.error("Error accepting invitation during registration:", error);
+        // Continue with normal registration even if invitation fails
+      }
+    }
+
+    // Normal registration flow
     const verificationToken = await generateVerificationToken(email);
     await sendVerificationEmail(
       verificationToken.email,
@@ -189,35 +246,170 @@ export const userRouter = createTRPCRouter({
       await sendPasswordResetEmail(resetToken.email, resetToken.token);
       return { success: true, message: "Reset password link sent to email" };
     }),
-  newPassword: baseProcedure
-    .input(newPasswordSchema)
-    .mutation(async ({ input }) => {
-      const { password, token } = input;
+  newPassword: baseProcedure.input(newPasswordSchema).mutation(async ({ input }) => {
+    const { password, token } = input;
+    const existingToken = await prisma.passwordResetToken.findUnique({
+      where: {
+        token,
+      },
+    });
+    if (!existingToken) {
+      throw new TRPCError({ code: "NOT_FOUND", message: "Invalid token" });
+    }
+    const hasExpired = new Date(existingToken.expires) < new Date();
+    if (hasExpired) {
+      throw new TRPCError({ code: "BAD_REQUEST", message: "Token has expired" });
+    }
+    const hashedPassword = await bcrypt.hash(password, 10);
+    await prisma.user.update({
+      where: {
+        email: existingToken.email,
+      },
+      data: {
+        password: hashedPassword,
+      },
+    });
+    await prisma.passwordResetToken.delete({
+      where: {
+        id: existingToken.id,
+      },
+    });
+    return { success: true, message: "Password updated successfully" };
+  }),
+  acceptInvitation: baseProcedure.input(acceptInvitationSchema).mutation(async ({ input }) => {
+    const { token, email } = input;
 
-      const resetToken = await prisma.passwordResetToken.findUnique({
-        where: { token },
+    // Find the invitation
+    const invitation = await prisma.organizationInvitation.findFirst({
+      where: {
+        token,
+        email,
+        status: "PENDING",
+      },
+      include: {
+        organization: true,
+        role: true,
+      },
+    });
+
+    if (!invitation) {
+      throw new TRPCError({ 
+        code: "NOT_FOUND", 
+        message: "Invalid or expired invitation" 
       });
-      if (!resetToken) {
-        throw new TRPCError({ code: "NOT_FOUND", message: "Invalid token" });
-      }
-      const hasExpired = new Date(resetToken.expires) < new Date();
-      if (hasExpired) {
-        throw new TRPCError({ code: "NOT_FOUND", message: "Token expired" });
-      }
-      const existingUser = await prisma.user.findUnique({
-        where: { email: resetToken.email },
+    }
+
+    // Check if invitation has expired
+    if (invitation.expires < new Date()) {
+      throw new TRPCError({ 
+        code: "BAD_REQUEST", 
+        message: "Invitation has expired" 
       });
-      if (!existingUser) {
-        throw new TRPCError({ code: "NOT_FOUND", message: "User not found" });
-      }
-      const hashedPassword = await bcrypt.hash(password, 10);
-      await prisma.user.update({
-        where: { id: existingUser.id },
-        data: { password: hashedPassword },
+    }
+
+    // Check if user exists
+    const user = await prisma.user.findUnique({
+      where: { email },
+    });
+
+    if (!user) {
+      throw new TRPCError({ 
+        code: "NOT_FOUND", 
+        message: "User not found. Please create an account first." 
       });
-      await prisma.passwordResetToken.delete({
-        where: { id: resetToken.id },
+    }
+
+    // Check if user is already a member
+    const existingMember = await prisma.organizationMember.findUnique({
+      where: {
+        organizationId_userId: {
+          organizationId: invitation.organizationId,
+          userId: user.id,
+        },
+      },
+    });
+
+    if (existingMember) {
+      throw new TRPCError({ 
+        code: "CONFLICT", 
+        message: "You are already a member of this organization" 
       });
-      return { success: true, message: "Password reset successfully" };
+    }
+
+    // Create organization membership
+    await prisma.organizationMember.create({
+      data: {
+        organizationId: invitation.organizationId,
+        userId: user.id,
+        roleId: invitation.roleId,
+      },
+    });
+
+    // Update invitation status
+    await prisma.organizationInvitation.update({
+      where: { id: invitation.id },
+      data: { status: "ACCEPTED" },
+    });
+
+    return {
+      success: true,
+      message: "Invitation accepted successfully",
+      organization: invitation.organization,
+    };
+  }),
+  rejectInvitation: baseProcedure.input(rejectInvitationSchema).mutation(async ({ input }) => {
+    const { token, email } = input;
+
+    // Find the invitation
+    const invitation = await prisma.organizationInvitation.findFirst({
+      where: {
+        token,
+        email,
+        status: "PENDING",
+      },
+    });
+
+    if (!invitation) {
+      throw new TRPCError({ 
+        code: "NOT_FOUND", 
+        message: "Invalid or expired invitation" 
+      });
+    }
+
+    // Check if invitation has expired
+    if (invitation.expires < new Date()) {
+      throw new TRPCError({ 
+        code: "BAD_REQUEST", 
+        message: "Invitation has expired" 
+      });
+    }
+
+    // Update invitation status
+    await prisma.organizationInvitation.update({
+      where: { id: invitation.id },
+      data: { status: "REJECTED" },
+    });
+
+    return {
+      success: true,
+      message: "Invitation rejected successfully",
+    };
+  }),
+
+  // Check if a user exists by email
+  checkUserExists: baseProcedure
+    .input(z.object({ email: z.string().email("Invalid email address") }))
+    .query(async ({ input }) => {
+      const { email } = input;
+      
+      const user = await prisma.user.findUnique({
+        where: { email },
+        select: { id: true, email: true }, // Only select necessary fields
+      });
+
+      return {
+        exists: !!user,
+        email: email,
+      };
     }),
 });

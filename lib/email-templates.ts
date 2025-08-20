@@ -372,3 +372,83 @@ export const twoFactorEmailTemplate = (token: string, userName?: string) => {
         "#8b5cf6"
     );
 };
+
+export const organizationInvitationTemplate = (
+    invitationLink: string, 
+    organizationName: string, 
+    inviterName: string, 
+    roleName: string,
+    recipientEmail?: string
+) => {
+    const content = `
+        <div class="header">
+            <h1>👥 Organization Invitation</h1>
+        </div>
+        
+        <div class="content">
+            <div class="greeting">
+                Hello${recipientEmail ? ` ${recipientEmail.split('@')[0]}` : ''}! 👋
+            </div>
+            
+            <div class="message">
+                You've been invited to join <strong>${organizationName}</strong> on RentSys! ${inviterName} has invited you to join their organization as a <strong>${roleName}</strong>.
+            </div>
+            
+            <div class="features">
+                <h3 style="margin-top: 0; color: #1f2937;">What you'll be able to do:</h3>
+                <div class="feature">
+                    <span class="feature-icon">🏢</span>
+                    Access organization dashboard and settings
+                </div>
+                <div class="feature">
+                    <span class="feature-icon">👥</span>
+                    Collaborate with team members
+                </div>
+                <div class="feature">
+                    <span class="feature-icon">📊</span>
+                    View organization reports and analytics
+                </div>
+                <div class="feature">
+                    <span class="feature-icon">🔧</span>
+                    Manage organization resources based on your role
+                </div>
+            </div>
+            
+            <div class="button-container">
+                <a href="${invitationLink}" class="action-button" style="background: linear-gradient(135deg, #10b981 0%, #059669 100%);">
+                    ✅ Accept Invitation
+                </a>
+            </div>
+            
+            <div class="warning">
+                <strong>⚠️ Important:</strong> This invitation link will expire in 7 days for security reasons. If you don't have a RentSys account, you'll be prompted to create one when you accept the invitation.
+            </div>
+            
+            <div class="message">
+                If the button above doesn't work, you can also copy and paste this link into your browser:
+                <br><br>
+                <a href="${invitationLink}" class="link">${invitationLink}</a>
+            </div>
+            
+            <div class="message">
+                If you don't want to accept this invitation, you can simply ignore this email. The invitation will expire automatically.
+            </div>
+        </div>
+        
+        <div class="footer">
+            <p><strong>RentSys</strong> - Your Complete Rental Management Solution</p>
+            <p>This invitation was sent by ${inviterName} from ${organizationName}.</p>
+            <p>If you have any questions, please contact the organization administrator.</p>
+            <p style="margin-top: 20px; font-size: 12px; color: #9ca3af;">
+                © ${new Date().getFullYear()} RentSys. All rights reserved.
+            </p>
+        </div>
+    `;
+
+    return createEmailTemplate(
+        `Invitation to join ${organizationName} - RentSys`,
+        "linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%)",
+        content,
+        "#3b82f6"
+    );
+};

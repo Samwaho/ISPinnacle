@@ -4,6 +4,7 @@ import {
   verifyEmailTemplate,
   welcomeEmailTemplate,
   twoFactorEmailTemplate,
+  organizationInvitationTemplate,
 } from "./email-templates";
 
 const resend = new Resend(process.env.RESEND_API_KEY);
@@ -85,6 +86,34 @@ export const sendTwoFactorEmail = async (
     return { success: true, data: result };
   } catch (error) {
     console.error("Failed to send two-factor email:", error);
+    return { success: false, error };
+  }
+};
+
+export const sendOrganizationInvitation = async (
+  email: string,
+  invitationLink: string,
+  organizationName: string,
+  inviterName: string,
+  roleName: string
+) => {
+  try {
+    const result = await resend.emails.send({
+      from: fromEmail,
+      to: email,
+      subject: `Invitation to join ${organizationName} - RentSys`,
+      html: organizationInvitationTemplate(
+        invitationLink,
+        organizationName,
+        inviterName,
+        roleName,
+        email
+      ),
+    });
+
+    return { success: true, data: result };
+  } catch (error) {
+    console.error("Failed to send organization invitation email:", error);
     return { success: false, error };
   }
 };

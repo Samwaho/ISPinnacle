@@ -17,7 +17,7 @@ import { Input } from "../ui/input";
 import { Button } from "../ui/button";
 import FormError from "../FormError";
 import { useMutation } from "@tanstack/react-query";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { DEFAULT_REDIRECT_URL } from "@/routes";
 import { useTRPC } from "@/trpc/client";
 import FormSuccess from "../FormSuccess";
@@ -28,14 +28,20 @@ import {
   InputOTPSlot,
 } from "../ui/input-otp";
 import { FaLock } from "react-icons/fa";
-import { Loader2 } from "lucide-react";
+import { Loader2, AlertTriangle } from "lucide-react";
 import { useSession } from "next-auth/react";
 
 export const LoginForm = () => {
   const t = useTRPC();
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { update: updateSession } = useSession();
   const [twoFactorEnabled, setTwoFactorEnabled] = useState(false);
+  
+  const invitationToken = searchParams.get("invitation");
+  const invitationEmail = searchParams.get("email");
+  const oauthError = searchParams.get("error");
+
   const {
     mutate: login,
     isPending,
@@ -50,31 +56,82 @@ export const LoginForm = () => {
         }
         // Update the session to reflect the new login state
         await updateSession();
-        router.push(DEFAULT_REDIRECT_URL);
+        
+        // If there's an invitation token, redirect to accept it
+        if (invitationToken) {
+          router.push(`/auth/invitation?token=${invitationToken}&email=${invitationEmail}`);
+        } else {
+          router.push(DEFAULT_REDIRECT_URL);
+        }
       },
     })
   );
+  
   const form = useForm<z.infer<typeof loginSchema>>({
     resolver: zodResolver(loginSchema),
     defaultValues: {
-      email: "",
+      email: invitationEmail || "",
       password: "",
       twoFactorToken: "",
     },
     mode: "onBlur",
   });
+  
   const onSubmit = (data: z.infer<typeof loginSchema>) => {
     login(data);
   };
+  
   return (
     <CardWrapper
-      headerLabel="Sign into your account"
+      headerLabel={invitationToken ? "Sign in to Accept Invitation" : "Sign into your account"}
       backButtonLabel="Don't have an account?"
       backButtonLink="/auth/register"
-      showSocial
+      showSocial={!invitationToken} // Don't show social login if there's an invitation
       icon={<FaLock className="size-6 text-fuchsia-600" />}
       showForgotPassword
     >
+      {invitationToken && (
+        <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-md">
+          <p className="text-sm text-blue-800">
+            You&apos;re signing in to accept an organization invitation.
+          </p>
+        </div>
+      )}
+      
+      {oauthError === "OAuthAccountNotLinked" && (
+        <div className="mb-4 p-3 bg-orange-50 border border-orange-200 rounded-md">
+          <div className="flex items-start space-x-2">
+            <AlertTriangle className="h-4 w-4 text-orange-600 mt-0.5 flex-shrink-0" />
+            <div className="flex-1">
+                             <p className="text-sm font-medium text-orange-800">
+                 OAuth Sign-in Issue
+               </p>
+               <p className="text-xs text-orange-700 mt-1">
+                 This email is registered with a password. You can sign in with your password below or link your Google account for easier sign-in.
+               </p>
+              <div className="mt-3 flex space-x-2">
+                                 <Button
+                   variant="outline"
+                   size="sm"
+                   className="text-xs h-8"
+                   asChild
+                 >
+                   <a href="/auth/link-account">Link Google Account</a>
+                 </Button>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="text-xs h-8"
+                  onClick={() => router.push("/auth/reset")}
+                >
+                  Reset Password
+                </Button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+      
       <Form {...form}>
         <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-8">
           <div className="space-y-4">
@@ -119,7 +176,7 @@ export const LoginForm = () => {
                           {...field}
                           placeholder="mail@example.com"
                           type="email"
-                          disabled={isPending}
+                          disabled={isPending || !!invitationEmail} // Disable if email is pre-filled from invitation
                         />
                       </FormControl>
                       <FormMessage />
@@ -159,11 +216,15 @@ export const LoginForm = () => {
           >
             {isPending && <Loader2 className="size-4 animate-spin" />}
             {isPending && !twoFactorEnabled
-              ? "Logging in..."
+              ? invitationToken 
+                ? "Signing in & accepting invitation..."
+                : "Logging in..."
               : isPending && twoFactorEnabled
               ? "Verifying..."
               : twoFactorEnabled
               ? "Verify"
+              : invitationToken
+              ? "Sign in & Accept Invitation"
               : "Login"}
           </Button>
         </form>

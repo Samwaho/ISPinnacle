@@ -11,11 +11,13 @@ import { UserIcon } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { columns } from "@/components/organization/member-columns";
 import { roleColumns } from "@/components/organization/role-columns";
+import { invitationColumns } from "@/components/organization/invitation-columns";
 import { DataTable } from "@/components/table/DataTable";
 import { FaShieldHalved } from "react-icons/fa6";
 import { OrganizationDetails } from "@/components/organization/organization-details";
 import { RoleCreateForm } from "@/components/organization/role-create-form";
 import { RoleEditForm } from "@/components/organization/role-edit-form";
+import { InvitationForm } from "@/components/organization/invitation-form";
 import { OrganizationPermission } from "@/lib/generated/prisma";
 import { DeleteConfirmationDialog } from "@/components/ui/delete-confirmation-dialog";
 
@@ -31,6 +33,9 @@ const OrganizationDetailPage = () => {
   );
   const { data: roles } = useQuery(
     t.organization.getOrganizationRoles.queryOptions({ id: id as string })
+  );
+  const { data: invitations } = useQuery(
+    t.organization.getOrganizationInvitations.queryOptions({ id: id as string })
   );
   const { data: userPermissions, isLoading: permissionsLoading } = useQuery(
     t.organization.getUserPermissions.queryOptions({ id: id as string })
@@ -50,6 +55,40 @@ const OrganizationDetailPage = () => {
       },
       onError: (error) => {
         toast.error(error.message || "Failed to delete role");
+      },
+    })
+  );
+
+  const {
+    mutate: resendInvitation,
+    isPending: isResendingInvitation,
+  } = useMutation(
+    t.organization.resendInvitation.mutationOptions({
+      onSuccess: () => {
+        toast.success("Invitation resent successfully");
+        queryClient.invalidateQueries({
+          queryKey: ["organization", "getOrganizationInvitations", { id: id as string }],
+        });
+      },
+      onError: (error) => {
+        toast.error(error.message || "Failed to resend invitation");
+      },
+    })
+  );
+
+  const {
+    mutate: cancelInvitation,
+    isPending: isCancellingInvitation,
+  } = useMutation(
+    t.organization.cancelInvitation.mutationOptions({
+      onSuccess: () => {
+        toast.success("Invitation cancelled successfully");
+        queryClient.invalidateQueries({
+          queryKey: ["organization", "getOrganizationInvitations", { id: id as string }],
+        });
+      },
+      onError: (error) => {
+        toast.error(error.message || "Failed to cancel invitation");
       },
     })
   );
@@ -80,6 +119,7 @@ const OrganizationDetailPage = () => {
     memberCount?: number;
     isDefault?: boolean;
   } | null>(null);
+  const [showInvitationForm, setShowInvitationForm] = React.useState(false);
 
   const handleEditRole = (role: {
     id: string;
@@ -111,6 +151,14 @@ const OrganizationDetailPage = () => {
       memberCount: role.memberCount,
       isDefault: role.isDefault,
     });
+  };
+
+  const handleResendInvitation = (invitationId: string) => {
+    resendInvitation({ invitationId });
+  };
+
+  const handleCancelInvitation = (invitationId: string) => {
+    cancelInvitation({ invitationId });
   };
 
   return (
@@ -151,6 +199,7 @@ const OrganizationDetailPage = () => {
         <Tabs defaultValue="members">
           <TabsList className="p-1 mb-4">
             <TabsTrigger value="members">Members</TabsTrigger>
+            <TabsTrigger value="invitations">Invitations</TabsTrigger>
             <TabsTrigger value="roles">Roles</TabsTrigger>
             <TabsTrigger value="details">Details</TabsTrigger>
           </TabsList>
@@ -158,7 +207,11 @@ const OrganizationDetailPage = () => {
                       <div className="flex justify-between items-center mb-4">
               <h3 className="text-lg font-bold">Organization Members</h3>
               {userPermissions?.canManageMembers && !permissionsLoading && (
-                <Button variant="gradient" size="sm">
+                <Button 
+                  variant="gradient" 
+                  size="sm"
+                  onClick={() => setShowInvitationForm(true)}
+                >
                   Invite Member
                 </Button>
               )}
@@ -174,6 +227,29 @@ const OrganizationDetailPage = () => {
               }
               filterPlaceholder="Search members..."
               onRowSelectionChange={setSelectedMembers}
+            />
+          </TabsContent>
+          <TabsContent value="invitations">
+            <div className="flex justify-between items-center mb-4">
+              <h3 className="text-lg font-bold">Pending Invitations</h3>
+              {userPermissions?.canManageMembers && !permissionsLoading && (
+                <Button 
+                  variant="gradient" 
+                  size="sm"
+                  onClick={() => setShowInvitationForm(true)}
+                >
+                  Invite Member
+                </Button>
+              )}
+            </div>
+            <DataTable
+              columns={invitationColumns({ 
+                onResendInvitation: handleResendInvitation,
+                onCancelInvitation: handleCancelInvitation,
+                canManageMembers: userPermissions?.canManageMembers || false
+              })}
+              data={invitations ?? []}
+              filterPlaceholder="Search invitations..."
             />
           </TabsContent>
           <TabsContent value="roles">
@@ -255,6 +331,18 @@ const OrganizationDetailPage = () => {
          }`}
          isLoading={isDeletingRole}
          variant="destructive"
+       />
+
+       {/* Invitation Form */}
+       <InvitationForm
+         organizationId={id as string}
+         roles={roles?.map((role) => ({
+           id: role.id,
+           name: role.name,
+           description: role.description,
+         })) ?? []}
+         isOpen={showInvitationForm}
+         onClose={() => setShowInvitationForm(false)}
        />
      </div>
    );

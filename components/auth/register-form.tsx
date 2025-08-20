@@ -21,36 +21,57 @@ import { useTRPC } from "@/trpc/client";
 import FormSuccess from "../FormSuccess";
 import { FaUser } from "react-icons/fa";
 import { Loader2 } from "lucide-react";
+import { useSearchParams } from "next/navigation";
 
 export const RegisterForm = () => {
   const t = useTRPC();
+  const searchParams = useSearchParams();
+  const invitationToken = searchParams.get("invitation");
+  const invitationEmail = searchParams.get("email");
+
   const {
     mutate: register,
     isPending,
     error,
     data,
   } = useMutation(t.user.register.mutationOptions());
+
   const form = useForm<z.infer<typeof registerSchema>>({
     resolver: zodResolver(registerSchema),
     defaultValues: {
-      email: "",
+      email: invitationEmail || "",
       password: "",
       confirmPassword: "",
       name: "",
     },
     mode: "onBlur",
   });
+
   const onSubmit = (data: z.infer<typeof registerSchema>) => {
-    register(data);
+    // If there's an invitation token, include it in the registration
+    if (invitationToken) {
+      register({ ...data, invitationToken });
+    } else {
+      register(data);
+    }
   };
+
   return (
     <CardWrapper
-      headerLabel="Create your account"
+      headerLabel={invitationToken ? "Create Account & Accept Invitation" : "Create your account"}
       backButtonLabel="Already have an account?"
       backButtonLink="/auth/login"
-      showSocial
+      showSocial={!invitationToken} // Don't show social login if there's an invitation
       icon={<FaUser className="size-6 text-fuchsia-600" />}
     >
+      {invitationToken && (
+        <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-md">
+          <p className="text-sm text-blue-800">
+            You&apos;re creating an account to accept an organization invitation.
+          </p>
+        </div>
+      )}
+      
       <Form {...form}>
         <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-8">
           <div className="space-y-4">
@@ -83,7 +104,7 @@ export const RegisterForm = () => {
                       {...field}
                       placeholder="mail@example.com"
                       type="email"
-                      disabled={isPending}
+                      disabled={isPending || !!invitationEmail} // Disable if email is pre-filled from invitation
                     />
                   </FormControl>
                   <FormMessage />
@@ -138,7 +159,14 @@ export const RegisterForm = () => {
             disabled={isPending}
           >
             {isPending && <Loader2 className="size-4 animate-spin" />}
-            {isPending ? "Creating account..." : "Create account"}
+            {isPending 
+              ? invitationToken 
+                ? "Creating account & accepting invitation..." 
+                : "Creating account..."
+              : invitationToken 
+                ? "Create Account & Accept Invitation" 
+                : "Create account"
+            }
           </Button>
         </form>
       </Form>

@@ -12,6 +12,7 @@ export const registerSchema = z.object({
     password: z.string().min(6, "Password must be at least 6 characters"),
     confirmPassword: z.string().min(6, "Confirm password must be at least 6 characters"),
     name: z.string().min(1, "Name is required"),
+    invitationToken: z.string().optional(),
 }).refine((data) => data.password === data.confirmPassword, {
     message: "Passwords do not match",
     path: ["confirmPassword"],
@@ -74,4 +75,28 @@ export const updateRoleSchema = z.object({
 export const deleteRoleSchema = z.object({
     id: z.string().min(1, "Role ID is required"),
     organizationId: z.string().min(1, "Organization ID is required"),
+});
+
+export const inviteMemberSchema = z.object({
+    organizationId: z.string().min(1, "Organization ID is required"),
+    email: z.string().email("Invalid email address"),
+    roleId: z.string().min(1, "Role is required"),
+});
+
+export const acceptInvitationSchema = z.object({
+    token: z.string().min(1, "Token is required"),
+    email: z.string().email("Invalid email address"),
+});
+
+export const rejectInvitationSchema = z.object({
+    token: z.string().min(1, "Token is required"),
+    email: z.string().email("Invalid email address"),
+});
+
+export const resendInvitationSchema = z.object({
+    invitationId: z.string().min(1, "Invitation ID is required"),
+});
+
+export const cancelInvitationSchema = z.object({
+    invitationId: z.string().min(1, "Invitation ID is required"),
 });

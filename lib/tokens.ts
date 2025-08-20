@@ -55,7 +55,7 @@ export const generatePasswordResetToken = async (email: string) => {
 };
 
 export const generateTwoFactorToken = async (email: string) => {
-  const token = crypto.randomInt(100000, 1000000).toString();
+  const token = crypto.randomInt(100_000, 1_000_000).toString();
   const expires = new Date(new Date().getTime() + 10 * 60 * 1000); // 10 minutes
 
   const existingToken = await prisma.twoFactorToken.findFirst({
@@ -78,6 +78,52 @@ export const generateTwoFactorToken = async (email: string) => {
     },
   });
   return twoFactorToken;
+};
+
+export const generateInvitationToken = async (
+  email: string,
+  organizationId: string,
+  roleId: string
+) => {
+  const token = uuidv4();
+  const expires = new Date(new Date().getTime() + 7 * 24 * 60 * 60 * 1000); // 7 days
+
+  // Check if there's already a pending invitation for this email and organization
+  const existingInvitation = await prisma.organizationInvitation.findFirst({
+    where: {
+      email,
+      organizationId,
+      status: "PENDING",
+    },
+  });
+
+  if (existingInvitation) {
+    // Update existing invitation
+    const updatedInvitation = await prisma.organizationInvitation.update({
+      where: {
+        id: existingInvitation.id,
+      },
+      data: {
+        token,
+        expires,
+        roleId,
+      },
+    });
+    return updatedInvitation;
+  }
+
+  // Create new invitation
+  const newInvitation = await prisma.organizationInvitation.create({
+    data: {
+      email,
+      token,
+      organizationId,
+      roleId,
+      expires,
+    },
+  });
+
+  return newInvitation;
 };
 
 export const generateTwoFactorConfirmation = async (userId: string) => {

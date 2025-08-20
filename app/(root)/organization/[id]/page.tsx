@@ -12,6 +12,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { columns } from "@/components/organization/member-columns";
 import { roleColumns } from "@/components/organization/role-columns";
 import { invitationColumns } from "@/components/organization/invitation-columns";
+import { activityColumns } from "@/components/organization/activity-columns";
 import { DataTable } from "@/components/table/DataTable";
 import { FaShieldHalved } from "react-icons/fa6";
 import { OrganizationDetails } from "@/components/organization/organization-details";
@@ -21,26 +22,34 @@ import { MemberEditForm } from "@/components/organization/member-edit-form";
 import { InvitationForm } from "@/components/organization/invitation-form";
 import { OrganizationPermission } from "@/lib/generated/prisma";
 import { DeleteConfirmationDialog } from "@/components/ui/delete-confirmation-dialog";
+import { Skeleton } from "@/components/ui/skeleton";
 
 const OrganizationDetailPage = () => {
   const { id } = useParams();
   const t = useTRPC();
   const queryClient = useQueryClient();
-  const { data: organization } = useQuery(
+  
+  const { data: organization, isLoading: organizationLoading } = useQuery(
     t.organization.getOrganizationById.queryOptions({ id: id as string },)
   );
-  const { data: members } = useQuery(
+  const { data: members, isLoading: membersLoading } = useQuery(
     t.organization.getOrganizationMembers.queryOptions({ id: id as string })
   );
-  const { data: roles } = useQuery(
+  const { data: roles, isLoading: rolesLoading } = useQuery(
     t.organization.getOrganizationRoles.queryOptions({ id: id as string })
   );
-  const { data: invitations } = useQuery(
+  const { data: invitations, isLoading: invitationsLoading } = useQuery(
     t.organization.getOrganizationInvitations.queryOptions({ id: id as string })
+  );
+  const { data: activities, isLoading: activitiesLoading } = useQuery(
+    t.organization.getOrganizationActivities.queryOptions({ id: id as string })
   );
   const { data: userPermissions, isLoading: permissionsLoading } = useQuery(
     t.organization.getUserPermissions.queryOptions({ id: id as string })
   );
+
+  // Check if any critical data is still loading
+  const isLoading = organizationLoading || permissionsLoading;
 
   const {
     mutate: deleteRole,
@@ -236,42 +245,61 @@ const OrganizationDetailPage = () => {
         <div className="flex items-center gap-4">
           <Avatar className="size-10 md:size-16">
             <AvatarImage src={organization?.logo ?? ""} />
-            <AvatarFallback>{organization?.name?.charAt(0)}</AvatarFallback>
+            <AvatarFallback>
+              {organizationLoading ? (
+                <Skeleton className="h-full w-full rounded-full" />
+              ) : (
+                organization?.name?.charAt(0)
+              )}
+            </AvatarFallback>
           </Avatar>
           <div className="flex flex-col gap-1">
-            <h1 className="text-2xl md:text-3xl font-bold text-gradient-custom">
-              {organization?.name}
-            </h1>
-            <p className="text-sm text-gray-500">{organization?.description}</p>
+            {organizationLoading ? (
+              <>
+                <Skeleton className="h-8 md:h-10 w-48" />
+                <Skeleton className="h-4 w-32" />
+              </>
+            ) : (
+              <>
+                <h1 className="text-2xl md:text-3xl font-bold text-gradient-custom">
+                  {organization?.name}
+                </h1>
+                <p className="text-sm text-gray-500">{organization?.description}</p>
+              </>
+            )}
           </div>
         </div>
         <Button variant="gradient" className="w-full md:w-auto ">ISP Management</Button>
       </div>
+      
       <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 mt-4">
         <StatCard
           title="Total Members"
-          value={members?.length?.toString() ?? "0"}
+          value={membersLoading ? "..." : members?.length?.toString() ?? "0"}
           icon={<UserIcon />}
           isClickable={true}
           trend={{ value: 10, isPositive: true }}
         />
         <StatCard
           title="Total Roles"
-          value={roles?.length?.toString() ?? "0"}
+          value={rolesLoading ? "..." : roles?.length?.toString() ?? "0"}
           icon={<FaShieldHalved />}
           color="orange"
           isClickable={true}
           trend={{ value: 10, isPositive: true }}
         />
       </div>
+      
       <div className="flex flex-col gap-4">
         <Tabs defaultValue="members">
           <TabsList className="p-1 mb-4">
             <TabsTrigger value="members">Members</TabsTrigger>
             <TabsTrigger value="invitations">Invitations</TabsTrigger>
             <TabsTrigger value="roles">Roles</TabsTrigger>
+            <TabsTrigger value="activities">Activities</TabsTrigger>
             <TabsTrigger value="details">Details</TabsTrigger>
           </TabsList>
+          
           <TabsContent value="members">
             {editingMember ? (
               <MemberEditForm
@@ -298,28 +326,49 @@ const OrganizationDetailPage = () => {
                     </Button>
                   )}
                 </div>
-                <DataTable
-                  columns={columns({ 
-                    onEditMember: handleEditMember,
-                    onDeleteMember: handleDeleteMember,
-                    canManageMembers: userPermissions?.canManageMembers || false
-                  })}
-                  data={
-                    members?.map((member) => ({
-                      id: member.id,
-                      name: member.user.name ?? "Unknown",
-                      email: member.user.email,
-                      role: member.role?.name ?? "No Role",
-                      userId: member.userId,
-                      isOwner: organization?.ownerId === member.userId,
-                    })) ?? []
-                  }
-                  filterPlaceholder="Search members..."
-                  onRowSelectionChange={setSelectedMembers}
-                />
+                {membersLoading ? (
+                  <div className="space-y-3">
+                    {Array.from({ length: 5 }).map((_, i) => (
+                      <div key={i} className="flex items-center justify-between p-4 border rounded-lg">
+                        <div className="flex items-center gap-3">
+                          <Skeleton className="h-8 w-8 rounded-full" />
+                          <div className="flex flex-col gap-1">
+                            <Skeleton className="h-4 w-32" />
+                            <Skeleton className="h-3 w-24" />
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <Skeleton className="h-6 w-16" />
+                          <Skeleton className="h-8 w-8 rounded" />
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <DataTable
+                    columns={columns({ 
+                      onEditMember: handleEditMember,
+                      onDeleteMember: handleDeleteMember,
+                      canManageMembers: userPermissions?.canManageMembers || false
+                    })}
+                    data={
+                      members?.map((member) => ({
+                        id: member.id,
+                        name: member.user.name ?? "Unknown",
+                        email: member.user.email,
+                        role: member.role?.name ?? "No Role",
+                        userId: member.userId,
+                        isOwner: organization?.ownerId === member.userId,
+                      })) ?? []
+                    }
+                    filterPlaceholder="Search members..."
+                    onRowSelectionChange={setSelectedMembers}
+                  />
+                )}
               </>
             )}
           </TabsContent>
+          
           <TabsContent value="invitations">
             <div className="flex justify-between items-center mb-4">
               <h3 className="text-lg font-bold">Pending Invitations</h3>
@@ -333,16 +382,35 @@ const OrganizationDetailPage = () => {
                 </Button>
               )}
             </div>
-            <DataTable
-              columns={invitationColumns({ 
-                onResendInvitation: handleResendInvitation,
-                onCancelInvitation: handleCancelInvitation,
-                canManageMembers: userPermissions?.canManageMembers || false
-              })}
-              data={invitations ?? []}
-              filterPlaceholder="Search invitations..."
-            />
+            {invitationsLoading ? (
+              <div className="space-y-3">
+                {Array.from({ length: 3 }).map((_, i) => (
+                  <div key={i} className="flex items-center justify-between p-4 border rounded-lg">
+                    <div className="flex flex-col gap-1">
+                      <Skeleton className="h-4 w-40" />
+                      <Skeleton className="h-3 w-24" />
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Skeleton className="h-6 w-16" />
+                      <Skeleton className="h-8 w-8 rounded" />
+                      <Skeleton className="h-8 w-8 rounded" />
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <DataTable
+                columns={invitationColumns({ 
+                  onResendInvitation: handleResendInvitation,
+                  onCancelInvitation: handleCancelInvitation,
+                  canManageMembers: userPermissions?.canManageMembers || false
+                })}
+                data={invitations ?? []}
+                filterPlaceholder="Search invitations..."
+              />
+            )}
           </TabsContent>
+          
           <TabsContent value="roles">
             {showCreateRoleForm ? (
               <RoleCreateForm
@@ -369,96 +437,159 @@ const OrganizationDetailPage = () => {
                     </Button>
                   )}
                 </div>
-                <DataTable
-                  columns={roleColumns({ 
-                    onEditRole: handleEditRole,
-                    onDeleteRole: handleDeleteRole,
-                    canManageRoles: userPermissions?.canManageRoles || false
-                  })}
-                                     data={
-                     roles?.map((role) => ({
-                       id: role.id,
-                       name: role.name,
-                       description: role.description || undefined,
-                       permissions: role.permissions,
-                       memberCount: role.memberCount,
-                       isDefault: role.isDefault,
-                     })) ?? []
-                   }
-                  filterPlaceholder="Search roles..."
-                  onRowSelectionChange={setSelectedRoles}
-                />
+                {rolesLoading ? (
+                  <div className="space-y-3">
+                    {Array.from({ length: 4 }).map((_, i) => (
+                      <div key={i} className="flex items-center justify-between p-4 border rounded-lg">
+                        <div className="flex flex-col gap-1">
+                          <Skeleton className="h-4 w-32" />
+                          <Skeleton className="h-3 w-48" />
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <Skeleton className="h-6 w-12" />
+                          <Skeleton className="h-8 w-8 rounded" />
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <DataTable
+                    columns={roleColumns({ 
+                      onEditRole: handleEditRole,
+                      onDeleteRole: handleDeleteRole,
+                      canManageRoles: userPermissions?.canManageRoles || false
+                    })}
+                    data={
+                      roles?.map((role) => ({
+                        id: role.id,
+                        name: role.name,
+                        description: role.description || undefined,
+                        permissions: role.permissions,
+                        memberCount: role.memberCount,
+                        isDefault: role.isDefault,
+                      })) ?? []
+                    }
+                    filterPlaceholder="Search roles..."
+                    onRowSelectionChange={setSelectedRoles}
+                  />
+                )}
               </>
             )}
           </TabsContent>
+          
+          <TabsContent value="activities">
+            <div className="flex justify-between items-center mb-4">
+              <h3 className="text-lg font-bold">Organization Activities</h3>
+            </div>
+            {activitiesLoading ? (
+              <div className="space-y-3">
+                {Array.from({ length: 6 }).map((_, i) => (
+                  <div key={i} className="flex items-center justify-between p-4 border rounded-lg">
+                    <div className="flex items-center gap-3">
+                      <Skeleton className="h-8 w-8 rounded-full" />
+                      <div className="flex flex-col gap-1">
+                        <Skeleton className="h-4 w-32" />
+                        <Skeleton className="h-3 w-24" />
+                      </div>
+                    </div>
+                    <div className="flex flex-col items-end gap-1">
+                      <Skeleton className="h-4 w-32" />
+                      <Skeleton className="h-3 w-24" />
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <DataTable
+                columns={activityColumns}
+                data={activities ?? []}
+                filterPlaceholder="Search activities..."
+              />
+            )}
+          </TabsContent>
+          
           <TabsContent value="details">
-            {organization && !permissionsLoading && (
+            {organization && !permissionsLoading ? (
               <OrganizationDetails
                 organization={organization}
                 canEdit={userPermissions?.canEdit || false}
               />
+            ) : (
+              <div className="space-y-6">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  {Array.from({ length: 6 }).map((_, i) => (
+                    <div key={i} className="space-y-2">
+                      <Skeleton className="h-4 w-24" />
+                      <Skeleton className="h-10 w-full" />
+                    </div>
+                  ))}
+                </div>
+                <div className="flex justify-end">
+                  <Skeleton className="h-10 w-24" />
+                </div>
+              </div>
             )}
-                     </TabsContent>
-         </Tabs>
-       </div>
-       
-       {/* Delete Role Confirmation Dialog */}
-       <DeleteConfirmationDialog
-         isOpen={!!deletingRole}
-         onClose={() => setDeletingRole(null)}
-         onConfirm={() => {
-           if (deletingRole) {
-             deleteRole({
-               id: deletingRole.id,
-               organizationId: id as string,
-             });
-           }
-         }}
-         title="Delete Role"
-         description={`Are you sure you want to delete the role "${deletingRole?.name}"? This action cannot be undone.${
-           deletingRole?.memberCount && deletingRole.memberCount > 0
-             ? ` This role has ${deletingRole.memberCount} member(s) and cannot be deleted.`
-             : ""
-         }`}
-         isLoading={isDeletingRole}
-         variant="destructive"
-       />
+          </TabsContent>
+        </Tabs>
+      </div>
+      
+      {/* Delete Role Confirmation Dialog */}
+      <DeleteConfirmationDialog
+        isOpen={!!deletingRole}
+        onClose={() => setDeletingRole(null)}
+        onConfirm={() => {
+          if (deletingRole) {
+            deleteRole({
+              id: deletingRole.id,
+              organizationId: id as string,
+            });
+          }
+        }}
+        title="Delete Role"
+        description={`Are you sure you want to delete the role "${deletingRole?.name}"? This action cannot be undone.${
+          deletingRole?.memberCount && deletingRole.memberCount > 0
+            ? ` This role has ${deletingRole.memberCount} member(s) and cannot be deleted.`
+            : ""
+        }`}
+        isLoading={isDeletingRole}
+        variant="destructive"
+      />
 
-       {/* Delete Member Confirmation Dialog */}
-       <DeleteConfirmationDialog
-         isOpen={!!deletingMember}
-         onClose={() => setDeletingMember(null)}
-         onConfirm={() => {
-           if (deletingMember) {
-             removeMember({
-               memberId: deletingMember.id,
-               organizationId: id as string,
-             });
-           }
-         }}
-         title="Remove Member"
-         description={`Are you sure you want to remove "${deletingMember?.name}" (${deletingMember?.email}) from this organization? This action cannot be undone.${
-           deletingMember?.isOwner
-             ? " This is the organization owner and cannot be removed."
-             : ""
-         }`}
-         isLoading={isRemovingMember}
-         variant="destructive"
-       />
+      {/* Delete Member Confirmation Dialog */}
+      <DeleteConfirmationDialog
+        isOpen={!!deletingMember}
+        onClose={() => setDeletingMember(null)}
+        onConfirm={() => {
+          if (deletingMember) {
+            removeMember({
+              memberId: deletingMember.id,
+              organizationId: id as string,
+            });
+          }
+        }}
+        title="Remove Member"
+        description={`Are you sure you want to remove "${deletingMember?.name}" (${deletingMember?.email}) from this organization? This action cannot be undone.${
+          deletingMember?.isOwner
+            ? " This is the organization owner and cannot be removed."
+            : ""
+        }`}
+        isLoading={isRemovingMember}
+        variant="destructive"
+      />
 
-       {/* Invitation Form */}
-       <InvitationForm
-         organizationId={id as string}
-         roles={roles?.map((role) => ({
-           id: role.id,
-           name: role.name,
-           description: role.description,
-         })) ?? []}
-         isOpen={showInvitationForm}
-         onClose={() => setShowInvitationForm(false)}
-       />
-     </div>
-   );
- };
+      {/* Invitation Form */}
+      <InvitationForm
+        organizationId={id as string}
+        roles={roles?.map((role) => ({
+          id: role.id,
+          name: role.name,
+          description: role.description,
+        })) ?? []}
+        isOpen={showInvitationForm}
+        onClose={() => setShowInvitationForm(false)}
+      />
+    </div>
+  );
+};
 
 export default OrganizationDetailPage;

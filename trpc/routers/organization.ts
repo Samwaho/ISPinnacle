@@ -5,7 +5,7 @@ import { defaultOrganizationRoles } from "@/lib/default-data";
 import { z } from "zod";
 import { TRPCError } from "@trpc/server";
 import { OrganizationPermission } from "@/lib/generated/prisma";
-import { hasPermissions, isOrganizationOwner } from "@/lib/server-hooks";
+import { createActivity, hasPermissions, isOrganizationOwner } from "@/lib/server-hooks";
 import { generateInvitationToken } from "@/lib/tokens";
 import { sendOrganizationInvitation } from "@/lib/mail";
 
@@ -56,6 +56,8 @@ export const organizationRouter = createTRPCRouter({
         },
       });
 
+      await createActivity(organization.id, ctx.session.user.id!, `Organization "${name}" created successfully with default roles and settings`);
+
       return {
         success: true,
         message: "Organization created successfully",
@@ -64,14 +66,35 @@ export const organizationRouter = createTRPCRouter({
     }),
   updateOrganization: protectedProcedure
     .input(updateOrganizationSchema)
-    .mutation(async ({ input }) => {
+    .mutation(async ({ input, ctx }) => {
       const { id, ...data } = input;
       const canUpdate = await hasPermissions(id, [OrganizationPermission.MANAGE_ORGANIZATION_DETAILS]);
       if (!canUpdate) throw new TRPCError({ code: "FORBIDDEN", message: "You are not authorized to update this organization" });
+      
+      // Get current organization data for comparison
+      const currentOrg = await prisma.organization.findUnique({
+        where: { id },
+      });
+      
       const organization = await prisma.organization.update({
         where: { id },
         data,
       });
+
+      // Create detailed activity message
+      const changes = [];
+      if (data.name && data.name !== currentOrg?.name) changes.push(`name from "${currentOrg?.name}" to "${data.name}"`);
+      if (data.email && data.email !== currentOrg?.email) changes.push(`email from "${currentOrg?.email}" to "${data.email}"`);
+      if (data.phone && data.phone !== currentOrg?.phone) changes.push(`phone from "${currentOrg?.phone}" to "${data.phone}"`);
+      if (data.description && data.description !== currentOrg?.description) changes.push(`description`);
+      if (data.website && data.website !== currentOrg?.website) changes.push(`website from "${currentOrg?.website}" to "${data.website}"`);
+      
+      const activityMessage = changes.length > 0 
+        ? `Updated organization details: ${changes.join(', ')}`
+        : `Updated organization settings`;
+
+      await createActivity(id, ctx.session.user.id!, activityMessage);
+
       return {
         success: true,
         message: "Organization updated successfully",
@@ -80,13 +103,22 @@ export const organizationRouter = createTRPCRouter({
     }),
   deleteOrganization: protectedProcedure
     .input(z.object({ id: z.string() }))
-    .mutation(async ({ input }) => {
+    .mutation(async ({ input, ctx }) => {
       const { id } = input;
       const canDelete = await isOrganizationOwner(id);
       if (!canDelete) throw new TRPCError({ code: "FORBIDDEN", message: "You are not authorized to delete this organization" });
+      
+      // Get organization name before deletion
+      const organization = await prisma.organization.findUnique({
+        where: { id },
+      });
+      
       await prisma.organization.delete({
         where: { id },
       });
+
+      await createActivity(id, ctx.session.user.id!, `Organization "${organization?.name}" permanently deleted`);
+
       return {
         success: true,
         message: "Organization deleted successfully",
@@ -94,7 +126,7 @@ export const organizationRouter = createTRPCRouter({
     }),
   createRole: protectedProcedure
     .input(createRoleSchema)
-    .mutation(async ({ input }) => {
+    .mutation(async ({ input, ctx }) => {
       const { organizationId, name, description, permissions } = input;
       const canManageRoles = await hasPermissions(organizationId, [OrganizationPermission.MANAGE_ROLES]);
       if (!canManageRoles) throw new TRPCError({ code: "FORBIDDEN", message: "You are not authorized to create roles in this organization" });
@@ -107,6 +139,9 @@ export const organizationRouter = createTRPCRouter({
           organizationId,
         },
       });
+
+      await createActivity(organizationId, ctx.session.user.id!, `Created new role "${name}" with ${permissions.length} permissions: ${permissions.join(', ')}`);
+
       return {
         success: true,
         message: "Role created successfully",
@@ -115,7 +150,7 @@ export const organizationRouter = createTRPCRouter({
     }),
   updateRole: protectedProcedure
     .input(updateRoleSchema)
-    .mutation(async ({ input }) => {
+    .mutation(async ({ input, ctx }) => {
       const { id, organizationId, name, description, permissions } = input;
       const canManageRoles = await hasPermissions(organizationId, [OrganizationPermission.MANAGE_ROLES]);
       if (!canManageRoles) throw new TRPCError({ code: "FORBIDDEN", message: "You are not authorized to update roles in this organization" });
@@ -142,6 +177,24 @@ export const organizationRouter = createTRPCRouter({
           permissions,
         },
       });
+
+      // Create detailed activity message
+      const changes = [];
+      if (name !== existingRole.name) changes.push(`name from "${existingRole.name}" to "${name}"`);
+      if (description !== existingRole.description) changes.push(`description`);
+      if (JSON.stringify(permissions.sort()) !== JSON.stringify(existingRole.permissions.sort())) {
+        const added = permissions.filter(p => !existingRole.permissions.includes(p));
+        const removed = existingRole.permissions.filter(p => !permissions.includes(p));
+        if (added.length > 0) changes.push(`added permissions: ${added.join(', ')}`);
+        if (removed.length > 0) changes.push(`removed permissions: ${removed.join(', ')}`);
+      }
+
+      const activityMessage = changes.length > 0 
+        ? `Updated role "${existingRole.name}": ${changes.join(', ')}`
+        : `Updated role "${existingRole.name}" settings`;
+
+      await createActivity(organizationId, ctx.session.user.id!, activityMessage);
+
       return {
         success: true,
         message: "Role updated successfully",
@@ -150,7 +203,7 @@ export const organizationRouter = createTRPCRouter({
     }),
   deleteRole: protectedProcedure
     .input(deleteRoleSchema)
-    .mutation(async ({ input }) => {
+    .mutation(async ({ input, ctx }) => {
       const { id, organizationId } = input;
       const canManageRoles = await hasPermissions(organizationId, [OrganizationPermission.MANAGE_ROLES]);
       if (!canManageRoles) throw new TRPCError({ code: "FORBIDDEN", message: "You are not authorized to delete roles in this organization" });
@@ -176,7 +229,9 @@ export const organizationRouter = createTRPCRouter({
       await prisma.organizationRole.delete({
         where: { id },
       });
-      
+
+      await createActivity(organizationId, ctx.session.user.id!, `Deleted custom role "${role.name}"`);
+
       return {
         success: true,
         message: "Role deleted successfully",
@@ -409,6 +464,8 @@ export const organizationRouter = createTRPCRouter({
         });
       }
 
+      await createActivity(organizationId, ctx.session.user.id!, `Sent invitation to ${email} for role "${role.name}"`);
+
       return {
         success: true,
         message: "Invitation sent successfully",
@@ -516,6 +573,8 @@ export const organizationRouter = createTRPCRouter({
         });
       }
 
+      await createActivity(invitation.organizationId, ctx.session.user.id!, `Resent invitation to ${invitation.email} for role "${invitation.role?.name || 'Member'}"`);
+
       return {
         success: true,
         message: "Invitation resent successfully",
@@ -523,12 +582,15 @@ export const organizationRouter = createTRPCRouter({
     }),
   cancelInvitation: protectedProcedure
     .input(cancelInvitationSchema)
-    .mutation(async ({ input }) => {
+    .mutation(async ({ input, ctx }) => {
       const { invitationId } = input;
 
       // Get the invitation
       const invitation = await prisma.organizationInvitation.findUnique({
         where: { id: invitationId },
+        include: {
+          role: true,
+        },
       });
 
       if (!invitation) {
@@ -560,6 +622,8 @@ export const organizationRouter = createTRPCRouter({
         where: { id: invitationId },
       });
 
+      await createActivity(invitation.organizationId, ctx.session.user.id!, `Cancelled invitation to ${invitation.email} for role "${invitation.role?.name || 'Member'}"`);
+
       return {
         success: true,
         message: "Invitation cancelled successfully",
@@ -567,7 +631,7 @@ export const organizationRouter = createTRPCRouter({
     }),
   updateMemberRole: protectedProcedure
     .input(updateMemberRoleSchema)
-    .mutation(async ({ input }) => {
+    .mutation(async ({ input, ctx }) => {
       const { organizationId, memberId, roleId } = input;
       const canManageMembers = await hasPermissions(organizationId, [OrganizationPermission.MANAGE_MEMBERS]);
       if (!canManageMembers) {
@@ -579,7 +643,7 @@ export const organizationRouter = createTRPCRouter({
 
       const member = await prisma.organizationMember.findUnique({
         where: { id: memberId },
-        include: { user: true },
+        include: { user: true, role: true },
       });
 
       if (!member) {
@@ -589,16 +653,17 @@ export const organizationRouter = createTRPCRouter({
         });
       }
 
-      // If roleId is provided, verify it exists
+      // Get the new role details if roleId is provided
+      let newRole = null;
       if (roleId) {
-        const role = await prisma.organizationRole.findFirst({
+        newRole = await prisma.organizationRole.findFirst({
           where: { 
             id: roleId,
             organizationId,
           },
         });
 
-        if (!role) {
+        if (!newRole) {
           throw new TRPCError({ 
             code: "NOT_FOUND", 
             message: "Role not found" 
@@ -614,6 +679,13 @@ export const organizationRouter = createTRPCRouter({
         include: { user: true, role: true },
       });
 
+      // Create detailed activity message
+      const oldRoleName = member.role?.name || "No Role";
+      const newRoleName = newRole?.name || "No Role";
+      const activityMessage = `Updated ${member.user.name || member.user.email}'s role from "${oldRoleName}" to "${newRoleName}"`;
+
+      await createActivity(organizationId, ctx.session.user.id!, activityMessage);
+
       return {
         success: true,
         message: "Member role updated successfully",
@@ -622,7 +694,7 @@ export const organizationRouter = createTRPCRouter({
     }),
   removeMember: protectedProcedure
     .input(removeMemberSchema)
-    .mutation(async ({ input }) => {
+    .mutation(async ({ input, ctx }) => {
       const { organizationId, memberId } = input;
       const canManageMembers = await hasPermissions(organizationId, [OrganizationPermission.MANAGE_MEMBERS]);
       if (!canManageMembers) {
@@ -634,7 +706,7 @@ export const organizationRouter = createTRPCRouter({
 
       const member = await prisma.organizationMember.findUnique({
         where: { id: memberId },
-        include: { user: true },
+        include: { user: true, role: true },
       });
 
       if (!member) {
@@ -666,9 +738,41 @@ export const organizationRouter = createTRPCRouter({
         where: { id: memberId },
       });
 
+      const roleName = member.role?.name || "No Role";
+      await createActivity(organizationId, ctx.session.user.id!, `Removed ${member.user.name || member.user.email} (${roleName}) from the organization`);
+
       return {
         success: true,
         message: "Member removed successfully",
       };
+    }),
+  getOrganizationActivities: protectedProcedure
+    .input(
+      z.object({
+        id: z.string(),
+      })
+    )
+    .query(async ({ input }) => {
+      const canView = await hasPermissions(input.id, [OrganizationPermission.VIEW_ORGANIZATION_DETAILS]);
+      if (!canView) {
+        throw new TRPCError({ 
+          code: "FORBIDDEN", 
+          message: "You are not authorized to view this organization activities" 
+        });
+      }
+
+      const activities = await prisma.organizationActivity.findMany({
+        where: {
+          organizationId: input.id,
+        },
+        include: {
+          user: true,
+        },
+        orderBy: {
+          createdAt: "desc",
+        },
+      });
+
+      return activities;
     }),
 });

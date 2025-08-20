@@ -58,6 +58,7 @@ model User {
   twoFactorConfirmation TwoFactorConfirmation?
   organizations Organization[]
   memberships OrganizationMember[]
+  activities OrganizationActivity[]
 }
 
 model Account {
@@ -131,6 +132,7 @@ model Organization {
   members OrganizationMember[]
   roles OrganizationRole[]
   invitations OrganizationInvitation[]
+  activities OrganizationActivity[]
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -180,4 +182,15 @@ model OrganizationInvitation {
 
   @@unique([email, organizationId, token])
   @@index([email, organizationId, token])
+}
+
+model OrganizationActivity {
+  id String @id @default(cuid())
+  organizationId String
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  userId String
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  activity String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }

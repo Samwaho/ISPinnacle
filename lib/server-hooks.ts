@@ -1,3 +1,4 @@
+"use server";
 import { auth } from "@/auth";
 import { prisma } from "./db";
 import { OrganizationPermission } from "@/lib/generated/prisma";
@@ -35,19 +36,6 @@ export const getCurrentUserOrganizationMember = async (
   return member;
 };
 
-// export const getCurrentUserOrganizationRole = async () => {
-//     const session = await auth();
-//     if (!session?.user) return false;
-//     const organization = await getCurrentUserOrganization();
-//     if (!organization) return false;
-//     const role = await prisma.organizationRole.findUnique({
-//         where: {
-//             id: session.user.role,
-//         },
-//     });
-//     return role;
-// };
-
 export const hasPermissions = async (
   organizationId: string,
   permissions: OrganizationPermission[]
@@ -70,4 +58,15 @@ export const isOrganizationOwner = async (organizationId: string) => {
   if (!organization) return false;
   if (organization.ownerId === session.user.id) return true;
   return false;
+};
+
+export const createActivity = async (organizationId: string, userId: string, activity: string) => {
+  const newActivity = await prisma.organizationActivity.create({
+    data: {
+      organizationId,
+      userId,
+      activity,
+    },
+  });
+  return newActivity;
 };

@@ -167,3 +167,36 @@ export const deletePackageSchema = z.object({
     id: z.string().min(1, "Package ID is required"),
     organizationId: z.string().min(1, "Organization ID is required"),
 });
+
+// Customer schemas
+export const customerSchema = z.object({
+    name: z.string().min(1, "Name is required"),
+    email: z.union([
+        z.string().email("Invalid email address"),
+        z.literal("")
+    ]).optional(),
+    phone: z.string().min(1, "Phone is required"),
+    address: z.string().optional(),
+    expiryDate: z.date().optional(),
+    pppoeUsername: z.string().optional(),
+    pppoePassword: z.string().optional(),
+    hotspotUsername: z.string().optional(),
+    hotspotPassword: z.string().optional(),
+    status: z.enum(["ACTIVE", "INACTIVE", "EXPIRED"]).default("ACTIVE"),
+    stationId: z.string().optional(),
+    packageId: z.string().optional(),
+});
+
+export const createCustomerSchema = customerSchema.extend({
+    organizationId: z.string().min(1, "Organization ID is required"),
+});
+
+export const updateCustomerSchema = customerSchema.extend({
+    id: z.string().min(1, "Customer ID is required"),
+    organizationId: z.string().min(1, "Organization ID is required"),
+});
+
+export const deleteCustomerSchema = z.object({
+    id: z.string().min(1, "Customer ID is required"),
+    organizationId: z.string().min(1, "Organization ID is required"),
+});

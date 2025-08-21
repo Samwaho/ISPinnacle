@@ -33,8 +33,8 @@ const Sidebar: React.FC<SidebarProps> = ({ organizationId }) => {
               {sidebarData.map((item) => {
                 const itemPath = item.path(organizationId);
                 const isActive = 
-                  (itemPath === `/${organizationId}/isp` && pathname === `/${organizationId}/isp`) || 
-                  (itemPath !== `/${organizationId}/isp` && pathname.startsWith(itemPath));
+                  (itemPath === `/isp/${organizationId}` && pathname === `/isp/${organizationId}`) || 
+                  (itemPath !== `/isp/${organizationId}` && pathname.startsWith(itemPath));
 
                 return (
                   <CommandItem
@@ -46,13 +46,13 @@ const Sidebar: React.FC<SidebarProps> = ({ organizationId }) => {
                       href={itemPath}
                     >
                       <i
-                        className={`p-1 rounded-md shadow-md text-white transition-all duration-300 ${
+                        className={`p-1 rounded-md shadow-md transition-all duration-300 ${
                           isActive
                             ? "bg-gradient-custom scale-110"
                             : "bg-gradient-custom2 hover:scale-105"
                         }`}
                       >
-                        <item.icon className="size-4" />
+                        <item.icon className="size-4 text-white" />
                       </i>
                       <p
                         className={`text-md font-medium ${

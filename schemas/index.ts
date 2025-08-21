@@ -133,3 +133,37 @@ export const deleteStationSchema = z.object({
     id: z.string().min(1, "Station ID is required"),
     organizationId: z.string().min(1, "Organization ID is required"),
 });
+
+// Package schemas
+export const packageSchema = z.object({
+    name: z.string().min(1, "Name is required"),
+    description: z.string().optional(),
+    price: z.number().positive("Price must be positive"),
+    duration: z.number().positive("Duration must be positive"),
+    durationType: z.enum(["MONTH", "YEAR", "WEEK", "DAY", "HOUR", "MINUTE"]).default("MONTH"),
+    type: z.enum(["PPPOE", "HOTSPOT"]).default("PPPOE"),
+    addressPool: z.string().min(1, "Address pool is required"),
+    maxDevices: z.number().positive("Max devices must be positive").optional(),
+    downloadSpeed: z.number().positive("Download speed must be positive"),
+    uploadSpeed: z.number().positive("Upload speed must be positive"),
+    burstDownloadSpeed: z.number().positive("Burst download speed must be positive").optional(),
+    burstUploadSpeed: z.number().positive("Burst upload speed must be positive").optional(),
+    burstThresholdDownload: z.number().positive("Burst threshold download must be positive").optional(),
+    burstThresholdUpload: z.number().positive("Burst threshold upload must be positive").optional(),
+    burstDuration: z.number().positive("Burst duration must be positive").optional(),
+    isActive: z.boolean().default(true),
+});
+
+export const createPackageSchema = packageSchema.extend({
+    organizationId: z.string().min(1, "Organization ID is required"),
+});
+
+export const updatePackageSchema = packageSchema.extend({
+    id: z.string().min(1, "Package ID is required"),
+    organizationId: z.string().min(1, "Organization ID is required"),
+});
+
+export const deletePackageSchema = z.object({
+    id: z.string().min(1, "Package ID is required"),
+    organizationId: z.string().min(1, "Organization ID is required"),
+});

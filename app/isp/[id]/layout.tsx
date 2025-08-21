@@ -14,8 +14,13 @@ export default async function ISPLayout({
 }) {
   const resolvedParams = await params;
   const organizationId = resolvedParams.id;
-  const organization = await caller.organization.getOrganizationById({ id: organizationId });
-  return (
+  let organization;
+  try {
+    organization = await caller.organization.getOrganizationById({ id: organizationId });
+  } catch (error) {
+    console.error('Failed to fetch organization:', error);
+    organization = null;
+  }  return (
       <div className="min-h-screen flex flex-col lg:flex-row">
         {/* Desktop Sidebar - hidden on mobile */}
         <aside className="hidden lg:block lg:w-[18%] xl:w-[14%] lg:fixed lg:top-4 lg:left-4 lg:h-screen">

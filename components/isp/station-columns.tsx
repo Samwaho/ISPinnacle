@@ -93,11 +93,12 @@ export const stationColumns = ({
             {onDeleteStation && (
               <DropdownMenuItem 
                 onClick={() => {
-                  console.log("Delete menu item clicked:", row.original);
-                  onDeleteStation(row.original);
+                  if (row.original.customerCount === 0) {
+                    onDeleteStation(row.original);
+                  }
                 }}
                 className={`${row.original.customerCount > 0 ? 'text-muted-foreground cursor-not-allowed' : 'text-red-600'}`}
-                disabled={row.original.customerCount > 0}
+                aria-disabled={row.original.customerCount > 0}
               >
                 <Trash2 className="mr-2 h-4 w-4" />
                 Delete {row.original.customerCount > 0 && `(${row.original.customerCount} customers)`}

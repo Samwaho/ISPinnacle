@@ -179,10 +179,9 @@ export const stationsRouter = createTRPCRouter({
             // Create detailed activity message
             const changes = [];
             if (data.name && data.name !== existingStation.name) changes.push(`name from "${existingStation.name}" to "${data.name}"`);
-            if (data.description !== existingStation.description) changes.push(`description`);
-            if (data.location !== existingStation.location) changes.push(`location`);
-            if (data.type && data.type !== existingStation.type) changes.push(`type from "${existingStation.type}" to "${data.type}"`);
-            
+            if ('description' in data && data.description !== existingStation.description) changes.push(`description`);
+            if ('location' in data && data.location !== existingStation.location) changes.push(`location`);
+            if (data.type && data.type !== existingStation.type) changes.push(`type from "${existingStation.type}" to "${data.type}"`);            
             const activityMessage = changes.length > 0 
                 ? `Updated station "${existingStation.name}": ${changes.join(', ')}`
                 : `Updated station "${existingStation.name}" settings`;

@@ -5,8 +5,8 @@ import { useTRPC } from "@/trpc/client";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { StatCard } from "@/components/StatCard";
 import { DataTable } from "@/components/table/DataTable";
-import { stationColumns, StationTableRow } from "@/components/isp/station-columns";
-import { Building2, Users, MapPin, Plus } from "lucide-react";
+import { packageColumns, PackageTableRow } from "@/components/isp/package-columns";
+import { Package, Users, DollarSign, Plus, Wifi, Globe } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
@@ -14,63 +14,68 @@ import { toast } from "sonner";
 import { DeleteConfirmationDialog } from "@/components/ui/delete-confirmation-dialog";
 import { AccessDenied } from "@/components/ui/access-denied";
 
-const StationPage = () => {
+const PackagePage = () => {
   const { id } = useParams();
   const router = useRouter();
   const t = useTRPC();
-  const [selectedStations, setSelectedStations] = React.useState<StationTableRow[]>([]);
-  const { data: stations, isPending } = useQuery(
-    t.stations.getStations.queryOptions({ organizationId: id as string })
+  const [selectedPackages, setSelectedPackages] = React.useState<PackageTableRow[]>([]);
+  const { data: packages, isPending } = useQuery(
+    t.packages.getPackages.queryOptions({ organizationId: id as string })
   );
 
   const { data: userPermissions, isLoading: permissionsLoading } = useQuery(
     t.organization.getUserPermissions.queryOptions({ id: id as string })
   );
 
-  const totalStations = isPending ? 0 : stations?.length ?? 0;
-  const totalCustomers = isPending ? 0 : stations?.reduce((sum, s) => sum + s.customerCount, 0) ?? 0;
+  const totalPackages = isPending ? 0 : packages?.length ?? 0;
+  const pppoePackages = isPending ? 0 : packages?.filter(p => p.type === "PPPOE").length ?? 0;
+  const hotspotPackages = isPending ? 0 : packages?.filter(p => p.type === "HOTSPOT").length ?? 0;
 
   const queryClient = useQueryClient();
 
-  // Check if user has permission to view stations
-  const canViewStations = userPermissions?.canViewStations || false;
-  const canManageStations = userPermissions?.canManageStations || false;
+  // Check if user has permission to view packages
+  const canViewPackages = userPermissions?.canViewPackages || false;
+  const canManagePackages = userPermissions?.canManagePackages || false;
+
+  console.log("Permissions:", { canViewPackages, canManagePackages, userPermissions });
 
   const {
-    mutate: deleteStation,
-    isPending: isDeletingStation,
+    mutate: deletePackage,
+    isPending: isDeletingPackage,
   } = useMutation(
-    t.stations.deleteStation.mutationOptions({
+    t.packages.deletePackage.mutationOptions({
       onSuccess: () => {
-        toast.success("Station deleted successfully");
-        // Invalidate stations queries using TRPC's type-safe queryKey
+        console.log("Package deleted successfully");
+        toast.success("Package deleted successfully");
+        // Invalidate packages queries using TRPC's type-safe queryKey
         queryClient.invalidateQueries({
-          queryKey: t.stations.getStations.queryKey({ organizationId: id as string }),
+          queryKey: t.packages.getPackages.queryKey({ organizationId: id as string }),
         });
-        setDeletingStation(null);
+        setDeletingPackage(null);
       },
       onError: (error) => {
-        console.error("Delete station error:", error);
-        toast.error(error.message || "Failed to delete station");
-        setDeletingStation(null);
+        console.error("Delete package error:", error);
+        toast.error(error.message || "Failed to delete package");
+        setDeletingPackage(null);
       },
     })
   );
 
-  const [deletingStation, setDeletingStation] = React.useState<StationTableRow | null>(null);
+  const [deletingPackage, setDeletingPackage] = React.useState<PackageTableRow | null>(null);
 
-  const handleDeleteStation = (station: StationTableRow) => {
-    setDeletingStation(station);
+  const handleDeletePackage = (pkg: PackageTableRow) => {
+    console.log("Delete package clicked:", pkg);
+    setDeletingPackage(pkg);
   };
 
-  const handleEditStation = (station: StationTableRow) => {
-    router.push(`/isp/${id}/stations/${station.id}/edit`);
+  const handleEditPackage = (pkg: PackageTableRow) => {
+    router.push(`/isp/${id}/packages/${pkg.id}/edit`);
   };
 
-  const columns = stationColumns({
-    onEditStation: handleEditStation,
-    onDeleteStation: handleDeleteStation,
-    canManageStations,
+  const columns = packageColumns({
+    onEditPackage: handleEditPackage,
+    onDeletePackage: handleDeletePackage,
+    canManagePackages,
   });
 
   // Show loading state while checking permissions
@@ -93,6 +98,15 @@ const StationPage = () => {
               <Skeleton className="h-10 w-10 rounded-full" />
               <div className="space-y-2">
                 <Skeleton className="h-4 w-24" />
+                <Skeleton className="h-6 w-12" />
+              </div>
+            </div>
+          </div>
+          <div className="bg-card rounded-lg p-6 border">
+            <div className="flex items-center gap-3">
+              <Skeleton className="h-10 w-10 rounded-full" />
+              <div className="space-y-2">
+                <Skeleton className="h-4 w-20" />
                 <Skeleton className="h-6 w-12" />
               </div>
             </div>
@@ -136,10 +150,10 @@ const StationPage = () => {
 
   return (
     <div className="flex flex-col gap-6 my-8">
-      {!canViewStations ? (
+      {!canViewPackages ? (
         <AccessDenied
           title="Access Denied"
-          message="You don't have permission to view stations in this organization."
+          message="You don't have permission to view packages in this organization."
           showBackButton={true}
           backButtonLabel="Back to Organization"
           backButtonLink={`/organization/${id}`}
@@ -167,35 +181,51 @@ const StationPage = () => {
                 </div>
               </div>
             </div>
+            <div className="bg-card rounded-lg p-6 border">
+              <div className="flex items-center gap-3">
+                <Skeleton className="h-10 w-10 rounded-full" />
+                <div className="space-y-2">
+                  <Skeleton className="h-4 w-20" />
+                  <Skeleton className="h-6 w-12" />
+                </div>
+              </div>
+            </div>
           </>
         ) : (
           <>
             <StatCard
-              title="Total Stations"
-              value={totalStations.toString()}
-              icon={<Building2 className="h-5 w-5" />}
-              color="purple"
+              title="Total Packages"
+              value={totalPackages.toString()}
+              icon={<Package className="h-5 w-5" />}
+              color="blue"
               isClickable={false}
             />
-            <StatCard
-              title="Total Customers"
-              value={totalCustomers.toString()}
-              icon={<Users className="h-5 w-5" />}
-              color="green"
-              isClickable={false}
-            />
+                         <StatCard
+               title="PPPoE Packages"
+               value={pppoePackages.toString()}
+               icon={<Wifi className="h-5 w-5" />}
+               color="blue"
+               isClickable={false}
+             />
+             <StatCard
+               title="Hotspot Packages"
+               value={hotspotPackages.toString()}
+               icon={<Globe className="h-5 w-5" />}
+               color="green"
+               isClickable={false}
+             />
           </>
         )}
       </div>
 
       <div className="flex items-center justify-between">
         <h3 className="text-lg font-bold flex items-center gap-2">
-          <MapPin className="h-5 w-5" /> Stations
+          <Package className="h-5 w-5" /> Packages
         </h3>
-        {userPermissions?.canManageStations && !permissionsLoading && (
-          <Link href={`/isp/${id}/stations/new`}>
+        {userPermissions?.canManagePackages && !permissionsLoading && (
+          <Link href={`/isp/${id}/packages/new`}>
             <Button variant="gradient" >
-              <Plus className="h-5 w-5" /> Add Station
+              <Plus className="h-5 w-5" /> Add Package
             </Button>
           </Link>
         )}
@@ -228,52 +258,57 @@ const StationPage = () => {
       ) : (
         <DataTable
           columns={columns}
-          data={stations?.map((s) => ({
-            id: s.id,
-            name: s.name,
-            description: s.description,
-            location: s.location,
-            type: s.type,
-            customerCount: s.customerCount,
-            createdAt: s.createdAt instanceof Date ? s.createdAt : new Date(s.createdAt),
+          data={packages?.map((p) => ({
+            id: p.id,
+            name: p.name,
+            description: p.description,
+            price: p.price,
+            duration: p.duration,
+            durationType: p.durationType,
+            type: p.type,
+            downloadSpeed: p.downloadSpeed,
+            uploadSpeed: p.uploadSpeed,
+            isActive: p.isActive,
+            customerCount: p.customerCount,
+            createdAt: p.createdAt instanceof Date ? p.createdAt : new Date(p.createdAt),
           })) ?? []}
-          filterPlaceholder="Search stations..."
-          onRowSelectionChange={setSelectedStations}
+          filterPlaceholder="Search packages..."
+          onRowSelectionChange={setSelectedPackages}
         />
       )}
         </>
       )}
 
-      {/* Delete Station Confirmation Dialog */}
+      {/* Delete Package Confirmation Dialog */}
       <DeleteConfirmationDialog
-        isOpen={!!deletingStation}
-        onClose={() => setDeletingStation(null)}
+        isOpen={!!deletingPackage}
+        onClose={() => setDeletingPackage(null)}
         onConfirm={() => {
-          console.log("Delete confirmation clicked:", deletingStation);
-          if (deletingStation) {
-            if (deletingStation.customerCount > 0) {
-              toast.error("Cannot delete station with active customers. Please reassign or remove customers first.");
-              setDeletingStation(null);
+          console.log("Delete confirmation clicked:", deletingPackage);
+          if (deletingPackage) {
+            if (deletingPackage.customerCount > 0) {
+              toast.error("Cannot delete package with active customers. Please reassign or remove customers first.");
+              setDeletingPackage(null);
               return;
             }
-            console.log("Calling deleteStation with:", { id: deletingStation.id, organizationId: id as string });
-            deleteStation({
-              id: deletingStation.id,
+            console.log("Calling deletePackage with:", { id: deletingPackage.id, organizationId: id as string });
+            deletePackage({
+              id: deletingPackage.id,
               organizationId: id as string,
             });
           }
         }}
-        title="Delete Station"
-        description={`Are you sure you want to delete the station "${deletingStation?.name}"? This action cannot be undone.${
-          deletingStation?.customerCount && deletingStation.customerCount > 0
-            ? ` This station has ${deletingStation.customerCount} customer(s) and cannot be deleted.`
+        title="Delete Package"
+        description={`Are you sure you want to delete the package "${deletingPackage?.name}"? This action cannot be undone.${
+          deletingPackage?.customerCount && deletingPackage.customerCount > 0
+            ? ` This package has ${deletingPackage.customerCount} customer(s) and cannot be deleted.`
             : ""
         }`}
-        isLoading={isDeletingStation}
+        isLoading={isDeletingPackage}
         variant="destructive"
       />
     </div>
   );
 };
 
-export default StationPage;
+export default PackagePage;

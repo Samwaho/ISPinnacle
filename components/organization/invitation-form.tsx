@@ -74,9 +74,9 @@ export const InvitationForm: React.FC<InvitationFormProps> = ({
         toast.success("Invitation sent successfully");
         form.reset();
         onClose();
-        // Invalidate invitations query to refresh the list
+        // Invalidate invitations query using TRPC's type-safe queryKey
         queryClient.invalidateQueries({
-          queryKey: ["organization", "getOrganizationInvitations", { id: organizationId }],
+          queryKey: t.organization.getOrganizationInvitations.queryKey({ id: organizationId }),
         });
       },
       onError: (error) => {

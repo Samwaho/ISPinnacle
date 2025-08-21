@@ -70,11 +70,7 @@ export const RoleEditForm = ({
       onSuccess: () => {
         toast.success("Role updated successfully");
         queryClient.invalidateQueries({
-          queryKey: [
-            "organization",
-            "getOrganizationRoles",
-            { id: organizationId },
-          ],
+          queryKey: t.organization.getOrganizationRoles.queryKey({ id: organizationId }),
         });
         onCancel();
       },

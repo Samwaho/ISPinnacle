@@ -43,7 +43,7 @@ export const MemberEditForm = ({ member, organizationId, roles, onCancel }: Memb
       onSuccess: () => {
         toast.success("Member role updated successfully");
         queryClient.invalidateQueries({
-          queryKey: ["organization", "getOrganizationMembers", { id: organizationId }],
+          queryKey: t.organization.getOrganizationMembers.queryKey({ id: organizationId }),
         });
         onCancel();
       },

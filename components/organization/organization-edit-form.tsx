@@ -59,8 +59,9 @@ export const OrganizationEditForm = ({ organization, onCancel }: OrganizationEdi
   } = useMutation(t.organization.updateOrganization.mutationOptions({
     onSuccess: () => {
       toast.success("Organization updated successfully");
-      queryClient.invalidateQueries({ queryKey: ['organization', 'getOrganizationById', { id: organization.id }] });
-      router.push(`/organization`);
+      queryClient.invalidateQueries({
+        queryKey: t.organization.getOrganizationById.queryKey({ id: organization.id }),
+      });
       onCancel();
     }
   }));

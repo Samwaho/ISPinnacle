@@ -61,11 +61,7 @@ export const RoleCreateForm = ({
       onSuccess: () => {
         toast.success("Role created successfully");
         queryClient.invalidateQueries({
-          queryKey: [
-            "organization",
-            "getOrganizationRoles",
-            { id: organizationId },
-          ],
+          queryKey: t.organization.getOrganizationRoles.queryKey({ id: organizationId }),
         });
         onCancel();
       },

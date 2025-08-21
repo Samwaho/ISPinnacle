@@ -46,8 +46,9 @@ const StationPage = () => {
       onSuccess: () => {
         console.log("Station deleted successfully");
         toast.success("Station deleted successfully");
+        // Invalidate stations queries using TRPC's type-safe queryKey
         queryClient.invalidateQueries({
-          queryKey: ["stations", "getStations", { organizationId: id as string }],
+          queryKey: t.stations.getStations.queryKey({ organizationId: id as string }),
         });
         setDeletingStation(null);
       },

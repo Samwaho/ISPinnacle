@@ -23,7 +23,7 @@ import {
 import { Input } from "../ui/input";
 import { Button } from "../ui/button";
 import FormError from "../FormError";
-import { useMutation } from "@tanstack/react-query";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useRouter } from "next/navigation";
 import { useTRPC } from "@/trpc/client";
 import { organizationSchema } from "@/schemas";
@@ -44,6 +44,7 @@ export const OrganizationForm = () => {
   const t = useTRPC();
   const { theme } = useTheme();
   const router = useRouter();
+  const queryClient = useQueryClient();
   const {
     mutate: createOrganization,
     isPending,
@@ -52,7 +53,10 @@ export const OrganizationForm = () => {
   } = useMutation(t.organization.createOrganization.mutationOptions({
     onSuccess: () => {
       toast.success("Organization created successfully");
-      router.push("/organization");
+      // Invalidate organizations list using TRPC's type-safe queryKey
+      queryClient.invalidateQueries({
+        queryKey: t.organization.getMyOrganizations.queryKey(),
+      });
     }
   }));
   const form = useForm<z.infer<typeof organizationSchema>>({

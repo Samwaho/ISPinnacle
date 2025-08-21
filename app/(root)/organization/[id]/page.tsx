@@ -60,7 +60,7 @@ const OrganizationDetailPage = () => {
       onSuccess: () => {
         toast.success("Role deleted successfully");
         queryClient.invalidateQueries({
-          queryKey: ["organization", "getOrganizationRoles", { id: id as string }],
+          queryKey: t.organization.getOrganizationRoles.queryKey({ id: id as string }),
         });
         setDeletingRole(null);
       },
@@ -78,7 +78,7 @@ const OrganizationDetailPage = () => {
       onSuccess: () => {
         toast.success("Invitation resent successfully");
         queryClient.invalidateQueries({
-          queryKey: ["organization", "getOrganizationInvitations", { id: id as string }],
+          queryKey: t.organization.getOrganizationInvitations.queryKey({ id: id as string }),
         });
       },
       onError: (error) => {
@@ -95,7 +95,7 @@ const OrganizationDetailPage = () => {
       onSuccess: () => {
         toast.success("Invitation cancelled successfully");
         queryClient.invalidateQueries({
-          queryKey: ["organization", "getOrganizationInvitations", { id: id as string }],
+          queryKey: t.organization.getOrganizationInvitations.queryKey({ id: id as string }),
         });
       },
       onError: (error) => {
@@ -112,7 +112,7 @@ const OrganizationDetailPage = () => {
       onSuccess: () => {
         toast.success("Member removed successfully");
         queryClient.invalidateQueries({
-          queryKey: ["organization", "getOrganizationMembers", { id: id as string }],
+          queryKey: t.organization.getOrganizationMembers.queryKey({ id: id as string }),
         });
         setDeletingMember(null);
       },

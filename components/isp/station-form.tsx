@@ -22,7 +22,7 @@ import { Input } from "../ui/input";
 import { Button } from "../ui/button";
 import FormError from "../FormError";
 import { Skeleton } from "../ui/skeleton";
-import { useMutation, useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useRouter, useParams } from "next/navigation";
 import { useTRPC } from "@/trpc/client";
 import { stationSchema, updateStationSchema } from "@/schemas";
@@ -49,6 +49,7 @@ export const StationForm = ({ mode = "create" }: StationFormProps) => {
   const params = useParams();
   const organizationId = params.id as string;
   const stationId = params.stationId as string;
+  const queryClient = useQueryClient();
   
   // Fetch station data for edit mode
   const { data: stationData, isLoading: isLoadingStation, error: stationError } = useQuery({
@@ -76,6 +77,10 @@ export const StationForm = ({ mode = "create" }: StationFormProps) => {
   } = useMutation(t.stations.createStation.mutationOptions({
     onSuccess: () => {
       toast.success("Station created successfully");
+      // Invalidate stations queries using TRPC's type-safe queryKey
+      queryClient.invalidateQueries({
+        queryKey: t.stations.getStations.queryKey({ organizationId }),
+      });
       router.push(`/isp/${organizationId}/stations`);
     }
   }));
@@ -87,6 +92,10 @@ export const StationForm = ({ mode = "create" }: StationFormProps) => {
   } = useMutation(t.stations.updateStation.mutationOptions({
     onSuccess: () => {
       toast.success("Station updated successfully");
+      // Invalidate stations queries using TRPC's type-safe queryKey
+      queryClient.invalidateQueries({
+        queryKey: t.stations.getStations.queryKey({ organizationId }),
+      });
       router.push(`/isp/${organizationId}/stations`);
     },
     onError: (error) => {

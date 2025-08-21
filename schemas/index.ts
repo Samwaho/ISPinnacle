@@ -111,3 +111,25 @@ export const removeMemberSchema = z.object({
     memberId: z.string().min(1, "Member ID is required"),
     organizationId: z.string().min(1, "Organization ID is required"),
 });
+
+// Station schemas
+export const stationSchema = z.object({
+    name: z.string().min(1, "Name is required"),
+    description: z.string().optional(),
+    location: z.string().optional(),
+    type: z.enum(["APARTMENT", "HOUSE", "OFFICE", "OTHER"]).default("APARTMENT"),
+});
+
+export const createStationSchema = stationSchema.extend({
+    organizationId: z.string().min(1, "Organization ID is required"),
+});
+
+export const updateStationSchema = stationSchema.extend({
+    id: z.string().min(1, "Station ID is required"),
+    organizationId: z.string().min(1, "Organization ID is required"),
+});
+
+export const deleteStationSchema = z.object({
+    id: z.string().min(1, "Station ID is required"),
+    organizationId: z.string().min(1, "Organization ID is required"),
+});

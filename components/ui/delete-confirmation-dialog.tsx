@@ -51,7 +51,7 @@ export const DeleteConfirmationDialog = ({
             variant={variant}
             onClick={onConfirm}
             disabled={isLoading}
-            className="flex items-center gap-2"
+            className="flex items-center gap-2 cursor-pointer"
           >
             {isLoading ? (
               <>

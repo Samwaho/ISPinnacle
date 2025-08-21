@@ -270,7 +270,7 @@ const OrganizationDetailPage = () => {
             )}
           </div>
         </div>
-        <Link href={`/${id}/isp`}>
+        <Link href={`/isp/${id}`}>
           <Button variant="gradient" className="w-full md:w-auto ">
             ISP Management
           </Button>

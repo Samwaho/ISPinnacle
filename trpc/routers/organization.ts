@@ -355,6 +355,12 @@ export const organizationRouter = createTRPCRouter({
         canManageMembers: permissions.includes(OrganizationPermission.MANAGE_MEMBERS),
         canManageRoles: permissions.includes(OrganizationPermission.MANAGE_ROLES),
         canManageSettings: permissions.includes(OrganizationPermission.MANAGE_SETTINGS),
+        canViewStations: permissions.includes(OrganizationPermission.VIEW_STATIONS),
+        canManageStations: permissions.includes(OrganizationPermission.MANAGE_STATIONS),
+        canViewCustomers: permissions.includes(OrganizationPermission.VIEW_CUSTOMERS),
+        canManageCustomers: permissions.includes(OrganizationPermission.MANAGE_CUSTOMERS),
+        canViewPackages: permissions.includes(OrganizationPermission.VIEW_PACKAGES),
+        canManagePackages: permissions.includes(OrganizationPermission.MANAGE_PACKAGES),
         isOwner: organization?.ownerId === ctx.session.user.id,
       };
     }),

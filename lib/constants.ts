@@ -26,42 +26,42 @@ interface SidebarItem {
 export const sidebarData: SidebarItem[] = [
   {
     title: "Dashboard",
-    path: (id) => `/${id}/isp`,
+    path: (id) => `/isp/${id}`,
     icon: LayoutDashboard,
   },
   {
     title: "Customers",
-    path: (id) => `/${id}/isp/customers`,
+    path: (id) => `/isp/${id}/customers`,
     icon: Users,
   },
   {
     title: "Packages",
-    path: (id) => `/${id}/isp/packages`,
+    path: (id) => `/isp/${id}/packages`,
     icon: Box,
   },
   {
     title: "Stations",
-    path: (id) => `/${id}/isp/stations`,
+    path: (id) => `/isp/${id}/stations`,
     icon: Building,
   },
   {
     title: "Inventory",
-    path: (id) => `/${id}/isp/inventory`,
+    path: (id) => `/isp/${id}/inventory`,
     icon: Package,
   },
   {
     title: "Support Tickets",
-    path: (id) => `/${id}/isp/tickets`,
+    path: (id) => `/isp/${id}/tickets`,
     icon: Ticket,
   },
   {
     title: "Transactions",
-    path: (id) => `/${id}/isp/transactions`,
+    path: (id) => `/isp/${id}/transactions`,
     icon: DollarSign,
   },
   {
     title: "Messaging",
-    path: (id) => `/${id}/isp/messaging`,
+    path: (id) => `/isp/${id}/messaging`,
     icon: Warehouse,
   },
 ];

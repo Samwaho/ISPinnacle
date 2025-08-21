@@ -19,7 +19,7 @@ export const columns = ({ onEditMember, onDeleteMember, canManageMembers = false
     accessorKey: "name",
     header: ({ column }) => (
       <DataTableColumnHeader column={column} title="Name" />
-    ),
+    ), 
     cell: ({ row }) => {
       const member = row.original
       return (

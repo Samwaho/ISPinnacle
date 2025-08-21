@@ -36,6 +36,14 @@ const permissionLabels: Record<OrganizationPermission, string> = {
   [OrganizationPermission.MANAGE_MEMBERS]: "Manage Members",
   [OrganizationPermission.MANAGE_SETTINGS]: "Manage Settings",
   [OrganizationPermission.MANAGE_ROLES]: "Manage Roles",
+  [OrganizationPermission.VIEW_STATIONS]: "View Stations",
+  [OrganizationPermission.MANAGE_STATIONS]: "Manage Stations",
+  [OrganizationPermission.VIEW_PACKAGES]: "View Packages",
+  [OrganizationPermission.MANAGE_PACKAGES]: "Manage Packages",
+  [OrganizationPermission.VIEW_CUSTOMERS]: "View Customers",
+  [OrganizationPermission.MANAGE_CUSTOMERS]: "Manage Customers",
+  [OrganizationPermission.VIEW_EXPENSES]: "View Expenses",
+  [OrganizationPermission.MANAGE_EXPENSES]: "Manage Expenses",
 };
 
 export const RoleCreateForm = ({

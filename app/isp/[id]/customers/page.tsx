@@ -73,9 +73,14 @@ const CustomerPage = () => {
     router.push(`/isp/${id}/customers/${customer.id}/edit`);
   };
 
+  const handleViewPayments = (customer: CustomerTableRow) => {
+    router.push(`/isp/${id}/customers/${customer.id}/payments`);
+  };
+
   const columns = customerColumns({
     onEditCustomer: handleEditCustomer,
     onDeleteCustomer: handleDeleteCustomer,
+    onViewPayments: handleViewPayments,
     canManageCustomers,
   });
 

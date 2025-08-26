@@ -4,7 +4,7 @@ import type { ColumnDef } from "@tanstack/react-table"
 import { DataTableColumnHeader } from "@/components/table/DataTableColumnHeader"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import { MoreHorizontal, Edit, Trash2, User, MapPin, Package, Calendar, Phone, Mail } from "lucide-react"
+import { MoreHorizontal, Edit, Trash2, User, MapPin, Package, Calendar, Phone, Mail, CreditCard } from "lucide-react"
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -42,10 +42,12 @@ export type CustomerTableRow = {
 export const customerColumns = ({
   onEditCustomer,
   onDeleteCustomer,
+  onViewPayments,
   canManageCustomers,
 }: {
   onEditCustomer?: (customer: CustomerTableRow) => void;
   onDeleteCustomer?: (customer: CustomerTableRow) => void;
+  onViewPayments?: (customer: CustomerTableRow) => void;
   canManageCustomers: boolean;
 }): ColumnDef<CustomerTableRow>[] => [
   {
@@ -189,6 +191,12 @@ export const customerColumns = ({
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">
+            {onViewPayments && (
+              <DropdownMenuItem onClick={() => onViewPayments(row.original)}>
+                <CreditCard className="mr-2 h-4 w-4" />
+                View Payments
+              </DropdownMenuItem>
+            )}
             {onEditCustomer && (
               <DropdownMenuItem onClick={() => onEditCustomer(row.original)}>
                 <Edit className="mr-2 h-4 w-4" />

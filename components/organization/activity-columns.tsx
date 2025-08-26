@@ -49,8 +49,10 @@ export const activityColumns: ColumnDef<Activity>[] = [
     cell: ({ row }) => {
       const activity = row.getValue("activity") as string;
       return (
-        <div className="max-w-md">
-          <p className="text-sm text-foreground">{activity}</p>
+        <div className="w-80 max-w-80 max-h-24 overflow-y-auto">
+          <p className="text-sm text-foreground break-words leading-relaxed">
+            {activity}
+          </p>
         </div>
       );
     },

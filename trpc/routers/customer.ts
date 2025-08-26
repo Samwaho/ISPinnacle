@@ -29,7 +29,7 @@ export const customerRouter = createTRPCRouter({
                     package: true,
                     payments: {
                         orderBy: {
-                            date: "desc",
+                            createdAt: "desc",
                         },
                         take: 5,
                     },
@@ -70,7 +70,7 @@ export const customerRouter = createTRPCRouter({
                     package: true,
                     payments: {
                         orderBy: {
-                            date: "desc",
+                            createdAt: "desc",
                         },
                     },
                 },
@@ -380,7 +380,7 @@ export const customerRouter = createTRPCRouter({
                     package: true,
                 },
                 orderBy: {
-                    date: "desc",
+                    createdAt: "desc",
                 },
             });
 
@@ -456,7 +456,7 @@ export const customerRouter = createTRPCRouter({
                     package: true,
                     payments: {
                         orderBy: {
-                            date: "desc",
+                            createdAt: "desc",
                         },
                         take: 5,
                     },
@@ -496,7 +496,7 @@ export const customerRouter = createTRPCRouter({
                     station: true,
                     payments: {
                         orderBy: {
-                            date: "desc",
+                            createdAt: "desc",
                         },
                         take: 5,
                     },

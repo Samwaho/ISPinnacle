@@ -1,5 +1,5 @@
 import { createTRPCRouter, protectedProcedure } from "../init";
-import { organizationSchema, updateOrganizationSchema, createRoleSchema, updateRoleSchema, deleteRoleSchema, inviteMemberSchema, acceptInvitationSchema, rejectInvitationSchema, resendInvitationSchema, cancelInvitationSchema, updateMemberRoleSchema, removeMemberSchema } from "@/schemas";
+import { organizationSchema, updateOrganizationSchema, createRoleSchema, updateRoleSchema, deleteRoleSchema, inviteMemberSchema, acceptInvitationSchema, rejectInvitationSchema, resendInvitationSchema, cancelInvitationSchema, updateMemberRoleSchema, removeMemberSchema, paymentGatewaySelectionSchema } from "@/schemas";
 import { prisma } from "@/lib/db";
 import { defaultOrganizationRoles } from "@/lib/default-data";
 import { z } from "zod";
@@ -780,5 +780,33 @@ export const organizationRouter = createTRPCRouter({
       });
 
       return activities;
+    }),
+  updatePaymentGateway: protectedProcedure
+    .input(paymentGatewaySelectionSchema)
+    .mutation(async ({ input, ctx }) => {
+      const { organizationId, paymentGateway } = input;
+      const canManageSettings = await hasPermissions(organizationId, [OrganizationPermission.MANAGE_SETTINGS]);
+      if (!canManageSettings) {
+        throw new TRPCError({ 
+          code: "FORBIDDEN", 
+          message: "You are not authorized to update payment gateway settings" 
+        });
+      }
+
+      const organization = await prisma.organization.update({
+        where: { id: organizationId },
+        data: { paymentGateway },
+      });
+
+      await createActivity(organizationId, ctx.session.user.id!, `Updated payment gateway to ${paymentGateway}`);
+
+      return {
+        success: true,
+        message: "Payment gateway updated successfully",
+        organization: {
+          id: organization.id,
+          paymentGateway: organization.paymentGateway,
+        },
+      };
     }),
 });

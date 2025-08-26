@@ -290,11 +290,23 @@ const CustomerPage = () => {
              email: c.email,
              phone: c.phone || "",
              address: c.address,
-             status: c.status,
-             station: c.station,
-             package: c.package,
+             status: c.status as "ACTIVE" | "INACTIVE" | "EXPIRED",
+             station: c.station ? {
+               id: c.station.id,
+               name: c.station.name,
+             } : null,
+             package: c.package ? {
+               id: c.package.id,
+               name: c.package.name,
+               type: c.package.type as "PPPOE" | "HOTSPOT",
+             } : null,
              paymentCount: c.paymentCount,
-             lastPayment: c.lastPayment,
+             lastPayment: c.lastPayment ? {
+               id: c.lastPayment.id,
+               amount: c.lastPayment.amount,
+               date: c.lastPayment.createdAt instanceof Date ? c.lastPayment.createdAt : new Date(c.lastPayment.createdAt),
+               isPaid: true, // Assuming all payments in the system are paid
+             } : null,
              expiryDate: c.expiryDate ? (c.expiryDate instanceof Date ? c.expiryDate : new Date(c.expiryDate)) : null,
              createdAt: c.createdAt instanceof Date ? c.createdAt : new Date(c.createdAt),
            })) ?? []}

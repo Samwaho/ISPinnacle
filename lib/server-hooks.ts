@@ -1,7 +1,12 @@
 "use server";
 import { auth } from "@/auth";
 import { prisma } from "./db";
-import { OrganizationPermission } from "@/lib/generated/prisma";
+import {
+  MpesaTransactionType,
+  OrganizationCustomerStatus,
+  OrganizationPackageDurationType,
+  OrganizationPermission,
+} from "@/lib/generated/prisma";
 
 export const getCurrentUser = async () => {
   const session = await auth();
@@ -60,7 +65,11 @@ export const isOrganizationOwner = async (organizationId: string) => {
   return false;
 };
 
-export const createActivity = async (organizationId: string, userId: string, activity: string) => {
+export const createActivity = async (
+  organizationId: string,
+  userId: string,
+  activity: string
+) => {
   const newActivity = await prisma.organizationActivity.create({
     data: {
       organizationId,
@@ -69,4 +78,168 @@ export const createActivity = async (organizationId: string, userId: string, act
     },
   });
   return newActivity;
+};
+
+export const processCustomerPayment = async (
+  username: string,
+  amount: number
+) => {
+  try {
+    console.log("Processing payment for customer:", username, "Amount:", amount);
+    
+    const customer = await prisma.organizationCustomer.findFirst({
+      where: {
+        pppoeUsername: username,
+      },
+      include: {
+        package: true,
+      },
+    });
+
+    if (!customer) {
+      console.error("Customer not found for username:", username);
+      throw new Error(`Customer not found for username: ${username}`);
+    }
+
+    console.log("Found customer:", customer.id);
+
+    if (!customer.package) {
+      console.error("Customer has no package assigned:", customer.id);
+      throw new Error(`Customer ${username} has no package assigned`);
+    }
+
+    console.log("Customer package:", customer.package.id);
+
+  const newPayment = await prisma.organizationCustomerPayment.create({
+    data: {
+      organizationId: customer.organizationId,
+      customerId: customer.id,
+      amount,
+      packageId: customer.package.id,
+    },
+  });
+
+  const packageAmount = customer.package.price;
+  const packageDuration = customer.package.duration;
+  const packageDurationType = customer.package.durationType;
+
+  if (!packageAmount || !packageDuration || !packageDurationType) {
+    throw new Error("Package configuration is incomplete");
+  }
+
+  // Convert package duration to days
+  let packageDays = 0;
+  if (packageDurationType === OrganizationPackageDurationType.MONTH) {
+    packageDays = packageDuration * 30;
+  } else if (packageDurationType === OrganizationPackageDurationType.YEAR) {
+    packageDays = packageDuration * 365;
+  } else if (packageDurationType === OrganizationPackageDurationType.WEEK) {
+    packageDays = packageDuration * 7;
+  } else if (packageDurationType === OrganizationPackageDurationType.DAY) {
+    packageDays = packageDuration;
+  } else if (packageDurationType === OrganizationPackageDurationType.HOUR) {
+    packageDays = packageDuration / 24;
+  } else if (packageDurationType === OrganizationPackageDurationType.MINUTE) {
+    packageDays = packageDuration / 1440;
+  }
+
+  let daysToAdd = 0;
+
+  // Check if amount equals package price
+  if (amount === packageAmount) {
+    // Exact payment - add full package duration
+    daysToAdd = packageDays;
+  } else {
+    // Calculate proportional duration based on amount paid
+    const ratio = amount / packageAmount;
+    daysToAdd = packageDays * ratio;
+  }
+
+  // Calculate new expiry date from current time (when payment is made)
+  const currentTime = new Date();
+  const newExpiry = new Date(
+    currentTime.getTime() + daysToAdd * 24 * 60 * 60 * 1000
+  );
+
+  // Update customer expiry date
+  const updatedCustomer = await prisma.organizationCustomer.update({
+    where: {
+      id: customer.id,
+    },
+    data: {
+      expiryDate: newExpiry,
+      status: OrganizationCustomerStatus.ACTIVE,
+    },
+  });
+
+    return updatedCustomer;
+  } catch (error) {
+    console.error("Error in processCustomerPayment:", error);
+    throw error;
+  }
+};
+
+export const storeMpesaTransaction = async (
+  transactionId: string,
+  amount: number,
+  transactionType: MpesaTransactionType,
+  transactionDateTime: Date,
+  shortCode: string,
+  name: string,
+  phoneNumber: string,
+  billReferenceNumber: string,
+  invoiceNumber: string,
+  orgAccountBalance: number
+) => {
+  try {
+    console.log("Looking for organization with shortCode:", shortCode);
+    
+    // First find the M-Pesa configuration
+    const mpesaConfig = await prisma.mpesaConfiguration.findFirst({
+      where: {
+        shortCode: shortCode,
+      },
+    });
+
+    if (!mpesaConfig) {
+      console.error("M-Pesa configuration not found for shortCode:", shortCode);
+      throw new Error(`M-Pesa configuration not found for shortCode: ${shortCode}`);
+    }
+
+    // Then get the organization
+    const organization = await prisma.organization.findUnique({
+      where: {
+        id: mpesaConfig.organizationId,
+      },
+    });
+
+    if (!organization) {
+      console.error("Organization not found for organizationId:", mpesaConfig.organizationId);
+      throw new Error(`Organization not found for organizationId: ${mpesaConfig.organizationId}`);
+    }
+
+    console.log("Found organization:", organization.id);
+    console.log("Found M-Pesa configuration:", mpesaConfig.id);
+
+    const newTransaction = await prisma.mpesaTransaction.create({
+      data: {
+        organizationId: organization.id,
+        transactionId: transactionId,
+        amount: amount,
+        transactionType: transactionType,
+        transactionDateTime: transactionDateTime,
+        name: name,
+        phoneNumber: phoneNumber,
+        billReferenceNumber: billReferenceNumber,
+        invoiceNumber: invoiceNumber,
+        orgAccountBalance: orgAccountBalance,
+      },
+    });
+
+    console.log("M-Pesa transaction created:", newTransaction.id);
+    return newTransaction;
+  } catch (error) {
+    console.error("Error in storeMpesaTransaction:", error);
+    throw error;
+  }
 };

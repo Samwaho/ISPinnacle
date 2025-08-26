@@ -200,3 +200,48 @@ export const deleteCustomerSchema = z.object({
     id: z.string().min(1, "Customer ID is required"),
     organizationId: z.string().min(1, "Organization ID is required"),
 });
+
+export const mpesaConfigurationSchema = z.object({
+    organizationId: z.string(),
+    consumerKey: z.string().min(1, "Consumer key is required"),
+    consumerSecret: z.string().min(1, "Consumer secret is required"),
+    shortCode: z.string().min(1, "Short code is required"),
+    passKey: z.string().min(1, "Pass key is required"),
+    transactionType: z.enum(["PAYBILL", "BUYGOODS"]).default("PAYBILL"),
+  });
+  
+  export const stkPushSchema = z.object({
+    organizationId: z.string(),
+    phoneNumber: z.string().regex(/^254\d{9}$/, "Phone number must be in format 254XXXXXXXXX"),
+    amount: z.number().positive("Amount must be positive"),
+    reference: z.string().min(1, "Reference is required"),
+    description: z.string().optional(),
+  });
+  
+  export const paymentStatusSchema = z.object({
+    organizationId: z.string(),
+    checkoutRequestId: z.string().min(1, "Checkout request ID is required"),
+  });
+  
+  export const c2bRegisterSchema = z.object({
+    organizationId: z.string(),
+    shortCode: z.string().optional(), // Use organization's short code if not provided
+  });
+  
+  export const c2bSimulateSchema = z.object({
+    organizationId: z.string(),
+    phoneNumber: z.string().regex(/^254\d{9}$/, "Phone number must be in format 254XXXXXXXXX"),
+    amount: z.number().positive("Amount must be positive"),
+    billReferenceNumber: z.string().min(1, "Bill reference number is required"),
+    commandId: z.enum(["CustomerPayBillOnline", "CustomerBuyGoodsOnline"]).default("CustomerPayBillOnline"),
+  });
+
+// Payment Gateway Configuration Schemas
+export const paymentGatewaySelectionSchema = z.object({
+    organizationId: z.string().min(1, "Organization ID is required"),
+    paymentGateway: z.enum(["MPESA"]),
+});
+
+export const getPaymentGatewayConfigurationSchema = z.object({
+    organizationId: z.string().min(1, "Organization ID is required"),
+});

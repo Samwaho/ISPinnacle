@@ -24,6 +24,7 @@ import { OrganizationPermission } from "@/lib/generated/prisma";
 import { DeleteConfirmationDialog } from "@/components/ui/delete-confirmation-dialog";
 import { Skeleton } from "@/components/ui/skeleton";
 import Link from "next/link";
+import { PaymentGatewayConfig } from "@/components/organization/payment-gateway-config";
 
 const OrganizationDetailPage = () => {
   const { id } = useParams();
@@ -303,6 +304,7 @@ const OrganizationDetailPage = () => {
             <TabsTrigger value="roles">Roles</TabsTrigger>
             <TabsTrigger value="activities">Activities</TabsTrigger>
             <TabsTrigger value="details">Details</TabsTrigger>
+            <TabsTrigger value="payment-gateway">Payment Gateway</TabsTrigger>
           </TabsList>
           
           <TabsContent value="members">
@@ -531,6 +533,23 @@ const OrganizationDetailPage = () => {
                 </div>
                 <div className="flex justify-end">
                   <Skeleton className="h-10 w-24" />
+                </div>
+              </div>
+            )}
+          </TabsContent>
+          
+          <TabsContent value="payment-gateway">
+            {!permissionsLoading && userPermissions?.canManageSettings ? (
+              <PaymentGatewayConfig organizationId={id as string} />
+            ) : (
+              <div className="space-y-6">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  {Array.from({ length: 4 }).map((_, i) => (
+                    <div key={i} className="space-y-2">
+                      <Skeleton className="h-4 w-24" />
+                      <Skeleton className="h-10 w-full" />
+                    </div>
+                  ))}
                 </div>
               </div>
             )}

@@ -159,7 +159,7 @@ export const customerColumns = ({
     cell: ({ row }) => (
       <div className="text-sm">
         <div className="font-medium">{row.original.paymentCount}</div>
-        {row.original.lastPayment && (
+        {row.original.lastPayment && row.original.lastPayment.date && (
           <div className="text-xs text-muted-foreground">
             Last: {row.original.lastPayment.date.toLocaleDateString()}
           </div>

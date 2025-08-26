@@ -43,7 +43,6 @@ enum OrganizationInvitationStatus {
 
 enum PaymentGateway {
   MPESA
-  KOPOKOPO
 }
 
 enum SMSGateway {
@@ -180,6 +179,8 @@ model Organization {
   packages OrganizationPackage[]
   expenses OrganizationExpense[]
   customerPayments OrganizationCustomerPayment[]
+  mpesaConfiguration MpesaConfiguration?
+  mpesaTransactions MpesaTransaction[]
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -264,8 +265,8 @@ model OrganizationCustomer {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  @@unique([organizationId, email])
-  @@index([organizationId, email])
+  @@unique([pppoeUsername, hotspotUsername])
+  @@index([organizationId])
 }
 
 model OrganizationStation {
@@ -335,10 +336,55 @@ model OrganizationCustomerPayment {
   packageId String?
   package OrganizationPackage? @relation(fields: [packageId], references: [id], onDelete: SetNull)
   amount Float
-  date DateTime
-  isPaid Boolean @default(false)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   @@index([organizationId, customerId])
+}
+
+enum MpesaTransactionType {
+ PAYBILL
+ BUYGOODS
+}
+
+enum MpesaTransactionStatus {
+  PENDING
+  SUCCESS
+  FAILED
+}
+
+model MpesaConfiguration {
+  id String @id @default(cuid())
+  organizationId String
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  consumerKey String
+  consumerSecret String
+  shortCode String
+  passKey String
+  transactionType MpesaTransactionType @default(PAYBILL)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([organizationId])
+  @@index([organizationId])
+}
+
+model MpesaTransaction {
+  id String @id @default(cuid())
+  organizationId String
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  transactionType MpesaTransactionType
+  transactionId String
+  billReferenceNumber String?
+  phoneNumber String
+  amount Float
+  name String?
+  transactionDateTime DateTime
+  orgAccountBalance Float?
+  invoiceNumber String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([organizationId])
 }

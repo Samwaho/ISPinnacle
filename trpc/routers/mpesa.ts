@@ -389,58 +389,6 @@ export const mpesaRouter = createTRPCRouter({
       }
     }),
 
-  // Get payment history for an organization
-  getPaymentHistory: protectedProcedure
-    .input(z.object({ 
-      organizationId: z.string(),
-      limit: z.number().min(1).max(100).default(20),
-      offset: z.number().min(0).default(0),
-    }))
-    .query(async ({ input, ctx }) => {
-      const canView = await hasPermissions(input.organizationId, [OrganizationPermission.VIEW_CUSTOMERS]);
-      if (!canView) {
-        throw new TRPCError({ 
-          code: "FORBIDDEN", 
-          message: "You are not authorized to view payment history" 
-        });
-      }
-
-      const payments = await prisma.organizationCustomerPayment.findMany({
-        where: { organizationId: input.organizationId },
-        include: {
-          customer: {
-            select: {
-              id: true,
-              name: true,
-              email: true,
-              phone: true,
-            },
-          },
-          package: {
-            select: {
-              id: true,
-              name: true,
-              price: true,
-            },
-          },
-        },
-        orderBy: { createdAt: 'desc' },
-        take: input.limit,
-        skip: input.offset,
-      });
-
-      const total = await prisma.organizationCustomerPayment.count({
-        where: { organizationId: input.organizationId },
-      });
-
-      return {
-        success: true,
-        payments,
-        total,
-        hasMore: input.offset + input.limit < total,
-      };
-    }),
-
   // C2B URL Registration
   registerC2BUrls: protectedProcedure
     .input(c2bRegisterSchema)
@@ -490,61 +438,6 @@ export const mpesaRouter = createTRPCRouter({
         throw new TRPCError({ 
           code: "INTERNAL_SERVER_ERROR", 
           message: `Failed to register C2B URLs: ${error instanceof Error ? error.message : 'Unknown error'}` 
-        });
-      }
-    }),
-
-  // C2B Payment Simulation (for testing)
-  simulateC2BPayment: protectedProcedure
-    .input(c2bSimulateSchema)
-    .mutation(async ({ input, ctx }) => {
-      const canManage = await hasPermissions(input.organizationId, [OrganizationPermission.MANAGE_CUSTOMERS]);
-      if (!canManage) {
-        throw new TRPCError({ 
-          code: "FORBIDDEN", 
-          message: "You are not authorized to simulate C2B payments" 
-        });
-      }
-
-      // Get M-Pesa configuration
-      const configuration = await prisma.mpesaConfiguration.findUnique({
-        where: { organizationId: input.organizationId },
-      });
-
-      if (!configuration) {
-        throw new TRPCError({ 
-          code: "NOT_FOUND", 
-          message: "M-Pesa configuration not found" 
-        });
-      }
-
-      try {
-        const mpesaAPI = new MpesaAPI({
-          consumerKey: configuration.consumerKey,
-          consumerSecret: configuration.consumerSecret,
-          shortCode: configuration.shortCode,
-          passKey: configuration.passKey,
-          transactionType: configuration.transactionType,
-        });
-
-        const result = await mpesaAPI.simulateC2BPayment(
-          input.phoneNumber,
-          input.amount,
-          input.billReferenceNumber,
-          input.commandId
-        );
-
-
-
-        return {
-          success: true,
-          message: "C2B payment simulation initiated successfully",
-          result,
-        };
-      } catch (error) {
-        throw new TRPCError({ 
-          code: "INTERNAL_SERVER_ERROR", 
-          message: `Failed to simulate C2B payment: ${error instanceof Error ? error.message : 'Unknown error'}` 
         });
       }
     }),

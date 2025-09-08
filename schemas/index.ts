@@ -245,3 +245,20 @@ export const paymentGatewaySelectionSchema = z.object({
 export const getPaymentGatewayConfigurationSchema = z.object({
     organizationId: z.string().min(1, "Organization ID is required"),
 });
+
+// Payment Link schemas
+export const createPaymentLinkSchema = z.object({
+    organizationId: z.string().min(1, "Organization ID is required"),
+    customerId: z.string().min(1, "Customer ID is required"),
+    amount: z.number().positive("Amount must be positive"),
+    description: z.string().min(1, "Description is required"),
+});
+
+export const getPaymentLinkSchema = z.object({
+    token: z.string().min(1, "Token is required"),
+});
+
+export const processPaymentLinkSchema = z.object({
+    token: z.string().min(1, "Token is required"),
+    phoneNumber: z.string().regex(/^254\d{9}$/, "Phone number must be in format 254XXXXXXXXX"),
+});

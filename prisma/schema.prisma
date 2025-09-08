@@ -181,6 +181,7 @@ model Organization {
   customerPayments OrganizationCustomerPayment[]
   mpesaConfiguration MpesaConfiguration?
   mpesaTransactions MpesaTransaction[]
+  mpesaPaymentLinks MpesaPaymentLink[]
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -262,6 +263,7 @@ model OrganizationCustomer {
   packageId String?
   package OrganizationPackage? @relation(fields: [packageId], references: [id], onDelete: SetNull)
   payments OrganizationCustomerPayment[]
+  mpesaPaymentLinks MpesaPaymentLink[]
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -387,4 +389,26 @@ model MpesaTransaction {
   updatedAt DateTime @updatedAt
 
   @@index([organizationId])
+}
+
+model MpesaPaymentLink {
+  id String @id @default(cuid())
+  token String @unique
+  isUsed Boolean @default(false)
+  organizationId String
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  customerId String
+  customer OrganizationCustomer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  amount Float
+  description String
+  checkoutRequestId String?
+  merchantRequestId String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([token])
+  @@index([organizationId])
+  @@index([customerId])
+  @@index([checkoutRequestId])
+  @@index([merchantRequestId])
 }

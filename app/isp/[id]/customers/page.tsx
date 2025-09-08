@@ -13,12 +13,14 @@ import Link from "next/link";
 import { toast } from "sonner";
 import { DeleteConfirmationDialog } from "@/components/ui/delete-confirmation-dialog";
 import { AccessDenied } from "@/components/ui/access-denied";
+import { PaymentLinkForm } from "@/components/isp/payment-link-form";
 
 const CustomerPage = () => {
   const { id } = useParams();
   const router = useRouter();
   const t = useTRPC();
   const [selectedCustomers, setSelectedCustomers] = React.useState<CustomerTableRow[]>([]);
+  const [paymentLinkCustomer, setPaymentLinkCustomer] = React.useState<CustomerTableRow | null>(null);
   const { data: customers, isPending } = useQuery(
     t.customer.getCustomers.queryOptions({ organizationId: id as string })
   );
@@ -77,10 +79,15 @@ const CustomerPage = () => {
     router.push(`/isp/${id}/customers/${customer.id}/payments`);
   };
 
+  const handleCreatePaymentLink = (customer: CustomerTableRow) => {
+    setPaymentLinkCustomer(customer);
+  };
+
   const columns = customerColumns({
     onEditCustomer: handleEditCustomer,
     onDeleteCustomer: handleDeleteCustomer,
     onViewPayments: handleViewPayments,
+    onCreatePaymentLink: handleCreatePaymentLink,
     canManageCustomers,
   });
 
@@ -350,6 +357,21 @@ const CustomerPage = () => {
         isLoading={isDeletingCustomer}
         variant="destructive"
       />
+
+      {/* Payment Link Form */}
+      {paymentLinkCustomer && (
+        <PaymentLinkForm
+          organizationId={id as string}
+          customerId={paymentLinkCustomer.id}
+          customerName={paymentLinkCustomer.name}
+          open={!!paymentLinkCustomer}
+          onOpenChange={(open) => {
+            if (!open) {
+              setPaymentLinkCustomer(null);
+            }
+          }}
+        />
+      )}
     </div>
   );
 };

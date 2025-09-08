@@ -43,11 +43,13 @@ export const customerColumns = ({
   onEditCustomer,
   onDeleteCustomer,
   onViewPayments,
+  onCreatePaymentLink,
   canManageCustomers,
 }: {
   onEditCustomer?: (customer: CustomerTableRow) => void;
   onDeleteCustomer?: (customer: CustomerTableRow) => void;
   onViewPayments?: (customer: CustomerTableRow) => void;
+  onCreatePaymentLink?: (customer: CustomerTableRow) => void;
   canManageCustomers: boolean;
 }): ColumnDef<CustomerTableRow>[] => [
   {
@@ -195,6 +197,12 @@ export const customerColumns = ({
               <DropdownMenuItem onClick={() => onViewPayments(row.original)}>
                 <CreditCard className="mr-2 h-4 w-4" />
                 View Payments
+              </DropdownMenuItem>
+            )}
+            {onCreatePaymentLink && (
+              <DropdownMenuItem onClick={() => onCreatePaymentLink(row.original)}>
+                <CreditCard className="mr-2 h-4 w-4" />
+                Create Payment Link
               </DropdownMenuItem>
             )}
             {onEditCustomer && (

@@ -1,4 +1,4 @@
-import { createTRPCRouter, protectedProcedure } from "../init";
+import { baseProcedure, createTRPCRouter, protectedProcedure } from "../init";
 import { prisma } from "@/lib/db";
 import { z } from "zod";
 import { TRPCError } from "@trpc/server";
@@ -11,7 +11,7 @@ import { mpesaConfigurationSchema, stkPushSchema, paymentStatusSchema, c2bRegist
 
 
 // M-Pesa API helper functions
-class MpesaAPI {
+export class MpesaAPI {
   private consumerKey: string;
   private consumerSecret: string;
   private shortCode: string;
@@ -87,7 +87,7 @@ class MpesaAPI {
       PartyA: phoneNumber,
       PartyB: this.shortCode,
       PhoneNumber: phoneNumber,
-      CallBackURL: `${process.env.CALLBACK_URL}/api/mpesa/callback`,
+      CallBackURL: `${process.env.CALLBACK_URL}/api/mp/callback`,
       AccountReference: reference,
       TransactionDesc: description || "Payment",
     };
@@ -285,16 +285,9 @@ export const mpesaRouter = createTRPCRouter({
     }),
 
   // Initiate STK Push payment
-  initiatePayment: protectedProcedure
+  initiatePayment: baseProcedure
     .input(stkPushSchema)
-    .mutation(async ({ input, ctx }) => {
-      const canManage = await hasPermissions(input.organizationId, [OrganizationPermission.MANAGE_CUSTOMERS]);
-      if (!canManage) {
-        throw new TRPCError({ 
-          code: "FORBIDDEN", 
-          message: "You are not authorized to initiate payments" 
-        });
-      }
+    .mutation(async ({ input }) => {
 
       // Get M-Pesa configuration
       const configuration = await prisma.mpesaConfiguration.findUnique({

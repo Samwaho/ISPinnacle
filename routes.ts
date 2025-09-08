@@ -9,6 +9,7 @@ export const publicRoutes = [
     "/auth/error",
     "/auth/link-account",
     "/auth/link-success",
+    "/payment",
 ]
 
 export const authRoutes = [

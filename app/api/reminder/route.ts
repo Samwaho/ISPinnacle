@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import crypto from "crypto";
 import { prisma } from "@/lib/db";
 import { SmsService } from "@/lib/sms";
 
@@ -57,7 +58,7 @@ function isoDateOnly(d: Date) {
   return d.toISOString().slice(0, 10);
 }
 
-async function processOrganization(org: { id: string; name: string; phone: string | null }) {
+async function processOrganization(org: { id: string; name: string; phone: string | null }, baseUrl: string) {
   const ranges = [1, 3, 5].map(dayRangeFromTodayUTC);
 
   const customers = await prisma.organizationCustomer.findMany({
@@ -66,13 +67,29 @@ async function processOrganization(org: { id: string; name: string; phone: strin
       expiryDate: { not: null },
       OR: ranges.map((r) => ({ expiryDate: { gte: r.gte, lt: r.lt } })),
     },
-    select: { id: true, name: true, phone: true, expiryDate: true },
+    select: {
+      id: true,
+      name: true,
+      phone: true,
+      expiryDate: true,
+      package: { select: { name: true, price: true } },
+    },
   });
 
   let attempted = 0;
   let sent = 0;
   let failed = 0;
-  const details: Array<{ customerId: string; name: string; phone: string | null; expiryDate: string | null; success: boolean; message: string }>=[];
+  type Detail = {
+    customerId: string;
+    name: string;
+    phone: string | null;
+    expiryDate: string | null;
+    success: boolean;
+    message: string;
+    paymentLinkToken?: string;
+    paymentLinkSms?: { success: boolean; message: string };
+  };
+  const details: Detail[] = [];
 
   const supportNumber = org.phone || "+254700000000";
 
@@ -98,6 +115,38 @@ async function processOrganization(org: { id: string; name: string; phone: strin
       supportNumber
     );
     if (res.success) sent += 1; else failed += 1;
+
+    // After sending expiry reminder, create a payment link and send payment_link SMS when possible
+    let paymentLinkResult: { success: boolean; message: string } | undefined;
+    let paymentLinkToken: string | undefined;
+    if (c.package?.price && c.package?.name) {
+      try {
+        const token = crypto.randomBytes(32).toString("hex");
+        await prisma.mpesaPaymentLink.create({
+          data: {
+            token,
+            organizationId: org.id,
+            customerId: c.id,
+            amount: c.package.price,
+            description: `Renewal for ${c.package.name}`,
+          },
+        });
+        paymentLinkToken = token;
+        const linkUrl = `${baseUrl}/payment/${token}`;
+        paymentLinkResult = await SmsService.sendPaymentLink(
+          org.id,
+          c.phone,
+          c.name,
+          String(Math.round(c.package.price)),
+          c.package.name,
+          linkUrl,
+          org.name
+        );
+      } catch (e) {
+        paymentLinkResult = { success: false, message: e instanceof Error ? e.message : "Failed to create/send payment link" };
+      }
+    }
+
     details.push({
       customerId: c.id,
       name: c.name,
@@ -105,6 +154,8 @@ async function processOrganization(org: { id: string; name: string; phone: strin
       expiryDate: isoDateOnly(c.expiryDate),
       success: res.success,
       message: res.message,
+      paymentLinkToken,
+      paymentLinkSms: paymentLinkResult,
     });
   });
 
@@ -150,7 +201,8 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ success: true, message: "No organizations to process", summary: { processedOrganizations: 0 } }, { status: 200 });
     }
 
-    const results = await Promise.all(orgs.map(processOrganization));
+    const baseUrl = process.env.NEXT_PUBLIC_APP_URL || new URL(req.url).origin;
+    const results = await Promise.all(orgs.map((org) => processOrganization(org, baseUrl)));
 
     const summary = results.reduce(
       (acc, r) => {

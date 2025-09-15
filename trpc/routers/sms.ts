@@ -1,6 +1,6 @@
 import { createTRPCRouter, protectedProcedure } from "../init";
-import { 
-  smsProviderSelectionSchema, 
+import {
+  smsProviderSelectionSchema,
   smsConfigurationSchema,
   createSmsTemplateSchema,
   updateSmsTemplateSchema,
@@ -22,9 +22,9 @@ export const smsRouter = createTRPCRouter({
       const { organizationId, smsProvider } = input;
       const canManageSettings = await hasPermissions(organizationId, [OrganizationPermission.MANAGE_SETTINGS]);
       if (!canManageSettings) {
-        throw new TRPCError({ 
-          code: "FORBIDDEN", 
-          message: "You are not authorized to update SMS provider settings" 
+        throw new TRPCError({
+          code: "FORBIDDEN",
+          message: "You are not authorized to update SMS provider settings"
         });
       }
 
@@ -48,9 +48,9 @@ export const smsRouter = createTRPCRouter({
     .query(async ({ input }) => {
       const canView = await hasPermissions(input.organizationId, [OrganizationPermission.VIEW_ORGANIZATION_DETAILS]);
       if (!canView) {
-        throw new TRPCError({ 
-          code: "FORBIDDEN", 
-          message: "You are not authorized to view SMS configuration" 
+        throw new TRPCError({
+          code: "FORBIDDEN",
+          message: "You are not authorized to view SMS configuration"
         });
       }
 
@@ -67,9 +67,9 @@ export const smsRouter = createTRPCRouter({
       const { organizationId, ...configData } = input;
       const canManageSms = await hasPermissions(organizationId, [OrganizationPermission.MANAGE_SETTINGS]);
       if (!canManageSms) {
-        throw new TRPCError({ 
-          code: "FORBIDDEN", 
-          message: "You are not authorized to update SMS configuration" 
+        throw new TRPCError({
+          code: "FORBIDDEN",
+          message: "You are not authorized to update SMS configuration"
         });
       }
 
@@ -80,18 +80,18 @@ export const smsRouter = createTRPCRouter({
       });
 
       if (!organization?.smsProvider) {
-        throw new TRPCError({ 
-          code: "BAD_REQUEST", 
-          message: "Please select an SMS provider first" 
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: "Please select an SMS provider first"
         });
       }
 
       // Validate required fields based on provider
       if (organization.smsProvider === SMSProvider.TEXT_SMS) {
         if (!configData.apiKey || !configData.senderId || !configData.partnerId) {
-          throw new TRPCError({ 
-            code: "BAD_REQUEST", 
-            message: "API Key, Sender ID, and Partner ID are required for TextSMS" 
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message: "API Key, Sender ID, and Partner ID are required for TextSMS"
           });
         }
       }
@@ -117,9 +117,9 @@ export const smsRouter = createTRPCRouter({
     .mutation(async ({ input }) => {
       const canManageSms = await hasPermissions(input.organizationId, [OrganizationPermission.MANAGE_SETTINGS]);
       if (!canManageSms) {
-        throw new TRPCError({ 
-          code: "FORBIDDEN", 
-          message: "You are not authorized to delete SMS configuration" 
+        throw new TRPCError({
+          code: "FORBIDDEN",
+          message: "You are not authorized to delete SMS configuration"
         });
       }
 
@@ -134,7 +134,7 @@ export const smsRouter = createTRPCRouter({
     }),
 
   testSmsConfiguration: protectedProcedure
-    .input(z.object({ 
+    .input(z.object({
       organizationId: z.string(),
       phoneNumber: z.string(),
       message: z.string().optional()
@@ -142,14 +142,14 @@ export const smsRouter = createTRPCRouter({
     .mutation(async ({ input }) => {
       const canManageSms = await hasPermissions(input.organizationId, [OrganizationPermission.MANAGE_SETTINGS]);
       if (!canManageSms) {
-        throw new TRPCError({ 
-          code: "FORBIDDEN", 
-          message: "You are not authorized to test SMS configuration" 
+        throw new TRPCError({
+          code: "FORBIDDEN",
+          message: "You are not authorized to test SMS configuration"
         });
       }
 
       const testMessage = input.message || "Test message from ISPinnacle";
-      
+
       const result = await SmsService.sendSms({
         organizationId: input.organizationId,
         phoneNumber: input.phoneNumber,
@@ -157,9 +157,9 @@ export const smsRouter = createTRPCRouter({
       });
 
       if (!result.success) {
-        throw new TRPCError({ 
-          code: "INTERNAL_SERVER_ERROR", 
-          message: result.message 
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message: result.message
         });
       }
 
@@ -171,7 +171,7 @@ export const smsRouter = createTRPCRouter({
     }),
 
   sendSms: protectedProcedure
-    .input(z.object({ 
+    .input(z.object({
       organizationId: z.string(),
       phoneNumber: z.string(),
       message: z.string()
@@ -179,9 +179,9 @@ export const smsRouter = createTRPCRouter({
     .mutation(async ({ input }) => {
       const canManageSms = await hasPermissions(input.organizationId, [OrganizationPermission.MANAGE_SETTINGS]);
       if (!canManageSms) {
-        throw new TRPCError({ 
-          code: "FORBIDDEN", 
-          message: "You are not authorized to send SMS" 
+        throw new TRPCError({
+          code: "FORBIDDEN",
+          message: "You are not authorized to send SMS"
         });
       }
 
@@ -192,9 +192,9 @@ export const smsRouter = createTRPCRouter({
       });
 
       if (!result.success) {
-        throw new TRPCError({ 
-          code: "INTERNAL_SERVER_ERROR", 
-          message: result.message 
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message: result.message
         });
       }
 
@@ -206,7 +206,7 @@ export const smsRouter = createTRPCRouter({
     }),
 
   sendBulkSms: protectedProcedure
-    .input(z.object({ 
+    .input(z.object({
       organizationId: z.string(),
       recipients: z.array(z.object({
         phoneNumber: z.string(),
@@ -216,9 +216,9 @@ export const smsRouter = createTRPCRouter({
     .mutation(async ({ input }) => {
       const canManageSms = await hasPermissions(input.organizationId, [OrganizationPermission.MANAGE_SETTINGS]);
       if (!canManageSms) {
-        throw new TRPCError({ 
-          code: "FORBIDDEN", 
-          message: "You are not authorized to send bulk SMS" 
+        throw new TRPCError({
+          code: "FORBIDDEN",
+          message: "You are not authorized to send bulk SMS"
         });
       }
 
@@ -243,16 +243,16 @@ export const smsRouter = createTRPCRouter({
     }),
 
   getDeliveryStatus: protectedProcedure
-    .input(z.object({ 
+    .input(z.object({
       organizationId: z.string(),
       messageId: z.string()
     }))
     .query(async ({ input }) => {
       const canViewSms = await hasPermissions(input.organizationId, [OrganizationPermission.VIEW_ORGANIZATION_DETAILS]);
       if (!canViewSms) {
-        throw new TRPCError({ 
-          code: "FORBIDDEN", 
-          message: "You are not authorized to view SMS delivery status" 
+        throw new TRPCError({
+          code: "FORBIDDEN",
+          message: "You are not authorized to view SMS delivery status"
         });
       }
 
@@ -262,9 +262,9 @@ export const smsRouter = createTRPCRouter({
       );
 
       if (!result.success) {
-        throw new TRPCError({ 
-          code: "INTERNAL_SERVER_ERROR", 
-          message: result.message 
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message: result.message
         });
       }
 
@@ -276,15 +276,15 @@ export const smsRouter = createTRPCRouter({
     }),
 
   getAccountBalance: protectedProcedure
-    .input(z.object({ 
+    .input(z.object({
       organizationId: z.string()
     }))
     .query(async ({ input }) => {
       const canViewSms = await hasPermissions(input.organizationId, [OrganizationPermission.VIEW_ORGANIZATION_DETAILS]);
       if (!canViewSms) {
-        throw new TRPCError({ 
-          code: "FORBIDDEN", 
-          message: "You are not authorized to view SMS account balance" 
+        throw new TRPCError({
+          code: "FORBIDDEN",
+          message: "You are not authorized to view SMS account balance"
         });
       }
 
@@ -293,9 +293,9 @@ export const smsRouter = createTRPCRouter({
       );
 
       if (!result.success) {
-        throw new TRPCError({ 
-          code: "INTERNAL_SERVER_ERROR", 
-          message: result.message 
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message: result.message
         });
       }
 
@@ -313,9 +313,9 @@ export const smsRouter = createTRPCRouter({
       const { organizationId, ...templateData } = input;
       const canManageSms = await hasPermissions(organizationId, [OrganizationPermission.MANAGE_SMS_CONFIGURATION]);
       if (!canManageSms) {
-        throw new TRPCError({ 
-          code: "FORBIDDEN", 
-          message: "You are not authorized to create SMS templates" 
+        throw new TRPCError({
+          code: "FORBIDDEN",
+          message: "You are not authorized to create SMS templates"
         });
       }
 
@@ -338,9 +338,9 @@ export const smsRouter = createTRPCRouter({
     .query(async ({ input }) => {
       const canViewSms = await hasPermissions(input.organizationId, [OrganizationPermission.MANAGE_SETTINGS]);
       if (!canViewSms) {
-        throw new TRPCError({ 
-          code: "FORBIDDEN", 
-          message: "You are not authorized to view SMS templates" 
+        throw new TRPCError({
+          code: "FORBIDDEN",
+          message: "You are not authorized to view SMS templates"
         });
       }
 
@@ -358,9 +358,9 @@ export const smsRouter = createTRPCRouter({
       const { id, organizationId, ...templateData } = input;
       const canManageSms = await hasPermissions(organizationId, [OrganizationPermission.MANAGE_SMS_CONFIGURATION]);
       if (!canManageSms) {
-        throw new TRPCError({ 
-          code: "FORBIDDEN", 
-          message: "You are not authorized to update SMS templates" 
+        throw new TRPCError({
+          code: "FORBIDDEN",
+          message: "You are not authorized to update SMS templates"
         });
       }
 
@@ -381,9 +381,9 @@ export const smsRouter = createTRPCRouter({
     .mutation(async ({ input }) => {
       const canManageSms = await hasPermissions(input.organizationId, [OrganizationPermission.MANAGE_SMS_CONFIGURATION]);
       if (!canManageSms) {
-        throw new TRPCError({ 
-          code: "FORBIDDEN", 
-          message: "You are not authorized to delete SMS templates" 
+        throw new TRPCError({
+          code: "FORBIDDEN",
+          message: "You are not authorized to delete SMS templates"
         });
       }
 
@@ -402,18 +402,18 @@ export const smsRouter = createTRPCRouter({
     .mutation(async ({ input }) => {
       const canManageSms = await hasPermissions(input.organizationId, [OrganizationPermission.MANAGE_SETTINGS]);
       if (!canManageSms) {
-        throw new TRPCError({ 
-          code: "FORBIDDEN", 
-          message: "You are not authorized to send template SMS" 
+        throw new TRPCError({
+          code: "FORBIDDEN",
+          message: "You are not authorized to send template SMS"
         });
       }
 
       const result = await SmsService.sendTemplateSms(input);
 
       if (!result.success) {
-        throw new TRPCError({ 
-          code: "INTERNAL_SERVER_ERROR", 
-          message: result.message 
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message: result.message
         });
       }
 
@@ -425,7 +425,7 @@ export const smsRouter = createTRPCRouter({
     }),
 
   sendBulkTemplateSms: protectedProcedure
-    .input(z.object({ 
+    .input(z.object({
       organizationId: z.string(),
       templateName: z.string(),
       recipients: z.array(z.object({
@@ -436,9 +436,9 @@ export const smsRouter = createTRPCRouter({
     .mutation(async ({ input }) => {
       const canManageSms = await hasPermissions(input.organizationId, [OrganizationPermission.MANAGE_SETTINGS]);
       if (!canManageSms) {
-        throw new TRPCError({ 
-          code: "FORBIDDEN", 
-          message: "You are not authorized to send bulk template SMS" 
+        throw new TRPCError({
+          code: "FORBIDDEN",
+          message: "You are not authorized to send bulk template SMS"
         });
       }
 
@@ -464,7 +464,7 @@ export const smsRouter = createTRPCRouter({
     }),
 
   createDefaultTemplates: protectedProcedure
-    .input(z.object({ 
+    .input(z.object({
       organizationId: z.string(),
       organizationName: z.string(),
       supportNumber: z.string(),
@@ -472,18 +472,18 @@ export const smsRouter = createTRPCRouter({
     .mutation(async ({ input }) => {
       const canManageSms = await hasPermissions(input.organizationId, [OrganizationPermission.MANAGE_SMS_CONFIGURATION]);
       if (!canManageSms) {
-        throw new TRPCError({ 
-          code: "FORBIDDEN", 
-          message: "You are not authorized to create default SMS templates" 
+        throw new TRPCError({
+          code: "FORBIDDEN",
+          message: "You are not authorized to create default SMS templates"
         });
       }
 
       const result = await SmsService.createDefaultTemplates(input);
 
       if (!result.success) {
-        throw new TRPCError({ 
-          code: "INTERNAL_SERVER_ERROR", 
-          message: result.message 
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message: result.message
         });
       }
 
@@ -495,7 +495,7 @@ export const smsRouter = createTRPCRouter({
     }),
 
   sendWelcomeMessage: protectedProcedure
-    .input(z.object({ 
+    .input(z.object({
       organizationId: z.string(),
       phoneNumber: z.string(),
       customerName: z.string(),
@@ -507,9 +507,9 @@ export const smsRouter = createTRPCRouter({
     .mutation(async ({ input }) => {
       const canManageSms = await hasPermissions(input.organizationId, [OrganizationPermission.MANAGE_SETTINGS]);
       if (!canManageSms) {
-        throw new TRPCError({ 
-          code: "FORBIDDEN", 
-          message: "You are not authorized to send welcome messages" 
+        throw new TRPCError({
+          code: "FORBIDDEN",
+          message: "You are not authorized to send welcome messages"
         });
       }
 
@@ -524,9 +524,9 @@ export const smsRouter = createTRPCRouter({
       );
 
       if (!result.success) {
-        throw new TRPCError({ 
-          code: "INTERNAL_SERVER_ERROR", 
-          message: result.message 
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message: result.message
         });
       }
 
@@ -538,7 +538,7 @@ export const smsRouter = createTRPCRouter({
     }),
 
   sendExpiryReminder: protectedProcedure
-    .input(z.object({ 
+    .input(z.object({
       organizationId: z.string(),
       phoneNumber: z.string(),
       customerName: z.string(),
@@ -549,9 +549,9 @@ export const smsRouter = createTRPCRouter({
     .mutation(async ({ input }) => {
       const canManageSms = await hasPermissions(input.organizationId, [OrganizationPermission.MANAGE_SETTINGS]);
       if (!canManageSms) {
-        throw new TRPCError({ 
-          code: "FORBIDDEN", 
-          message: "You are not authorized to send expiry reminders" 
+        throw new TRPCError({
+          code: "FORBIDDEN",
+          message: "You are not authorized to send expiry reminders"
         });
       }
 
@@ -565,15 +565,58 @@ export const smsRouter = createTRPCRouter({
       );
 
       if (!result.success) {
-        throw new TRPCError({ 
-          code: "INTERNAL_SERVER_ERROR", 
-          message: result.message 
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message: result.message
         });
       }
 
       return {
         success: true,
         message: "Expiry reminder sent successfully",
+        response: result.response,
+      };
+    }),
+
+  sendPaymentLink: protectedProcedure
+    .input(z.object({
+      organizationId: z.string(),
+      phoneNumber: z.string(),
+      customerName: z.string(),
+      amount: z.string(),
+      packageName: z.string(),
+      paymentLink: z.string().url(),
+      organizationName: z.string(),
+    }))
+    .mutation(async ({ input }) => {
+      const canManageSms = await hasPermissions(input.organizationId, [OrganizationPermission.MANAGE_SETTINGS]);
+      if (!canManageSms) {
+        throw new TRPCError({
+          code: "FORBIDDEN",
+          message: "You are not authorized to send payment links"
+        });
+      }
+
+      const result = await SmsService.sendPaymentLink(
+        input.organizationId,
+        input.phoneNumber,
+        input.customerName,
+        input.amount,
+        input.packageName,
+        input.paymentLink,
+        input.organizationName,
+      );
+
+      if (!result.success) {
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message: result.message
+        });
+      }
+
+      return {
+        success: true,
+        message: "Payment link SMS sent successfully",
         response: result.response,
       };
     }),

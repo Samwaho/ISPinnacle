@@ -859,6 +859,32 @@ export class SmsService {
   }
 
   /**
+   * Send payment link to customer
+   */
+  static async sendPaymentLink(
+    organizationId: string,
+    phoneNumber: string,
+    customerName: string,
+    amount: string,
+    packageName: string,
+    paymentLink: string,
+    organizationName: string
+  ): Promise<SmsResponse> {
+    return await this.sendTemplateSms({
+      organizationId,
+      templateName: "payment_link",
+      phoneNumber,
+      variables: {
+        customerName,
+        amount,
+        packageName,
+        paymentLink,
+        organizationName,
+      },
+    });
+  }
+
+  /**
    * Send service suspension notice
    */
   static async sendServiceSuspension(

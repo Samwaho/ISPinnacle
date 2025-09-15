@@ -320,6 +320,8 @@ export const SmsTemplate: React.FC<SmsTemplateProps> = ({ organizationId }) => {
         return <Clock className="h-4 w-4" />;
       case "payment_confirmation":
         return <CheckCircle className="h-4 w-4" />;
+      case "payment_link":
+        return <FileText className="h-4 w-4" />;
       case "service_suspension":
         return <XCircle className="h-4 w-4" />;
       case "service_restoration":
@@ -339,6 +341,8 @@ export const SmsTemplate: React.FC<SmsTemplateProps> = ({ organizationId }) => {
         return "Remind customers about package expiration";
       case "payment_confirmation":
         return "Confirm successful payments";
+      case "payment_link":
+        return "Send customers a payment link to complete payment";
       case "service_suspension":
         return "Notify customers about service suspension";
       case "service_restoration":

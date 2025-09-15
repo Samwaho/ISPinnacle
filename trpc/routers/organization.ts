@@ -83,6 +83,7 @@ export const organizationRouter = createTRPCRouter({
         data,
       });
 
+      await SmsService.createDefaultTemplates({ organizationId: id, organizationName: data.name, supportNumber: data.phone });
       
       // Create detailed activity message
       const changes = [];

@@ -47,6 +47,13 @@ export const defaultSmsTemplates = [
     isDefault: true,
   },
   {
+    name: "payment_link",
+    message: "Dear {{customerName}}, please complete your payment of KES {{amount}} for {{packageName}} by clicking the link below. {{paymentLink}} - {{organizationName}}",
+    variables: ["customerName", "amount", "packageName", "paymentLink", "organizationName"],
+    isActive: true,
+    isDefault: true,
+  },
+  {
     name: "payment_confirmation",
     message: "Payment received! Amount: KES {{amount}} for {{packageName}}. Your service is active until {{expiryDate}}. Thank you! - {{organizationName}}",
     variables: ["amount", "packageName", "expiryDate", "organizationName"],

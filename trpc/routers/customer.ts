@@ -773,6 +773,7 @@ export const customerRouter = createTRPCRouter({
           organization: {
             include: {
               mpesaConfiguration: true,
+              kopokopoConfiguration: true,
             },
           },
         },
@@ -792,53 +793,99 @@ export const customerRouter = createTRPCRouter({
         });
       }
 
-      // Check if M-Pesa is configured
-      if (!paymentLink.organization.mpesaConfiguration) {
-        throw new TRPCError({
-          code: "BAD_REQUEST",
-          message: "M-Pesa is not configured for this organization",
-        });
-      }
+      // Use customer username as reference if available, otherwise use token
+      const reference =
+        paymentLink.customer.pppoeUsername ||
+        paymentLink.customer.hotspotUsername ||
+        `PAY-${paymentLink.token}`;
+
+      const gateway = paymentLink.organization.paymentGateway || "MPESA";
 
       try {
-        // Import MpesaAPI class from mpesa router
-        const { MpesaAPI } = await import("./mpesa");
+        if (gateway === "MPESA") {
+          if (!paymentLink.organization.mpesaConfiguration) {
+            throw new TRPCError({
+              code: "BAD_REQUEST",
+              message: "M-Pesa is not configured for this organization",
+            });
+          }
 
-        const mpesaAPI = new MpesaAPI({
-          consumerKey: paymentLink.organization.mpesaConfiguration.consumerKey,
-          consumerSecret:
-            paymentLink.organization.mpesaConfiguration.consumerSecret,
-          shortCode: paymentLink.organization.mpesaConfiguration.shortCode,
-          passKey: paymentLink.organization.mpesaConfiguration.passKey,
-          transactionType:
-            paymentLink.organization.mpesaConfiguration.transactionType,
+          const { MpesaAPI } = await import("./mpesa");
+          const mpesaAPI = new MpesaAPI({
+            consumerKey: paymentLink.organization.mpesaConfiguration.consumerKey,
+            consumerSecret: paymentLink.organization.mpesaConfiguration.consumerSecret,
+            shortCode: paymentLink.organization.mpesaConfiguration.shortCode,
+            passKey: paymentLink.organization.mpesaConfiguration.passKey,
+            transactionType: paymentLink.organization.mpesaConfiguration.transactionType,
+          });
+
+          const result = await mpesaAPI.initiateSTKPush(
+            input.phoneNumber,
+            paymentLink.amount,
+            reference,
+            paymentLink.description
+          );
+
+          await prisma.mpesaPaymentLink.update({
+            where: { id: paymentLink.id },
+            data: {
+              isUsed: true,
+              checkoutRequestId: result.CheckoutRequestID,
+              merchantRequestId: result.MerchantRequestID,
+            },
+          });
+
+          return {
+            success: true,
+            message: "Payment initiated successfully",
+            checkoutRequestId: result.CheckoutRequestID,
+            merchantRequestId: result.MerchantRequestID,
+          };
+        }
+
+        if (gateway === "KOPOKOPO") {
+          if (!paymentLink.organization.kopokopoConfiguration) {
+            throw new TRPCError({
+              code: "BAD_REQUEST",
+              message: "Kopo Kopo is not configured for this organization",
+            });
+          }
+
+          const { KopoKopoAPI } = await import("./kopokopo");
+          const k2 = new KopoKopoAPI({
+            clientId: paymentLink.organization.kopokopoConfiguration.clientId,
+            clientSecret: paymentLink.organization.kopokopoConfiguration.clientSecret,
+            apiKey: paymentLink.organization.kopokopoConfiguration.apiKey,
+            tillNumber: paymentLink.organization.kopokopoConfiguration.tillNumber,
+          });
+
+          const result = await k2.initiateIncomingPayment({
+            phoneNumber: input.phoneNumber,
+            amount: paymentLink.amount,
+            reference,
+            description: paymentLink.description,
+          });
+
+          await prisma.mpesaPaymentLink.update({
+            where: { id: paymentLink.id },
+            data: {
+              isUsed: true,
+              checkoutRequestId: null,
+              merchantRequestId: result.location || null,
+            },
+          });
+
+          return {
+            success: true,
+            message: "Payment initiated successfully",
+            location: result.location,
+          };
+        }
+
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: "Unsupported or undefined payment gateway",
         });
-
-        // Use customer username as reference if available, otherwise use token
-        const reference =
-          paymentLink.customer.pppoeUsername ||
-          paymentLink.customer.hotspotUsername ||
-          `PAY-${paymentLink.token}`;
-
-        const result = await mpesaAPI.initiateSTKPush(
-          input.phoneNumber,
-          paymentLink.amount,
-          reference,
-          paymentLink.description
-        );
-
-        
-        await prisma.mpesaPaymentLink.update({
-          where: { id: paymentLink.id },
-          data: { isUsed: true, checkoutRequestId: result.CheckoutRequestID, merchantRequestId: result.MerchantRequestID },
-        });
-
-        return {
-          success: true,
-          message: "Payment initiated successfully",
-          checkoutRequestId: result.CheckoutRequestID,
-          merchantRequestId: result.MerchantRequestID,
-        };
       } catch (error) {
         throw new TRPCError({
           code: "INTERNAL_SERVER_ERROR",

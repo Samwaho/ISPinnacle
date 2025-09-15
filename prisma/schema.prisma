@@ -45,6 +45,7 @@ enum OrganizationInvitationStatus {
 
 enum PaymentGateway {
   MPESA
+  KOPOKOPO
 }
 
 enum OrganizationCustomerStatus {
@@ -94,7 +95,7 @@ model User {
   emailVerified DateTime?
   image         String?
   accounts      Account[]
-  role          Role            @default(USER) 
+  role          Role            @default(USER)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
   isTwoFactorEnabled Boolean @default(false)
@@ -116,12 +117,12 @@ model Account {
   scope             String?
   id_token          String?
   session_state     String?
- 
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
- 
+
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
- 
+
   @@id([provider, providerAccountId])
 }
 
@@ -184,6 +185,7 @@ model Organization {
   mpesaConfiguration MpesaConfiguration?
   mpesaTransactions MpesaTransaction[]
   mpesaPaymentLinks MpesaPaymentLink[]
+  kopokopoConfiguration KopokopoConfiguration?
   smsConfiguration SMSConfiguration?
   smsTemplates SMSTemplate[]
   createdAt DateTime @default(now())
@@ -415,6 +417,21 @@ model MpesaPaymentLink {
   @@index([customerId])
   @@index([checkoutRequestId])
   @@index([merchantRequestId])
+}
+
+model KopokopoConfiguration {
+  id              String        @id @default(cuid())
+  organizationId  String
+  organization    Organization  @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  clientId        String
+  clientSecret    String
+  apiKey          String
+  tillNumber      String
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+
+  @@unique([organizationId])
+  @@index([organizationId])
 }
 
 model SMSConfiguration {

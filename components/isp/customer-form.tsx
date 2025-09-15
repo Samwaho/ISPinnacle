@@ -128,8 +128,6 @@ export const CustomerForm = ({ mode = "create" }: CustomerFormProps) => {
       expiryDate: undefined,
       pppoeUsername: "",
       pppoePassword: "",
-      hotspotUsername: "",
-      hotspotPassword: "",
       status: "ACTIVE" as const,
       stationId: "none",
       packageId: "none",
@@ -149,8 +147,6 @@ export const CustomerForm = ({ mode = "create" }: CustomerFormProps) => {
         expiryDate: customerData.expiryDate || undefined,
         pppoeUsername: customerData.pppoeUsername || "",
         pppoePassword: customerData.pppoePassword || "",
-        hotspotUsername: customerData.hotspotUsername || "",
-        hotspotPassword: customerData.hotspotPassword || "",
         status: customerData.status,
         stationId: customerData.stationId || "none",
         packageId: customerData.packageId || "none",
@@ -369,7 +365,7 @@ export const CustomerForm = ({ mode = "create" }: CustomerFormProps) => {
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel>Station (Optional)</FormLabel>
-                    <Select onValueChange={field.onChange} value={field.value}>
+                    <Select key={`station-${stations?.length ?? 0}-${field.value ?? 'none'}`} onValueChange={(v) => field.onChange(v)} value={field.value ?? 'none'}>
                       <FormControl>
                         <SelectTrigger>
                           <SelectValue placeholder="Select a station" />
@@ -395,7 +391,7 @@ export const CustomerForm = ({ mode = "create" }: CustomerFormProps) => {
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel>Package (Optional)</FormLabel>
-                    <Select onValueChange={field.onChange} value={field.value}>
+                    <Select key={`package-${packages?.length ?? 0}-${field.value ?? 'none'}`} onValueChange={(v) => field.onChange(v)} value={field.value ?? 'none'}>
                       <FormControl>
                         <SelectTrigger>
                           <SelectValue placeholder="Select a package" />
@@ -430,8 +426,8 @@ export const CustomerForm = ({ mode = "create" }: CustomerFormProps) => {
               <Wifi className="h-5 w-5" />
               Service Credentials (Optional)
             </h3>
-            
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+
+            <div className="grid grid-cols-1 gap-6">
               <div className="space-y-4">
                 <h4 className="text-md font-medium flex items-center gap-2">
                   <Wifi className="h-4 w-4" />
@@ -467,40 +463,6 @@ export const CustomerForm = ({ mode = "create" }: CustomerFormProps) => {
                 />
               </div>
               
-              <div className="space-y-4">
-                <h4 className="text-md font-medium flex items-center gap-2">
-                  <Globe className="h-4 w-4" />
-                  Hotspot Credentials
-                </h4>
-                
-                <FormField
-                  control={form.control}
-                  name="hotspotUsername"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Hotspot Username</FormLabel>
-                      <FormControl>
-                        <Input {...field} placeholder="Enter hotspot username" />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                
-                <FormField
-                  control={form.control}
-                  name="hotspotPassword"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Hotspot Password</FormLabel>
-                      <FormControl>
-                        <Input {...field} type="password" placeholder="Enter hotspot password" />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-              </div>
             </div>
           </div>
 

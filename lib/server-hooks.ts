@@ -87,7 +87,7 @@ export const processCustomerPayment = async (
 ) => {
   try {
     console.log("Processing payment for customer:", username, "Amount:", amount);
-    
+
     const customer = await prisma.organizationCustomer.findFirst({
       where: {
         pppoeUsername: username,
@@ -181,7 +181,7 @@ export const processCustomerPayment = async (
     customer.package.name,
     newExpiry.toDateString(),
     customer.organization.name
-  );      
+  );
 
     return updatedCustomer;
   } catch (error) {
@@ -204,7 +204,7 @@ export const storeMpesaTransaction = async (
 ) => {
   try {
     console.log("Looking for organization with shortCode:", shortCode);
-    
+
     // First find the M-Pesa configuration
     const mpesaConfig = await prisma.mpesaConfiguration.findFirst({
       where: {
@@ -254,3 +254,60 @@ export const storeMpesaTransaction = async (
     throw error;
   }
 };
+
+// Store a Kopo Kopo buygoods transaction by resolving organization from K2 till number
+export const storeKopoKopoTransaction = async (
+  transactionId: string,
+  amount: number,
+  transactionDateTime: Date,
+  tillNumber: string,
+  name: string,
+  phoneNumber: string,
+  billReferenceNumber: string,
+  invoiceNumber: string,
+  orgAccountBalance: number = 0
+) => {
+  try {
+    console.log("Looking for organization with Kopo Kopo tillNumber:", tillNumber);
+
+    const k2Config = await prisma.kopokopoConfiguration.findFirst({
+      where: { tillNumber },
+    });
+
+    if (!k2Config) {
+      console.error("Kopo Kopo configuration not found for tillNumber:", tillNumber);
+      throw new Error(`Kopo Kopo configuration not found for tillNumber: ${tillNumber}`);
+    }
+
+    const organization = await prisma.organization.findUnique({
+      where: { id: k2Config.organizationId },
+    });
+
+    if (!organization) {
+      console.error("Organization not found for organizationId:", k2Config.organizationId);
+      throw new Error(`Organization not found for organizationId: ${k2Config.organizationId}`);
+    }
+
+    const newTransaction = await prisma.mpesaTransaction.create({
+      data: {
+        organizationId: organization.id,
+        transactionId,
+        amount,
+        transactionType: MpesaTransactionType.BUYGOODS,
+        transactionDateTime,
+        name,
+        phoneNumber,
+        billReferenceNumber,
+        invoiceNumber,
+        orgAccountBalance,
+      },
+    });
+
+    console.log("Kopo Kopo transaction stored in MpesaTransaction:", newTransaction.id);
+    return newTransaction;
+  } catch (error) {
+    console.error("Error in storeKopoKopoTransaction:", error);
+    throw error;
+  }
+};
+

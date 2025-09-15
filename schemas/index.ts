@@ -209,7 +209,17 @@ export const mpesaConfigurationSchema = z.object({
     passKey: z.string().min(1, "Pass key is required"),
     transactionType: z.enum(["PAYBILL", "BUYGOODS"]).default("PAYBILL"),
   });
-  
+
+// Kopo Kopo configuration
+export const kopokopoConfigurationSchema = z.object({
+  organizationId: z.string(),
+  clientId: z.string().min(1, "Client ID is required"),
+  clientSecret: z.string().min(1, "Client Secret is required"),
+  apiKey: z.string().min(1, "API Key is required"),
+  tillNumber: z.string().min(1, "Till number is required"),
+});
+
+
   export const stkPushSchema = z.object({
     organizationId: z.string(),
     phoneNumber: z.string().regex(/^254\d{9}$/, "Phone number must be in format 254XXXXXXXXX"),
@@ -217,17 +227,17 @@ export const mpesaConfigurationSchema = z.object({
     reference: z.string().min(1, "Reference is required"),
     description: z.string().optional(),
   });
-  
+
   export const paymentStatusSchema = z.object({
     organizationId: z.string(),
     checkoutRequestId: z.string().min(1, "Checkout request ID is required"),
   });
-  
+
   export const c2bRegisterSchema = z.object({
     organizationId: z.string(),
     shortCode: z.string().optional(), // Use organization's short code if not provided
   });
-  
+
   export const c2bSimulateSchema = z.object({
     organizationId: z.string(),
     phoneNumber: z.string().regex(/^254\d{9}$/, "Phone number must be in format 254XXXXXXXXX"),
@@ -239,7 +249,7 @@ export const mpesaConfigurationSchema = z.object({
 // Payment Gateway Configuration Schemas
 export const paymentGatewaySelectionSchema = z.object({
     organizationId: z.string().min(1, "Organization ID is required"),
-    paymentGateway: z.enum(["MPESA"]),
+    paymentGateway: z.enum(["MPESA", "KOPOKOPO"]),
 });
 
 export const getPaymentGatewayConfigurationSchema = z.object({

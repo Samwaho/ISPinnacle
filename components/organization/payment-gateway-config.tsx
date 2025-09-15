@@ -17,6 +17,7 @@ import { CreditCard, Settings, CheckCircle, AlertCircle, Globe, Edit } from "luc
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { PaymentGatewayEditForm } from "./payment-gateway-edit-form";
+import { KopokopoEditForm } from "./kopokopo-edit-form";
 
 const mpesaConfigSchema = z.object({
   consumerKey: z.string().min(1, "Consumer key is required"),
@@ -35,11 +36,16 @@ interface PaymentGatewayConfigProps {
 export const PaymentGatewayConfig = ({ organizationId }: PaymentGatewayConfigProps) => {
   const t = useTRPC();
   const queryClient = useQueryClient();
-  const [isEditing, setIsEditing] = useState(false);
+  const [editingGateway, setEditingGateway] = useState<"MPESA" | "KOPOKOPO" | null>(null);
 
   const { data: mpesaConfig, isLoading } = useQuery(
     t.mpesa.getMpesaConfiguration.queryOptions({ organizationId })
   );
+
+  const { data: kopoConfig } = useQuery(
+    t.kopokopo.getKopokopoConfiguration.queryOptions({ organizationId })
+  );
+
 
   const { data: organization } = useQuery(
     t.organization.getOrganizationById.queryOptions({ id: organizationId })
@@ -92,7 +98,7 @@ export const PaymentGatewayConfig = ({ organizationId }: PaymentGatewayConfigPro
     );
   }
 
-  if (isEditing) {
+  if (editingGateway === "MPESA") {
     return (
       <PaymentGatewayEditForm
         organizationId={organizationId}
@@ -105,24 +111,54 @@ export const PaymentGatewayConfig = ({ organizationId }: PaymentGatewayConfigPro
           transactionType: "PAYBILL",
           updatedAt: new Date(),
         }}
-        onCancel={() => setIsEditing(false)}
+        onCancel={() => setEditingGateway(null)}
       />
     );
   }
+
+  if (editingGateway === "KOPOKOPO") {
+    return (
+      <KopokopoEditForm
+        organizationId={organizationId}
+        configuration={kopoConfig?.configuration || {
+          id: "",
+          clientId: "",
+          clientSecret: "",
+          apiKey: "",
+          tillNumber: "",
+          updatedAt: new Date(),
+        }}
+        onCancel={() => setEditingGateway(null)}
+      />
+    );
+  }
+
+  const selectedGateway = organization?.paymentGateway;
 
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-center">
         <h3 className="text-lg font-bold">Payment Gateway Configuration</h3>
-        {mpesaConfig?.configuration && (
+        {selectedGateway === "MPESA" && mpesaConfig?.configuration && (
           <Button
             variant="outline"
             size="sm"
-            onClick={() => setIsEditing(true)}
+            onClick={() => setEditingGateway("MPESA")}
             className="flex items-center gap-2"
           >
             <Edit className="h-4 w-4" />
-            Edit Configuration
+            Edit M-Pesa Configuration
+          </Button>
+        )}
+        {selectedGateway === "KOPOKOPO" && kopoConfig?.configuration && (
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setEditingGateway("KOPOKOPO")}
+            className="flex items-center gap-2"
+          >
+            <Edit className="h-4 w-4" />
+            Edit Kopo Kopo Configuration
           </Button>
         )}
       </div>
@@ -146,16 +182,16 @@ export const PaymentGatewayConfig = ({ organizationId }: PaymentGatewayConfigPro
                   <CreditCard className="h-4 w-4 text-green-600" />
                   <span className="font-medium">M-Pesa</span>
                 </div>
-                <Badge variant="secondary">Active</Badge>
+                <Badge variant="secondary">{selectedGateway === "MPESA" ? "Active" : "Available"}</Badge>
               </div>
               <div className="text-sm text-muted-foreground">
                 Mobile money payments via Safaricom
               </div>
             </div>
-            
+
             <div className="flex items-center gap-2">
               <Switch
-                checked={organization?.paymentGateway === "MPESA"}
+                checked={selectedGateway === "MPESA"}
                 onCheckedChange={(checked) => {
                   if (checked) {
                     updatePaymentGatewayMutation.mutate({
@@ -170,84 +206,170 @@ export const PaymentGatewayConfig = ({ organizationId }: PaymentGatewayConfigPro
                 {updatePaymentGatewayMutation.isPending ? "Updating..." : "Enable M-Pesa"}
               </Label>
             </div>
+
+            {/* Kopo Kopo Gateway Toggle */}
+            <div className="flex items-center justify-between pt-4">
+              <div className="flex items-center gap-3">
+                <div className="flex items-center gap-2">
+                  <CreditCard className="h-4 w-4 text-indigo-600" />
+                  <span className="font-medium">Kopo Kopo</span>
+                </div>
+                <Badge variant="secondary">{selectedGateway === "KOPOKOPO" ? "Active" : "Available"}</Badge>
+              </div>
+              <div className="text-sm text-muted-foreground">
+                Payments via Kopo Kopo (M-Pesa STK via K2)
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2">
+              <Switch
+                checked={selectedGateway === "KOPOKOPO"}
+                onCheckedChange={(checked) => {
+                  if (checked) {
+                    updatePaymentGatewayMutation.mutate({
+                      organizationId,
+                      paymentGateway: "KOPOKOPO",
+                    });
+                  }
+                }}
+                disabled={updatePaymentGatewayMutation.isPending}
+              />
+              <Label className="text-sm">
+                {updatePaymentGatewayMutation.isPending ? "Updating..." : "Enable Kopo Kopo"}
+              </Label>
+            </div>
+
           </CardContent>
         </Card>
 
-        {/* Configuration Status Card */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Settings className="h-5 w-5" />
-              Configuration Status
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            {mpesaConfig?.configuration ? (
-              <>
-                <div className="flex items-center gap-2 text-green-600">
-                  <CheckCircle className="h-4 w-4" />
-                  <span className="font-medium">Active</span>
-                </div>
-                
-                <div className="space-y-3">
-                  <div>
-                    <p className="text-sm font-medium text-muted-foreground">Short Code</p>
-                    <p className="text-sm">{mpesaConfig.configuration.shortCode}</p>
+        {/* M-Pesa Configuration Status Card (only if MPESA selected) */}
+        {selectedGateway === "MPESA" && (
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Settings className="h-5 w-5" />
+                Configuration Status
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {mpesaConfig?.configuration ? (
+                <>
+                  <div className="flex items-center gap-2 text-green-600">
+                    <CheckCircle className="h-4 w-4" />
+                    <span className="font-medium">Active</span>
                   </div>
-                  <div>
-                    <p className="text-sm font-medium text-muted-foreground">Transaction Type</p>
-                    <p className="text-sm capitalize">{mpesaConfig.configuration.transactionType.toLowerCase()}</p>
-                  </div>
-                  <div>
-                    <p className="text-sm font-medium text-muted-foreground">Last Updated</p>
-                    <p className="text-sm">{new Date(mpesaConfig.configuration.updatedAt).toLocaleDateString()}</p>
-                  </div>
-                </div>
 
-                <Separator />
+                  <div className="space-y-3">
+                    <div>
+                      <p className="text-sm font-medium text-muted-foreground">Short Code</p>
+                      <p className="text-sm">{mpesaConfig.configuration.shortCode}</p>
+                    </div>
+                    <div>
+                      <p className="text-sm font-medium text-muted-foreground">Transaction Type</p>
+                      <p className="text-sm capitalize">{mpesaConfig.configuration.transactionType.toLowerCase()}</p>
+                    </div>
+                    <div>
+                      <p className="text-sm font-medium text-muted-foreground">Last Updated</p>
+                      <p className="text-sm">{new Date(mpesaConfig.configuration.updatedAt).toLocaleDateString()}</p>
+                    </div>
+                  </div>
 
-                {mpesaConfig.configuration.transactionType === "PAYBILL" && (
-                  <Button 
-                    onClick={handleRegisterC2BUrls}
-                    disabled={registerC2BUrlsMutation.isPending}
-                    variant="outline"
+                  <Separator />
+
+                  {mpesaConfig.configuration.transactionType === "PAYBILL" && (
+                    <Button
+                      onClick={handleRegisterC2BUrls}
+                      disabled={registerC2BUrlsMutation.isPending}
+                      variant="outline"
+                      size="sm"
+                      className="flex items-center gap-2 w-full"
+                    >
+                      {registerC2BUrlsMutation.isPending ? (
+                        <div className="h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent" />
+                      ) : (
+                        <Globe className="h-4 w-4" />
+                      )}
+                      Register C2B URLs
+                    </Button>
+                  )}
+                </>
+              ) : (
+                <>
+                  <div className="flex items-center gap-2 text-amber-600">
+                    <AlertCircle className="h-4 w-4" />
+                    <span className="font-medium">Not Configured</span>
+                  </div>
+                  <p className="text-sm text-muted-foreground">
+                    M-Pesa is selected but not yet configured. Please configure your API credentials.
+                  </p>
+                  <Button
+                    onClick={() => setEditingGateway("MPESA")}
                     size="sm"
                     className="flex items-center gap-2 w-full"
                   >
-                    {registerC2BUrlsMutation.isPending ? (
-                      <div className="h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent" />
-                    ) : (
-                      <Globe className="h-4 w-4" />
-                    )}
-                    Register C2B URLs
+                    <Settings className="h-4 w-4" />
+                    Configure M-Pesa
                   </Button>
-                )}
-              </>
-            ) : (
-              <>
-                <div className="flex items-center gap-2 text-amber-600">
-                  <AlertCircle className="h-4 w-4" />
-                  <span className="font-medium">Not Configured</span>
-                </div>
-                <p className="text-sm text-muted-foreground">
-                  M-Pesa is selected but not yet configured. Please configure your API credentials.
-                </p>
-                <Button 
-                  onClick={() => setIsEditing(true)}
-                  size="sm"
-                  className="flex items-center gap-2 w-full"
-                >
-                  <Settings className="h-4 w-4" />
-                  Configure M-Pesa
-                </Button>
-              </>
-            )}
-          </CardContent>
-        </Card>
+                </>
+              )}
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Kopo Kopo Configuration Status Card (only if KOPOKOPO selected) */}
+        {selectedGateway === "KOPOKOPO" && (
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Settings className="h-5 w-5" />
+                Kopo Kopo Status
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {kopoConfig?.configuration ? (
+                <>
+                  <div className="flex items-center gap-2 text-green-600">
+                    <CheckCircle className="h-4 w-4" />
+                    <span className="font-medium">Active</span>
+                  </div>
+                  <div className="space-y-3">
+                    <div>
+                      <p className="text-sm font-medium text-muted-foreground">Till Number</p>
+                      <p className="text-sm">{kopoConfig.configuration.tillNumber}</p>
+                    </div>
+                    <div>
+                      <p className="text-sm font-medium text-muted-foreground">Last Updated</p>
+                      <p className="text-sm">{new Date(kopoConfig.configuration.updatedAt).toLocaleDateString()}</p>
+                    </div>
+                  </div>
+                </>
+              ) : (
+                <>
+                  <div className="flex items-center gap-2 text-amber-600">
+                    <AlertCircle className="h-4 w-4" />
+                    <span className="font-medium">Not Configured</span>
+                  </div>
+                  <p className="text-sm text-muted-foreground">
+                    Kopo Kopo is selected but not yet configured. Please configure your API credentials.
+                  </p>
+                  <Button
+                    onClick={() => setEditingGateway("KOPOKOPO")}
+                    size="sm"
+                    className="flex items-center gap-2 w-full"
+                  >
+                    <Settings className="h-4 w-4" />
+                    Configure Kopo Kopo
+                  </Button>
+                </>
+              )}
+            </CardContent>
+          </Card>
+        )}
+
       </div>
 
-      {/* C2B URL Registration Info */}
-      {mpesaConfig?.configuration?.transactionType === "PAYBILL" && (
+      {/* C2B URL Registration Info (only if MPESA selected) */}
+      {selectedGateway === "MPESA" && mpesaConfig?.configuration?.transactionType === "PAYBILL" && (
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
@@ -265,89 +387,13 @@ export const PaymentGatewayConfig = ({ organizationId }: PaymentGatewayConfigPro
                 <span className="font-medium">Required for PayBill Transactions</span>
               </div>
               <p className="text-sm text-muted-foreground">
-                C2B (Customer-to-Business) callback URLs allow M-Pesa to notify your system when payments are received. 
+                C2B (Customer-to-Business) callback URLs allow M-Pesa to notify your system when payments are received.
                 This is required for PayBill transactions to work properly.
               </p>
-              {/* <div className="bg-muted p-3 rounded-lg">
-                <p className="text-sm font-medium mb-2">Callback URLs will be registered:</p>
-                <ul className="text-sm text-muted-foreground space-y-1">
-                  <li>• Confirmation URL: <code className="bg-background px-1 rounded">{process.env.CALLBACK_URL}/api/mpesa/c2b/confirmation</code></li>
-                  <li>• Validation URL: <code className="bg-background px-1 rounded">{process.env.CALLBACK_URL}/api/mpesa/c2b/validation</code></li>
-                </ul>
-              </div> */}
             </div>
           </CardContent>
         </Card>
       )}
-
-      {/* Configuration Guide */}
-      <Card>
-        <CardHeader>
-          <CardTitle>M-Pesa Setup Guide</CardTitle>
-          <CardDescription>
-            Follow these steps to get your M-Pesa API credentials
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="space-y-3 text-sm">
-            <div className="flex gap-3">
-              <div className="flex h-6 w-6 items-center justify-center rounded-full bg-primary text-primary-foreground text-xs font-medium">
-                1
-              </div>
-              <div>
-                <p className="font-medium">Register for M-Pesa API</p>
-                <p className="text-muted-foreground">
-                  Visit the Safaricom Developer Portal and register for M-Pesa API access
-                </p>
-              </div>
-            </div>
-            <div className="flex gap-3">
-              <div className="flex h-6 w-6 items-center justify-center rounded-full bg-primary text-primary-foreground text-xs font-medium">
-                2
-              </div>
-              <div>
-                <p className="font-medium">Get API Credentials</p>
-                <p className="text-muted-foreground">
-                  Obtain your Consumer Key, Consumer Secret, Short Code, and Pass Key
-                </p>
-              </div>
-            </div>
-            <div className="flex gap-3">
-              <div className="flex h-6 w-6 items-center justify-center rounded-full bg-primary text-primary-foreground text-xs font-medium">
-                3
-              </div>
-              <div>
-                <p className="font-medium">Configure Settings</p>
-                <p className="text-muted-foreground">
-                  Enter your credentials in the configuration form above
-                </p>
-              </div>
-            </div>
-            <div className="flex gap-3">
-              <div className="flex h-6 w-6 items-center justify-center rounded-full bg-primary text-primary-foreground text-xs font-medium">
-                4
-              </div>
-              <div>
-                <p className="font-medium">Register C2B URLs (PayBill Only)</p>
-                <p className="text-muted-foreground">
-                  If using PayBill, register callback URLs to receive payment notifications
-                </p>
-              </div>
-            </div>
-            <div className="flex gap-3">
-              <div className="flex h-6 w-6 items-center justify-center rounded-full bg-primary text-primary-foreground text-xs font-medium">
-                5
-              </div>
-              <div>
-                <p className="font-medium">Test Integration</p>
-                <p className="text-muted-foreground">
-                  Use the sandbox environment to test your integration before going live
-                </p>
-              </div>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
     </div>
   );
 };

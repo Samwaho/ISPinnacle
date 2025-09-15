@@ -5,6 +5,8 @@ import { stationsRouter } from './stations';
 import { packagesRouter } from './packages';
 import { customerRouter } from './customer';
 import { mpesaRouter } from './mpesa';
+import { kopokopoRouter } from './kopokopo';
+
 import { transactionsRouter } from './transactions';
 import { smsRouter } from './sms';
 
@@ -15,6 +17,7 @@ export const appRouter = createTRPCRouter({
   packages: packagesRouter,
   customer: customerRouter,
   mpesa: mpesaRouter,
+  kopokopo: kopokopoRouter,
   transactions: transactionsRouter,
   sms: smsRouter,
 });

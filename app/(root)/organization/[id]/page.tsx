@@ -25,6 +25,8 @@ import { DeleteConfirmationDialog } from "@/components/ui/delete-confirmation-di
 import { Skeleton } from "@/components/ui/skeleton";
 import Link from "next/link";
 import { PaymentGatewayConfig } from "@/components/organization/payment-gateway-config";
+import { SMSConfiguration } from "@/components/organization/sms-configuration";
+import { SmsTemplate } from "@/components/organization/sms-template";
 
 const OrganizationDetailPage = () => {
   const { id } = useParams();
@@ -51,7 +53,7 @@ const OrganizationDetailPage = () => {
   );
 
   // Check if any critical data is still loading
-  const isLoading = organizationLoading || permissionsLoading;
+  // const isLoading = organizationLoading || permissionsLoading;
 
   const {
     mutate: deleteRole,
@@ -73,7 +75,7 @@ const OrganizationDetailPage = () => {
 
   const {
     mutate: resendInvitation,
-    isPending: isResendingInvitation,
+    // isPending: isResendingInvitation,
   } = useMutation(
     t.organization.resendInvitation.mutationOptions({
       onSuccess: () => {
@@ -90,7 +92,7 @@ const OrganizationDetailPage = () => {
 
   const {
     mutate: cancelInvitation,
-    isPending: isCancellingInvitation,
+    // isPending: isCancellingInvitation,
   } = useMutation(
     t.organization.cancelInvitation.mutationOptions({
       onSuccess: () => {
@@ -123,17 +125,17 @@ const OrganizationDetailPage = () => {
     })
   );
 
-  const [selectedMembers, setSelectedMembers] = React.useState<
-    { name: string; email: string; role: string }[]
-  >([]);
-  const [selectedRoles, setSelectedRoles] = React.useState<
-    {
-      name: string;
-      description?: string;
-      permissions?: string[];
-      memberCount?: number;
-    }[]
-  >([]);
+  // const [selectedMembers, setSelectedMembers] = React.useState<
+  //   { name: string; email: string; role: string }[]
+  // >([]);
+  // const [selectedRoles, setSelectedRoles] = React.useState<
+  //   {
+  //     name: string;
+  //     description?: string;
+  //     permissions?: string[];
+  //     memberCount?: number;
+  //   }[]
+  // >([]);
   const [showCreateRoleForm, setShowCreateRoleForm] = React.useState(false);
   const [editingRole, setEditingRole] = React.useState<{
     id: string;
@@ -305,6 +307,8 @@ const OrganizationDetailPage = () => {
             <TabsTrigger value="activities">Activities</TabsTrigger>
             <TabsTrigger value="details">Details</TabsTrigger>
             <TabsTrigger value="payment-gateway">Payment Gateway</TabsTrigger>
+            <TabsTrigger value="sms">SMS Provider</TabsTrigger>
+            <TabsTrigger value="sms-templates">SMS Templates</TabsTrigger>
           </TabsList>
           
           <TabsContent value="members">
@@ -369,7 +373,7 @@ const OrganizationDetailPage = () => {
                       })) ?? []
                     }
                     filterPlaceholder="Search members..."
-                    onRowSelectionChange={setSelectedMembers}
+                    // onRowSelectionChange={setSelectedMembers}
                   />
                 )}
               </>
@@ -477,7 +481,7 @@ const OrganizationDetailPage = () => {
                       })) ?? []
                     }
                     filterPlaceholder="Search roles..."
-                    onRowSelectionChange={setSelectedRoles}
+                    // onRowSelectionChange={setSelectedRoles}
                   />
                 )}
               </>
@@ -541,6 +545,40 @@ const OrganizationDetailPage = () => {
           <TabsContent value="payment-gateway">
             {!permissionsLoading && userPermissions?.canManageSettings ? (
               <PaymentGatewayConfig organizationId={id as string} />
+            ) : (
+              <div className="space-y-6">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  {Array.from({ length: 4 }).map((_, i) => (
+                    <div key={i} className="space-y-2">
+                      <Skeleton className="h-4 w-24" />
+                      <Skeleton className="h-10 w-full" />
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </TabsContent>
+          
+          <TabsContent value="sms">
+            {!permissionsLoading && userPermissions?.canManageSms ? (
+              <SMSConfiguration organizationId={id as string} />
+            ) : (
+              <div className="space-y-6">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  {Array.from({ length: 4 }).map((_, i) => (
+                    <div key={i} className="space-y-2">
+                      <Skeleton className="h-4 w-24" />
+                      <Skeleton className="h-10 w-full" />
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </TabsContent>
+          
+          <TabsContent value="sms-templates">
+            {!permissionsLoading && userPermissions?.canManageSms ? (
+              <SmsTemplate organizationId={id as string} />
             ) : (
               <div className="space-y-6">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">

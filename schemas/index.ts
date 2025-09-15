@@ -262,3 +262,47 @@ export const processPaymentLinkSchema = z.object({
     token: z.string().min(1, "Token is required"),
     phoneNumber: z.string().regex(/^254\d{9}$/, "Phone number must be in format 254XXXXXXXXX"),
 });
+
+// SMS Provider Configuration Schemas
+export const smsProviderSelectionSchema = z.object({
+    organizationId: z.string().min(1, "Organization ID is required"),
+    smsProvider: z.enum(["TEXT_SMS", "ZETATEL"]),
+});
+
+export const smsConfigurationSchema = z.object({
+    organizationId: z.string().min(1, "Organization ID is required"),
+    apiKey: z.string().optional(),
+    senderId: z.string().optional(),
+    partnerId: z.string().optional(),
+    userId: z.string().optional(),
+    password: z.string().optional(),
+});
+
+// SMS Template schemas
+export const smsTemplateSchema = z.object({
+    name: z.string().min(1, "Template name is required"),
+    message: z.string().min(1, "Message is required"),
+    variables: z.array(z.string()).default([]),
+    isActive: z.boolean().default(true),
+});
+
+export const createSmsTemplateSchema = smsTemplateSchema.extend({
+    organizationId: z.string().min(1, "Organization ID is required"),
+});
+
+export const updateSmsTemplateSchema = smsTemplateSchema.extend({
+    id: z.string().min(1, "Template ID is required"),
+    organizationId: z.string().min(1, "Organization ID is required"),
+});
+
+export const deleteSmsTemplateSchema = z.object({
+    id: z.string().min(1, "Template ID is required"),
+    organizationId: z.string().min(1, "Organization ID is required"),
+});
+
+export const sendTemplateSmsSchema = z.object({
+    organizationId: z.string().min(1, "Organization ID is required"),
+    templateName: z.string().min(1, "Template name is required"),
+    phoneNumber: z.string().min(1, "Phone number is required"),
+    variables: z.record(z.string(), z.string()).default({}), // Key-value pairs for template variables
+});

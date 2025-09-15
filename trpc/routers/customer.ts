@@ -13,6 +13,7 @@ import { TRPCError } from "@trpc/server";
 import { OrganizationPermission } from "@/lib/generated/prisma";
 import { createActivity, hasPermissions } from "@/lib/server-hooks";
 import crypto from "crypto";
+import { SmsService } from "@/lib/sms";
 
 export const customerRouter = createTRPCRouter({
   getCustomers: protectedProcedure
@@ -192,8 +193,19 @@ export const customerRouter = createTRPCRouter({
         include: {
           station: true,
           package: true,
+          organization: true,
         },
       });
+
+      await SmsService.sendWelcomeMessage(  
+        input.organizationId,
+        customer.phone,
+        customer.name,
+        customer.pppoeUsername!,
+        customer.pppoePassword!,
+        customer.organization.name,
+        customer.organization.phone
+      );
 
       await createActivity(
         input.organizationId,

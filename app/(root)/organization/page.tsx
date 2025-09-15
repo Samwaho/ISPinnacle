@@ -37,7 +37,7 @@ const OrganizationPage = async () => {
               with your team.
             </p>
             <Link href="/organization/create">
-              <Button className="bg-primary hover:bg-primary/90 text-white">
+              <Button className="" variant="gradient2">
                 <Plus className="mr-2 h-4 w-4" /> Create Your First Organization
               </Button>
             </Link>

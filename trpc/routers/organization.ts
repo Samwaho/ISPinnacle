@@ -8,6 +8,7 @@ import { OrganizationPermission } from "@/lib/generated/prisma";
 import { createActivity, hasPermissions, isOrganizationOwner } from "@/lib/server-hooks";
 import { generateInvitationToken } from "@/lib/tokens";
 import { sendOrganizationInvitation } from "@/lib/mail";
+import { SmsService } from "@/lib/sms";
 
 export const organizationRouter = createTRPCRouter({
   createOrganization: protectedProcedure
@@ -55,6 +56,7 @@ export const organizationRouter = createTRPCRouter({
           roleId: ownerRole?.id,
         },
       });
+      await SmsService.createDefaultTemplates({ organizationId: organization.id, organizationName: name, supportNumber: phone });
 
       await createActivity(organization.id, ctx.session.user.id!, `Organization "${name}" created successfully with default roles and settings`);
 
@@ -81,6 +83,7 @@ export const organizationRouter = createTRPCRouter({
         data,
       });
 
+      
       // Create detailed activity message
       const changes = [];
       if (data.name && data.name !== currentOrg?.name) changes.push(`name from "${currentOrg?.name}" to "${data.name}"`);
@@ -361,6 +364,8 @@ export const organizationRouter = createTRPCRouter({
         canManageCustomers: permissions.includes(OrganizationPermission.MANAGE_CUSTOMERS),
         canViewPackages: permissions.includes(OrganizationPermission.VIEW_PACKAGES),
         canManagePackages: permissions.includes(OrganizationPermission.MANAGE_PACKAGES),
+        canViewSms: permissions.includes(OrganizationPermission.VIEW_ORGANIZATION_DETAILS),
+        canManageSms: permissions.includes(OrganizationPermission.MANAGE_SETTINGS),
         isOwner: organization?.ownerId === ctx.session.user.id,
       };
     }),

@@ -33,6 +33,8 @@ enum OrganizationPermission {
   MANAGE_EXPENSES
   VIEW_CUSTOMERS
   MANAGE_CUSTOMERS
+  VIEW_SMS_CONFIGURATION
+  MANAGE_SMS_CONFIGURATION
 }
 
 enum OrganizationInvitationStatus {
@@ -43,11 +45,6 @@ enum OrganizationInvitationStatus {
 
 enum PaymentGateway {
   MPESA
-}
-
-enum SMSGateway {
-  TEXT_SMS
-  ZETATEL
 }
 
 enum OrganizationCustomerStatus {
@@ -82,6 +79,11 @@ enum RecurringIntervalType {
   WEEKLY
   MONTHLY
   YEARLY
+}
+
+enum SMSProvider {
+  TEXT_SMS
+  ZETATEL
 }
 
 model User {
@@ -167,7 +169,7 @@ model Organization {
   description String?
   website String?
   paymentGateway PaymentGateway?
-  smsGateway SMSGateway?
+  smsProvider SMSProvider?
   ownerId String
   owner User @relation(fields: [ownerId], references: [id], onDelete: Cascade)
   members OrganizationMember[]
@@ -182,6 +184,8 @@ model Organization {
   mpesaConfiguration MpesaConfiguration?
   mpesaTransactions MpesaTransaction[]
   mpesaPaymentLinks MpesaPaymentLink[]
+  smsConfiguration SMSConfiguration?
+  smsTemplates SMSTemplate[]
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -250,7 +254,7 @@ model OrganizationCustomer {
   organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   name String
   email String?
-  phone String?
+  phone String
   address String?
   expiryDate DateTime?
   pppoeUsername String?
@@ -411,4 +415,34 @@ model MpesaPaymentLink {
   @@index([customerId])
   @@index([checkoutRequestId])
   @@index([merchantRequestId])
+}
+
+model SMSConfiguration {
+  id String @id @default(cuid())
+  organizationId String
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  apiKey String?
+  senderId String?
+  partnerId String?
+  userId String?
+  password String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  @@unique([organizationId])
+  @@index([organizationId])
+}
+
+model SMSTemplate {
+  id String @id @default(cuid())
+  organizationId String
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  name String
+  message String
+  variables String[] // Array of variable names like ["customerName", "amount", "dueDate"]
+  isActive Boolean @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([name, organizationId])
+  @@index([organizationId])
 }

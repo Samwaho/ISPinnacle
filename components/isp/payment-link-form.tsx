@@ -276,13 +276,13 @@ export const PaymentLinkForm = ({
               <Button
                 onClick={resetForm}
                 variant="outline"
-                className="flex-1"
+                className="flex-1 cursor-pointer"
               >
                 Create Another
               </Button>
               <Button
-                onClick={() => setIsOpen(false)}
-                className="flex-1"
+                onClick={() => handleOpenChange(false)}
+                className="flex-1 cursor-pointer"
               >
                 Close
               </Button>

@@ -6,6 +6,7 @@ import { packagesRouter } from './packages';
 import { customerRouter } from './customer';
 import { mpesaRouter } from './mpesa';
 import { transactionsRouter } from './transactions';
+import { smsRouter } from './sms';
 
 export const appRouter = createTRPCRouter({
   user: userRouter,
@@ -15,6 +16,7 @@ export const appRouter = createTRPCRouter({
   customer: customerRouter,
   mpesa: mpesaRouter,
   transactions: transactionsRouter,
+  sms: smsRouter,
 });
 // export type definition of API
 export type AppRouter = typeof appRouter;

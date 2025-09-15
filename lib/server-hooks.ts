@@ -7,6 +7,7 @@ import {
   OrganizationPackageDurationType,
   OrganizationPermission,
 } from "@/lib/generated/prisma";
+import { SmsService } from "./sms";
 
 export const getCurrentUser = async () => {
   const session = await auth();
@@ -93,6 +94,7 @@ export const processCustomerPayment = async (
       },
       include: {
         package: true,
+        organization: true,
       },
     });
 
@@ -171,6 +173,15 @@ export const processCustomerPayment = async (
       status: OrganizationCustomerStatus.ACTIVE,
     },
   });
+
+  await SmsService.sendPaymentConfirmation(
+    customer.organizationId,
+    customer.phone,
+    amount.toString(),
+    customer.package.name,
+    newExpiry.toDateString(),
+    customer.organization.name
+  );      
 
     return updatedCustomer;
   } catch (error) {

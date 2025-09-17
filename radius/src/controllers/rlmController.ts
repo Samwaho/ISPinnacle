@@ -1,0 +1,530 @@
+import { Request, Response } from 'express';
+import { PrismaClient } from '../generated/prisma';
+
+const prisma = new PrismaClient();
+
+export const rlmController = {
+  // Authorization endpoint
+  async authorize(req: Request, res: Response) {
+    try {
+      const { username, password, nas_ip_address, nas_port } = req.body;
+
+      // Find customer by username
+      const customer = await prisma.organizationCustomer.findFirst({
+        where: {
+          OR: [
+            { pppoeUsername: username },
+            { hotspotUsername: username }
+          ]
+        },
+        include: {
+          package: true,
+          organization: true
+        }
+      });
+
+      if (!customer) {
+        return res.json({
+          result: 'reject',
+          message: 'User not found'
+        });
+      }
+
+      // Check if customer is active and not expired
+      if (customer.status !== 'ACTIVE') {
+        return res.json({
+          result: 'reject',
+          message: 'Account inactive'
+        });
+      }
+
+      if (customer.expiryDate && new Date() > customer.expiryDate) {
+        return res.json({
+          result: 'reject',
+          message: 'Account expired'
+        });
+      }
+
+      // Determine connection type and build attributes
+      const isPPPoE = customer.pppoeUsername === username;
+      const attributes: any = {};
+
+      if (customer.package) {
+        // Speed limits in bits per second
+        const downloadSpeed = customer.package.downloadSpeed * 1000000; // Convert Mbps to bps
+        const uploadSpeed = customer.package.uploadSpeed * 1000000;
+        
+        if (isPPPoE) {
+          // PPPoE attributes
+          attributes['Framed-Protocol'] = 'PPP';
+          attributes['Framed-IP-Address'] = customer.package.addressPool || '0.0.0.0';
+          attributes['Mikrotik-Rate-Limit'] = `${uploadSpeed}/${downloadSpeed}`;
+          
+          // Burst settings if available
+          if (customer.package.burstDownloadSpeed && customer.package.burstUploadSpeed) {
+            const burstDown = customer.package.burstDownloadSpeed * 1000000;
+            const burstUp = customer.package.burstUploadSpeed * 1000000;
+            const burstThresholdDown = customer.package.burstThresholdDownload ? customer.package.burstThresholdDownload * 1000000 : downloadSpeed * 0.8;
+            const burstThresholdUp = customer.package.burstThresholdUpload ? customer.package.burstThresholdUpload * 1000000 : uploadSpeed * 0.8;
+            const burstTime = customer.package.burstDuration || 8;
+            
+            attributes['Mikrotik-Rate-Limit'] = `${uploadSpeed}/${downloadSpeed} ${burstUp}/${burstDown} ${burstThresholdUp}/${burstThresholdDown} ${burstTime}/${burstTime}`;
+          }
+          
+          // Address pool for PPPoE
+          if (customer.package.addressPool) {
+            attributes['Framed-Pool'] = customer.package.addressPool;
+          }
+        } else {
+          // Hotspot attributes
+          attributes['Mikrotik-Rate-Limit'] = `${uploadSpeed}/${downloadSpeed}`;
+          
+          // Burst settings for hotspot
+          if (customer.package.burstDownloadSpeed && customer.package.burstUploadSpeed) {
+            const burstDown = customer.package.burstDownloadSpeed * 1000000;
+            const burstUp = customer.package.burstUploadSpeed * 1000000;
+            const burstThresholdDown = customer.package.burstThresholdDownload ? customer.package.burstThresholdDownload * 1000000 : downloadSpeed * 0.8;
+            const burstThresholdUp = customer.package.burstThresholdUpload ? customer.package.burstThresholdUpload * 1000000 : uploadSpeed * 0.8;
+            const burstTime = customer.package.burstDuration || 8;
+            
+            attributes['Mikrotik-Rate-Limit'] = `${uploadSpeed}/${downloadSpeed} ${burstUp}/${burstDown} ${burstThresholdUp}/${burstThresholdDown} ${burstTime}/${burstTime}`;
+          }
+          
+          // Hotspot specific attributes
+          attributes['Mikrotik-Hotspot-Profile'] = 'default';
+        }
+
+        // Session timeout based on package duration
+        const sessionTimeout = this.calculateSessionTimeout(customer.package);
+        if (sessionTimeout > 0) {
+          attributes['Session-Timeout'] = sessionTimeout;
+        }
+
+        // Idle timeout
+        attributes['Idle-Timeout'] = 1800; // 30 minutes default
+
+        // Max device limit for hotspot
+        if (!isPPPoE && customer.package.maxDevices) {
+          attributes['Mikrotik-Hotspot-Max-Sessions'] = customer.package.maxDevices;
+        }
+      }
+
+      return res.json({
+        result: 'accept',
+        attributes
+      });
+
+    } catch (error) {
+      console.error('Authorization error:', error);
+      return res.status(500).json({
+        result: 'reject',
+        message: 'Internal server error'
+      });
+    }
+  },
+
+  // Authentication endpoint
+  async authenticate(req: Request, res: Response) {
+    try {
+      const { username, password } = req.body;
+
+      const customer = await prisma.organizationCustomer.findFirst({
+        where: {
+          OR: [
+            { 
+              pppoeUsername: username,
+              pppoePassword: password
+            },
+            {
+              hotspotUsername: username,
+              hotspotPassword: password
+            }
+          ]
+        },
+        include: {
+          package: true
+        }
+      });
+
+      if (!customer) {
+        return res.json({
+          result: 'reject',
+          message: 'Invalid credentials'
+        });
+      }
+
+      // Additional checks for active status and expiry
+      if (customer.status !== 'ACTIVE') {
+        return res.json({
+          result: 'reject',
+          message: 'Account inactive'
+        });
+      }
+
+      if (customer.expiryDate && new Date() > customer.expiryDate) {
+        return res.json({
+          result: 'reject',
+          message: 'Account expired'
+        });
+      }
+
+      return res.json({
+        result: 'accept'
+      });
+
+    } catch (error) {
+      console.error('Authentication error:', error);
+      return res.status(500).json({
+        result: 'reject',
+        message: 'Internal server error'
+      });
+    }
+  },
+
+  // Pre-accounting endpoint
+  async preAccounting(req: Request, res: Response) {
+    try {
+      const { username, nas_ip_address } = req.body;
+
+      // Verify user exists and is active
+      const customer = await prisma.organizationCustomer.findFirst({
+        where: {
+          OR: [
+            { pppoeUsername: username },
+            { hotspotUsername: username }
+          ]
+        }
+      });
+
+      if (!customer || customer.status !== 'ACTIVE') {
+        return res.json({
+          result: 'reject',
+          message: 'User not found or inactive'
+        });
+      }
+
+      return res.json({
+        result: 'accept'
+      });
+    } catch (error) {
+      console.error('Pre-accounting error:', error);
+      return res.status(500).json({
+        result: 'reject'
+      });
+    }
+  },
+
+  // Accounting endpoint
+  async accounting(req: Request, res: Response) {
+    try {
+      const { 
+        username, 
+        acct_status_type,
+        acct_session_id,
+        acct_input_octets,
+        acct_output_octets,
+        acct_input_packets,
+        acct_output_packets,
+        acct_input_gigawords,
+        acct_output_gigawords,
+        acct_session_time,
+        nas_ip_address,
+        nas_port,
+        framed_ip_address,
+        calling_station_id,
+        called_station_id,
+        acct_terminate_cause,
+        acct_authentic,
+        acct_delay_time,
+        service_type,
+        framed_protocol,
+        framed_mtu,
+        connect_info,
+        user_agent
+      } = req.body;
+
+      // Find customer
+      const customer = await prisma.organizationCustomer.findFirst({
+        where: {
+          OR: [
+            { pppoeUsername: username },
+            { hotspotUsername: username }
+          ]
+        },
+        include: {
+          package: true,
+          organization: true,
+          connection: true
+        }
+      });
+
+      if (!customer) {
+        console.log(`Accounting: User ${username} not found`);
+        return res.json({
+          result: 'accept'
+        });
+      }
+
+      // Determine connection type
+      const connectionType = customer.pppoeUsername === username ? 'PPPoE' : 'Hotspot';
+
+      // Handle different accounting status types
+      switch (acct_status_type) {
+        case 'Start':
+          console.log(`Session started for ${username} (${customer.name}): ${acct_session_id}`);
+          console.log(`IP: ${framed_ip_address}, NAS: ${nas_ip_address}`);
+          
+          // Upsert connection record (create if doesn't exist, update if exists)
+          await prisma.organizationCustomerConnection.upsert({
+            where: { customerId: customer.id },
+            create: {
+              customerId: customer.id,
+              currentSessionId: acct_session_id,
+              nasIpAddress: nas_ip_address,
+              nasPort: nas_port,
+              framedIpAddress: framed_ip_address,
+              callingStationId: calling_station_id,
+              calledStationId: called_station_id,
+              connectionType,
+              sessionStatus: 'ONLINE',
+              currentSessionStartTime: new Date(),
+              lastUpdateTime: new Date(),
+              acctAuthentic: acct_authentic,
+              serviceType: service_type,
+              framedProtocol: framed_protocol,
+              framedMtu: framed_mtu ? parseInt(framed_mtu) : null,
+              connectInfo: connect_info,
+              userAgent: user_agent,
+              currentInputOctets: BigInt(0),
+              currentOutputOctets: BigInt(0),
+              currentInputPackets: BigInt(0),
+              currentOutputPackets: BigInt(0),
+              currentInputGigawords: 0,
+              currentOutputGigawords: 0,
+              totalSessions: 1
+            },
+            update: {
+              currentSessionId: acct_session_id,
+              nasIpAddress: nas_ip_address,
+              nasPort: nas_port,
+              framedIpAddress: framed_ip_address,
+              callingStationId: calling_station_id,
+              calledStationId: called_station_id,
+              connectionType,
+              sessionStatus: 'ONLINE',
+              currentSessionStartTime: new Date(),
+              lastUpdateTime: new Date(),
+              acctAuthentic: acct_authentic,
+              serviceType: service_type,
+              framedProtocol: framed_protocol,
+              framedMtu: framed_mtu ? parseInt(framed_mtu) : null,
+              connectInfo: connect_info,
+              userAgent: user_agent,
+              currentInputOctets: BigInt(0),
+              currentOutputOctets: BigInt(0),
+              currentInputPackets: BigInt(0),
+              currentOutputPackets: BigInt(0),
+              currentInputGigawords: 0,
+              currentOutputGigawords: 0,
+              totalSessions: { increment: 1 }
+            }
+          });
+
+          // Update customer connection status to ONLINE
+          await prisma.organizationCustomer.update({
+            where: { id: customer.id },
+            data: { connectionStatus: 'ONLINE' }
+          });
+          break;
+        
+        case 'Stop':
+          console.log(`Session stopped for ${username} (${customer.name}): ${acct_session_id}`);
+          console.log(`Usage - Input: ${acct_input_octets} bytes, Output: ${acct_output_octets} bytes, Time: ${acct_session_time} seconds`);
+          
+          const inputOctets = acct_input_octets ? BigInt(acct_input_octets) : BigInt(0);
+          const outputOctets = acct_output_octets ? BigInt(acct_output_octets) : BigInt(0);
+          const inputPackets = acct_input_packets ? BigInt(acct_input_packets) : BigInt(0);
+          const outputPackets = acct_output_packets ? BigInt(acct_output_packets) : BigInt(0);
+          const sessionTime = acct_session_time ? parseInt(acct_session_time) : 0;
+          
+          // Calculate total usage
+          const totalBytes = Number(inputOctets + outputOctets);
+          const totalMB = Math.round(totalBytes / (1024 * 1024));
+          const sessionMinutes = Math.round(sessionTime / 60);
+          
+          console.log(`Total usage: ${totalMB} MB, Session duration: ${sessionMinutes} minutes`);
+          
+          // Update connection record with final session data and accumulate totals
+          if (customer.connection) {
+            await prisma.organizationCustomerConnection.update({
+              where: { customerId: customer.id },
+              data: {
+                sessionStatus: 'OFFLINE',
+                lastSessionStopTime: new Date(),
+                lastSessionDuration: sessionTime,
+                lastUpdateTime: new Date(),
+                currentSessionDuration: sessionTime,
+                currentInputOctets: inputOctets,
+                currentOutputOctets: outputOctets,
+                currentInputPackets: inputPackets,
+                currentOutputPackets: outputPackets,
+                currentInputGigawords: acct_input_gigawords ? parseInt(acct_input_gigawords) : 0,
+                currentOutputGigawords: acct_output_gigawords ? parseInt(acct_output_gigawords) : 0,
+                lastTerminateCause: acct_terminate_cause,
+                // Accumulate lifetime totals
+                totalInputOctets: { increment: inputOctets },
+                totalOutputOctets: { increment: outputOctets },
+                totalInputPackets: { increment: inputPackets },
+                totalOutputPackets: { increment: outputPackets },
+                totalSessionTime: { increment: sessionTime }
+              }
+            });
+          }
+
+          // Update customer connection status to OFFLINE
+          await prisma.organizationCustomer.update({
+            where: { id: customer.id },
+            data: { connectionStatus: 'OFFLINE' }
+          });
+          break;
+        
+        case 'Interim-Update':
+          console.log(`Interim update for ${username}: ${acct_session_id}`);
+          
+          // Update current session data
+          if (customer.connection) {
+            await prisma.organizationCustomerConnection.update({
+              where: { customerId: customer.id },
+              data: {
+                lastUpdateTime: new Date(),
+                currentSessionDuration: acct_session_time ? parseInt(acct_session_time) : null,
+                currentInputOctets: acct_input_octets ? BigInt(acct_input_octets) : BigInt(0),
+                currentOutputOctets: acct_output_octets ? BigInt(acct_output_octets) : BigInt(0),
+                currentInputPackets: acct_input_packets ? BigInt(acct_input_packets) : BigInt(0),
+                currentOutputPackets: acct_output_packets ? BigInt(acct_output_packets) : BigInt(0),
+                currentInputGigawords: acct_input_gigawords ? parseInt(acct_input_gigawords) : 0,
+                currentOutputGigawords: acct_output_gigawords ? parseInt(acct_output_gigawords) : 0
+              }
+            });
+          }
+          break;
+      }
+
+      return res.json({
+        result: 'accept'
+      });
+
+    } catch (error) {
+      console.error('Accounting error:', error);
+      return res.status(500).json({
+        result: 'accept'
+      });
+    }
+  },
+
+  // Check simultaneous sessions
+  async checkSimultaneous(req: Request, res: Response) {
+    try {
+      const { username } = req.body;
+
+      const customer = await prisma.organizationCustomer.findFirst({
+        where: {
+          OR: [
+            { pppoeUsername: username },
+            { hotspotUsername: username }
+          ]
+        },
+        include: {
+          package: true,
+          connection: true
+        }
+      });
+
+      if (!customer) {
+        return res.json({
+          result: 'reject',
+          message: 'User not found'
+        });
+      }
+
+      // Check if customer already has an active session
+      if (customer.connection?.sessionStatus === 'ONLINE') {
+        // For PPPoE, typically only one session allowed
+        if (customer.pppoeUsername === username) {
+          return res.json({
+            result: 'reject',
+            message: 'Session already active'
+          });
+        }
+        
+        // For hotspot, check max devices
+        if (customer.hotspotUsername === username && customer.package?.maxDevices) {
+          if (customer.package.maxDevices <= 1) {
+            return res.json({
+              result: 'reject',
+              message: 'Maximum device limit reached'
+            });
+          }
+        }
+      }
+
+      return res.json({
+        result: 'accept'
+      });
+
+    } catch (error) {
+      console.error('Check simultaneous error:', error);
+      return res.status(500).json({
+        result: 'reject'
+      });
+    }
+  },
+
+  // Post-authentication endpoint
+  async postAuth(req: Request, res: Response) {
+    try {
+      const { username, reply_message } = req.body;
+
+      console.log(`Post-auth for ${username}: ${reply_message || 'Success'}`);
+
+      return res.json({
+        result: 'accept'
+      });
+
+    } catch (error) {
+      console.error('Post-auth error:', error);
+      return res.status(500).json({
+        result: 'reject'
+      });
+    }
+  },
+
+  // Helper method to calculate session timeout based on package duration
+  calculateSessionTimeout(packageData: any): number {
+    if (!packageData.duration || !packageData.durationType) {
+      return 0; // No timeout
+    }
+
+    const duration = packageData.duration;
+    
+    switch (packageData.durationType) {
+      case 'HOUR':
+        return duration * 3600; // hours to seconds
+      case 'DAY':
+        return duration * 24 * 3600; // days to seconds
+      case 'WEEK':
+        return duration * 7 * 24 * 3600; // weeks to seconds
+      case 'MONTH':
+        return duration * 30 * 24 * 3600; // months to seconds (approximate)
+      case 'YEAR':
+        return duration * 365 * 24 * 3600; // years to seconds (approximate)
+      case 'MINUTE':
+        return duration * 60; // minutes to seconds
+      default:
+        return 0;
+    }
+  }
+};
+
+
+

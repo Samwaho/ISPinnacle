@@ -1,0 +1,535 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+
+generator client {
+  provider = "prisma-client-js"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  ADMIN
+  USER
+}
+
+enum OrganizationPermission {
+  VIEW_ORGANIZATION_DETAILS
+  MANAGE_ORGANIZATION_DETAILS
+  MANAGE_MEMBERS
+  MANAGE_SETTINGS
+  MANAGE_ROLES
+  VIEW_STATIONS
+  MANAGE_STATIONS
+  VIEW_PACKAGES
+  MANAGE_PACKAGES
+  VIEW_EXPENSES
+  MANAGE_EXPENSES
+  VIEW_CUSTOMERS
+  MANAGE_CUSTOMERS
+  VIEW_SMS_CONFIGURATION
+  MANAGE_SMS_CONFIGURATION
+}
+
+enum OrganizationInvitationStatus {
+  PENDING
+  ACCEPTED
+  REJECTED
+}
+
+enum PaymentGateway {
+  MPESA
+  KOPOKOPO
+}
+
+enum OrganizationCustomerStatus {
+  ACTIVE
+  INACTIVE
+  EXPIRED
+}
+
+enum OrganizationStationType {
+  APARTMENT
+  HOUSE
+  OFFICE
+  OTHER
+}
+
+enum OrganizationPackageDurationType {
+  MONTH
+  YEAR
+  WEEK
+  DAY
+  HOUR
+  MINUTE
+}
+
+enum OrganizationPackageType {
+  PPPOE
+  HOTSPOT
+}
+
+enum RecurringIntervalType {
+  DAILY
+  WEEKLY
+  MONTHLY
+  YEARLY
+}
+
+enum SMSProvider {
+  TEXT_SMS
+  ZETATEL
+}
+
+enum ConnectionStatus {
+  ONLINE
+  OFFLINE
+  EXPIRED
+}
+model User {
+  id            String          @id @default(cuid())
+  name          String?
+  email         String          @unique
+  password      String?
+  emailVerified DateTime?
+  image         String?
+  accounts      Account[]
+  role          Role            @default(USER)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  isTwoFactorEnabled Boolean @default(false)
+  twoFactorConfirmation TwoFactorConfirmation?
+  organizations Organization[]
+  memberships OrganizationMember[]
+  activities OrganizationActivity[]
+}
+
+model Account {
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String?
+  access_token      String?
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String?
+  session_state     String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([provider, providerAccountId])
+}
+
+model VerificationToken {
+  id String @id @default(cuid())
+  email String
+  token String @unique
+  expires DateTime
+
+  @@unique([email, token])
+}
+
+model PasswordResetToken {
+  id String @id @default(cuid())
+  email String
+  token String @unique
+  expires DateTime
+
+  @@unique([email, token])
+}
+
+model TwoFactorToken {
+  id String @id @default(cuid())
+  email String
+  token String @unique
+  expires DateTime
+
+  @@unique([email, token])
+}
+
+model TwoFactorConfirmation {
+  id String @id @default(cuid())
+  userId String
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId])
+}
+
+model Organization {
+  id String @id @default(cuid())
+  name String
+  email String
+  phone String
+  logo String?
+  description String?
+  website String?
+  paymentGateway PaymentGateway?
+  smsProvider SMSProvider?
+  ownerId String
+  owner User @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  members OrganizationMember[]
+  roles OrganizationRole[]
+  invitations OrganizationInvitation[]
+  activities OrganizationActivity[]
+  customers OrganizationCustomer[]
+  stations OrganizationStation[]
+  packages OrganizationPackage[]
+  expenses OrganizationExpense[]
+  customerPayments OrganizationCustomerPayment[]
+  mpesaConfiguration MpesaConfiguration?
+  mpesaTransactions MpesaTransaction[]
+  mpesaPaymentLinks MpesaPaymentLink[]
+  kopokopoConfiguration KopokopoConfiguration?
+  smsConfiguration SMSConfiguration?
+  smsTemplates SMSTemplate[]
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([ownerId])
+  @@index([ownerId])
+}
+
+model OrganizationRole {
+  id String @id @default(cuid())
+  name String
+  description String?
+  isDefault Boolean @default(false)
+  permissions OrganizationPermission[]
+  members OrganizationMember[]
+  organizationId String
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  invitations OrganizationInvitation[]
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([name, organizationId])
+}
+
+model OrganizationMember {
+  id String @id @default(cuid())
+  organizationId String
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  userId String
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  roleId String?
+  role OrganizationRole? @relation(fields: [roleId], references: [id], onDelete: SetNull)
+
+  @@unique([organizationId, userId])
+  @@index([organizationId, userId])
+}
+
+model OrganizationInvitation {
+  id String @id @default(cuid())
+  email String
+  token String
+  organizationId String
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  roleId String
+  role OrganizationRole? @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  expires DateTime
+  status OrganizationInvitationStatus @default(PENDING)
+
+  @@unique([email, organizationId, token])
+  @@index([email, organizationId, token])
+}
+
+model OrganizationActivity {
+  id String @id @default(cuid())
+  organizationId String
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  userId String
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  activity String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model OrganizationCustomer {
+  id String @id @default(cuid())
+  organizationId String
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  name String
+  email String?
+  phone String
+  address String?
+  expiryDate DateTime?
+  pppoeUsername String?
+  pppoePassword String?
+  hotspotUsername String?
+  hotspotPassword String?
+  status OrganizationCustomerStatus @default(ACTIVE)
+  stationId String?
+  station OrganizationStation? @relation(fields: [stationId], references: [id], onDelete: SetNull)
+  packageId String?
+  package OrganizationPackage? @relation(fields: [packageId], references: [id], onDelete: SetNull)
+  payments OrganizationCustomerPayment[]
+  mpesaPaymentLinks MpesaPaymentLink[]
+  connection OrganizationCustomerConnection?
+  connectionStatus ConnectionStatus @default(OFFLINE)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([pppoeUsername, hotspotUsername])
+  @@index([organizationId])
+}
+
+model OrganizationCustomerConnection {
+  id String @id @default(cuid())
+  customerId String @unique
+  customer OrganizationCustomer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  
+  // Current session details
+  currentSessionId String?
+  nasIpAddress String?
+  nasPort String?
+  framedIpAddress String?
+  callingStationId String? // MAC address or phone number
+  calledStationId String?  // NAS identifier
+  
+  // Connection type and status
+  connectionType String? // PPPoE, Hotspot, etc.
+  sessionStatus String @default("OFFLINE") // ONLINE, OFFLINE, EXPIRED
+  
+  // Current session timing
+  currentSessionStartTime DateTime?
+  lastSessionStopTime DateTime?
+  currentSessionDuration Int? // in seconds
+  lastUpdateTime DateTime @default(now())
+  
+  // Current session usage (resets on new session)
+  currentInputOctets BigInt @default(0)
+  currentOutputOctets BigInt @default(0)
+  currentInputPackets BigInt @default(0)
+  currentOutputPackets BigInt @default(0)
+  currentInputGigawords Int @default(0)
+  currentOutputGigawords Int @default(0)
+  
+  // Lifetime totals (accumulates across all sessions)
+  totalInputOctets BigInt @default(0)
+  totalOutputOctets BigInt @default(0)
+  totalInputPackets BigInt @default(0)
+  totalOutputPackets BigInt @default(0)
+  totalSessionTime Int @default(0) // total seconds online
+  totalSessions Int @default(0) // number of sessions
+  
+  // Last session details
+  lastTerminateCause String?
+  lastSessionDuration Int?
+  
+  // Connection attributes
+  acctAuthentic String?
+  serviceType String?
+  framedProtocol String?
+  framedMtu Int?
+  connectInfo String?
+  userAgent String?
+  deviceFingerprint String?
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([customerId])
+  @@index([currentSessionId])
+  @@index([sessionStatus])
+}
+
+model OrganizationStation {
+  id String @id @default(cuid())
+  organizationId String
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  name String
+  description String?
+  location String?
+  type OrganizationStationType @default(APARTMENT)
+  customers OrganizationCustomer[]
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model OrganizationPackage {
+  id String @id @default(cuid())
+  organizationId String
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  name String
+  description String?
+  price Float
+  duration Int
+  durationType OrganizationPackageDurationType @default(MONTH)
+  type OrganizationPackageType @default(PPPOE)
+  addressPool String
+  maxDevices Int?
+  downloadSpeed Int
+  uploadSpeed Int
+  burstDownloadSpeed Int?
+  burstUploadSpeed Int?
+  burstThresholdDownload Int?
+  burstThresholdUpload Int?
+  burstDuration Int?
+  isActive Boolean @default(true)
+  customers OrganizationCustomer[]
+  payments OrganizationCustomerPayment[]
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model OrganizationExpense {
+  id String @id @default(cuid())
+  organizationId String
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  name String
+  description String?
+  amount Float
+  date DateTime
+  isRecurring Boolean @default(false)
+  recurringInterval Int?
+  recurringIntervalType RecurringIntervalType?
+  recurringStartDate DateTime?
+  recurringEndDate DateTime?
+  isPaid Boolean @default(false)
+  paidAt DateTime?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model OrganizationCustomerPayment {
+  id String @id @default(cuid())
+  organizationId String
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  customerId String
+  customer OrganizationCustomer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  packageId String?
+  package OrganizationPackage? @relation(fields: [packageId], references: [id], onDelete: SetNull)
+  amount Float
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([organizationId, customerId])
+}
+
+enum MpesaTransactionType {
+ PAYBILL
+ BUYGOODS
+}
+
+enum MpesaTransactionStatus {
+  PENDING
+  SUCCESS
+  FAILED
+}
+
+model MpesaConfiguration {
+  id String @id @default(cuid())
+  organizationId String
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  consumerKey String
+  consumerSecret String
+  shortCode String
+  passKey String
+  transactionType MpesaTransactionType @default(PAYBILL)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([organizationId])
+  @@index([organizationId])
+}
+
+model MpesaTransaction {
+  id String @id @default(cuid())
+  organizationId String
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  transactionType MpesaTransactionType
+  transactionId String
+  billReferenceNumber String?
+  phoneNumber String
+  amount Float
+  name String?
+  transactionDateTime DateTime
+  orgAccountBalance Float?
+  invoiceNumber String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([organizationId])
+}
+
+model MpesaPaymentLink {
+  id String @id @default(cuid())
+  token String @unique
+  isUsed Boolean @default(false)
+  organizationId String
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  customerId String
+  customer OrganizationCustomer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  amount Float
+  description String
+  checkoutRequestId String?
+  merchantRequestId String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([token])
+  @@index([organizationId])
+  @@index([customerId])
+  @@index([checkoutRequestId])
+  @@index([merchantRequestId])
+}
+
+model KopokopoConfiguration {
+  id              String        @id @default(cuid())
+  organizationId  String
+  organization    Organization  @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  clientId        String
+  clientSecret    String
+  apiKey          String
+  tillNumber      String
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+
+  @@unique([organizationId])
+  @@index([organizationId])
+}
+
+model SMSConfiguration {
+  id String @id @default(cuid())
+  organizationId String
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  apiKey String?
+  senderId String?
+  partnerId String?
+  userId String?
+  password String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  @@unique([organizationId])
+  @@index([organizationId])
+}
+
+model SMSTemplate {
+  id String @id @default(cuid())
+  organizationId String
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  name String
+  message String
+  variables String[] // Array of variable names like ["customerName", "amount", "dueDate"]
+  isActive Boolean @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([name, organizationId])
+  @@index([organizationId])
+}
+
+
+

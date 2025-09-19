@@ -7,9 +7,14 @@ function hmacSha256Hex(key: string, data: string) {
   return crypto.createHmac("sha256", key).update(data, "utf8").digest("hex");
 }
 
-function pick<T = any>(obj: any, path: string[]): T | undefined {
+function pick<T = unknown>(obj: unknown, path: string[]): T | undefined {
   try {
-    return path.reduce((acc: any, k: string) => (acc && acc[k] !== undefined ? acc[k] : undefined), obj);
+    return path.reduce((acc: unknown, k: string) => {
+      if (acc && typeof acc === 'object' && acc !== null && k in acc) {
+        return (acc as Record<string, unknown>)[k];
+      }
+      return undefined;
+    }, obj) as T | undefined;
   } catch {
     return undefined;
   }
@@ -61,10 +66,10 @@ export async function POST(request: NextRequest) {
 
     // Normalized accessors
     const resource =
-      pick<any>(body, ["event", "resource"]) ||
-      pick<any>(body, ["data", "attributes", "event", "resource"]) ||
-      pick<any>(body, ["data", "attributes", "resource"]) ||
-      pick<any>(body, ["data", "attributes"]) ||
+      pick<Record<string, unknown>>(body, ["event", "resource"]) ||
+      pick<Record<string, unknown>>(body, ["data", "attributes", "event", "resource"]) ||
+      pick<Record<string, unknown>>(body, ["data", "attributes", "resource"]) ||
+      pick<Record<string, unknown>>(body, ["data", "attributes"]) ||
       {};
 
     const topic: string | undefined = body?.topic || body?.data?.type || undefined;
@@ -73,26 +78,26 @@ export async function POST(request: NextRequest) {
     const amount = typeof amountStr === "string" ? parseFloat(amountStr) : Number(amountStr);
 
     const phone: string =
-      resource?.sender_phone_number ||
-      resource?.msisdn ||
-      resource?.customer?.phone_number ||
+      (resource?.sender_phone_number as string) ||
+      (resource?.msisdn as string) ||
+      ((resource?.customer as Record<string, unknown>)?.phone_number as string) ||
       "";
 
-    const transactionId: string = (resource?.reference || body?.data?.attributes?.reference || resource?.id || body?.id || body?.data?.id || "");
+    const transactionId: string = (resource?.reference as string) || (body?.data?.attributes?.reference as string) || (resource?.id as string) || (body?.id as string) || (body?.data?.id as string) || "";
 
     // metadata reference we set during initiation
     const metadataRef: string | undefined =
-      resource?.metadata?.reference ||
-      body?.metadata?.reference ||
-      body?.data?.attributes?.metadata?.reference ||
+      ((resource?.metadata as Record<string, unknown>)?.reference as string) ||
+      (body?.metadata?.reference as string) ||
+      ((body?.data?.attributes?.metadata as Record<string, unknown>)?.reference as string) ||
       undefined;
 
-    const mpesaRef: string | undefined = resource?.reference || body?.data?.attributes?.reference || undefined;
+    const mpesaRef: string | undefined = (resource?.reference as string) || (body?.data?.attributes?.reference as string) || undefined;
 
     const accountReference = metadataRef || mpesaRef || transactionId;
 
     const originationTime = resource?.origination_time
-      ? new Date(resource.origination_time)
+      ? new Date(resource.origination_time as string | number | Date)
       : new Date();
 
     // Log received webhook
@@ -129,12 +134,37 @@ export async function POST(request: NextRequest) {
     }
 
     if (isSuccess && accountReference) {
-      try {
-        await processCustomerPayment(accountReference, amount);
-        console.log("Customer payment processed for:", accountReference);
-      } catch (err) {
-        console.error("Failed to process customer payment:", err);
-        // Continue - respond success so K2 doesn't retry unnecessarily
+      // First check if this is a hotspot voucher payment
+      const hotspotVoucher = await prisma.hotspotVoucher.findFirst({
+        where: {
+          paymentReference: accountReference,
+        },
+        include: {
+          package: true,
+          organization: true,
+        },
+      });
+
+      if (hotspotVoucher) {
+        // Update voucher status to active
+        await prisma.hotspotVoucher.update({
+          where: { id: hotspotVoucher.id },
+          data: { 
+            status: 'ACTIVE',
+            paymentReference: transactionId, // Update with actual payment ID
+          }
+        });
+
+        console.log(`Hotspot voucher activated via KopoKopo. Voucher ID: ${hotspotVoucher.id}, Payment ID: ${transactionId}`);
+      } else {
+        // Handle regular customer payment
+        try {
+          await processCustomerPayment(accountReference, amount);
+          console.log("Customer payment processed for:", accountReference);
+        } catch (err) {
+          console.error("Failed to process customer payment:", err);
+          // Continue - respond success so K2 doesn't retry unnecessarily
+        }
       }
     }
 

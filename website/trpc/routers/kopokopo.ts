@@ -53,7 +53,22 @@ export class KopoKopoAPI {
 
     const customerPhone = params.phoneNumber.startsWith("+") ? params.phoneNumber : `+${params.phoneNumber}`;
 
-    const payload: any = {
+    const payload: {
+      payment_channel: string;
+      amount: string;
+      currency: string;
+      till_number: string;
+      customer: {
+        phone_number: string;
+      };
+      metadata: {
+        reference: string;
+        description: string;
+      };
+      _links: {
+        callback_url: string;
+      };
+    } = {
       payment_channel: "M-PESA STK Push",
       amount: Number(params.amount).toFixed(2),
       currency: "KES",

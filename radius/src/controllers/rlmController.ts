@@ -9,8 +9,8 @@ export const rlmController = {
     try {
       const { username, password, nas_ip_address, nas_port } = req.body;
 
-      // Find customer by username
-      const customer = await prisma.organizationCustomer.findFirst({
+      // First, try to find a regular customer
+      let customer = await prisma.organizationCustomer.findFirst({
         where: {
           OR: [
             { pppoeUsername: username },
@@ -23,69 +23,133 @@ export const rlmController = {
         }
       });
 
+      let isHotspotVoucher = false;
+      let hotspotVoucher = null;
+
+      // If no regular customer found, check for hotspot voucher
       if (!customer) {
+        hotspotVoucher = await prisma.hotspotVoucher.findUnique({
+          where: {
+            voucherCode: username
+          },
+          include: {
+            package: true,
+            organization: true
+          }
+        });
+
+        if (hotspotVoucher) {
+          isHotspotVoucher = true;
+          // Check if voucher is active and not expired
+          if (hotspotVoucher.status !== 'ACTIVE') {
+            return res.json({
+              result: 'reject',
+              message: 'Voucher not active'
+            });
+          }
+
+          if (hotspotVoucher.expiresAt && new Date() > hotspotVoucher.expiresAt) {
+            return res.json({
+              result: 'reject',
+              message: 'Voucher expired'
+            });
+          }
+
+          // Mark voucher as used
+          await prisma.hotspotVoucher.update({
+            where: { id: hotspotVoucher.id },
+            data: { 
+              status: 'USED',
+              usedAt: new Date()
+            }
+          });
+        }
+      }
+
+      if (!customer && !hotspotVoucher) {
         return res.json({
           result: 'reject',
           message: 'User not found'
         });
       }
 
-      // Check if customer is active and not expired
-      if (customer.status !== 'ACTIVE') {
+      // For regular customers, check if they are active and not expired
+      if (!isHotspotVoucher && customer) {
+        if (customer.status !== 'ACTIVE') {
+          return res.json({
+            result: 'reject',
+            message: 'Account inactive'
+          });
+        }
+
+        if (customer.expiryDate && new Date() > customer.expiryDate) {
+          return res.json({
+            result: 'reject',
+            message: 'Account expired'
+          });
+        }
+      }
+
+      // Ensure we have either a customer or voucher
+      if (!customer && !hotspotVoucher) {
         return res.json({
           result: 'reject',
-          message: 'Account inactive'
+          message: 'Authentication failed'
         });
       }
 
-      if (customer.expiryDate && new Date() > customer.expiryDate) {
+      // Get package data from either customer or voucher
+      const packageData = customer?.package || hotspotVoucher?.package;
+      const organization = customer?.organization || hotspotVoucher?.organization;
+
+      if (!packageData) {
         return res.json({
           result: 'reject',
-          message: 'Account expired'
+          message: 'Package not found'
         });
       }
 
       // Determine connection type and build attributes
-      const isPPPoE = customer.pppoeUsername === username;
+      const isPPPoE = customer ? customer.pppoeUsername === username : false;
       const attributes: any = {};
 
-      if (customer.package) {
+      if (packageData) {
         // Speed limits in bits per second
-        const downloadSpeed = customer.package.downloadSpeed * 1000000; // Convert Mbps to bps
-        const uploadSpeed = customer.package.uploadSpeed * 1000000;
+        const downloadSpeed = packageData.downloadSpeed * 1000000; // Convert Mbps to bps
+        const uploadSpeed = packageData.uploadSpeed * 1000000;
         
         if (isPPPoE) {
           // PPPoE attributes
           attributes['Framed-Protocol'] = 'PPP';
-          attributes['Framed-IP-Address'] = customer.package.addressPool || '0.0.0.0';
+          attributes['Framed-IP-Address'] = packageData.addressPool || '0.0.0.0';
           attributes['Mikrotik-Rate-Limit'] = `${uploadSpeed}/${downloadSpeed}`;
           
           // Burst settings if available
-          if (customer.package.burstDownloadSpeed && customer.package.burstUploadSpeed) {
-            const burstDown = customer.package.burstDownloadSpeed * 1000000;
-            const burstUp = customer.package.burstUploadSpeed * 1000000;
-            const burstThresholdDown = customer.package.burstThresholdDownload ? customer.package.burstThresholdDownload * 1000000 : downloadSpeed * 0.8;
-            const burstThresholdUp = customer.package.burstThresholdUpload ? customer.package.burstThresholdUpload * 1000000 : uploadSpeed * 0.8;
-            const burstTime = customer.package.burstDuration || 8;
+          if (packageData.burstDownloadSpeed && packageData.burstUploadSpeed) {
+            const burstDown = packageData.burstDownloadSpeed * 1000000;
+            const burstUp = packageData.burstUploadSpeed * 1000000;
+            const burstThresholdDown = packageData.burstThresholdDownload ? packageData.burstThresholdDownload * 1000000 : downloadSpeed * 0.8;
+            const burstThresholdUp = packageData.burstThresholdUpload ? packageData.burstThresholdUpload * 1000000 : uploadSpeed * 0.8;
+            const burstTime = packageData.burstDuration || 8;
             
             attributes['Mikrotik-Rate-Limit'] = `${uploadSpeed}/${downloadSpeed} ${burstUp}/${burstDown} ${burstThresholdUp}/${burstThresholdDown} ${burstTime}/${burstTime}`;
           }
           
           // Address pool for PPPoE
-          if (customer.package.addressPool) {
-            attributes['Framed-Pool'] = customer.package.addressPool;
+          if (packageData.addressPool) {
+            attributes['Framed-Pool'] = packageData.addressPool;
           }
         } else {
           // Hotspot attributes
           attributes['Mikrotik-Rate-Limit'] = `${uploadSpeed}/${downloadSpeed}`;
           
           // Burst settings for hotspot
-          if (customer.package.burstDownloadSpeed && customer.package.burstUploadSpeed) {
-            const burstDown = customer.package.burstDownloadSpeed * 1000000;
-            const burstUp = customer.package.burstUploadSpeed * 1000000;
-            const burstThresholdDown = customer.package.burstThresholdDownload ? customer.package.burstThresholdDownload * 1000000 : downloadSpeed * 0.8;
-            const burstThresholdUp = customer.package.burstThresholdUpload ? customer.package.burstThresholdUpload * 1000000 : uploadSpeed * 0.8;
-            const burstTime = customer.package.burstDuration || 8;
+          if (packageData.burstDownloadSpeed && packageData.burstUploadSpeed) {
+            const burstDown = packageData.burstDownloadSpeed * 1000000;
+            const burstUp = packageData.burstUploadSpeed * 1000000;
+            const burstThresholdDown = packageData.burstThresholdDownload ? packageData.burstThresholdDownload * 1000000 : downloadSpeed * 0.8;
+            const burstThresholdUp = packageData.burstThresholdUpload ? packageData.burstThresholdUpload * 1000000 : uploadSpeed * 0.8;
+            const burstTime = packageData.burstDuration || 8;
             
             attributes['Mikrotik-Rate-Limit'] = `${uploadSpeed}/${downloadSpeed} ${burstUp}/${burstDown} ${burstThresholdUp}/${burstThresholdDown} ${burstTime}/${burstTime}`;
           }
@@ -95,7 +159,7 @@ export const rlmController = {
         }
 
         // Session timeout based on package duration
-        const sessionTimeout = this.calculateSessionTimeout(customer.package);
+        const sessionTimeout = this.calculateSessionTimeout(packageData);
         if (sessionTimeout > 0) {
           attributes['Session-Timeout'] = sessionTimeout;
         }
@@ -104,8 +168,8 @@ export const rlmController = {
         attributes['Idle-Timeout'] = 1800; // 30 minutes default
 
         // Max device limit for hotspot
-        if (!isPPPoE && customer.package.maxDevices) {
-          attributes['Mikrotik-Hotspot-Max-Sessions'] = customer.package.maxDevices;
+        if (!isPPPoE && packageData.maxDevices) {
+          attributes['Mikrotik-Hotspot-Max-Sessions'] = packageData.maxDevices;
         }
       }
 
@@ -128,7 +192,8 @@ export const rlmController = {
     try {
       const { username, password } = req.body;
 
-      const customer = await prisma.organizationCustomer.findFirst({
+      // First, try to find a regular customer
+      let customer = await prisma.organizationCustomer.findFirst({
         where: {
           OR: [
             { 
@@ -146,26 +211,61 @@ export const rlmController = {
         }
       });
 
+      let isHotspotVoucher = false;
+      let hotspotVoucher = null;
+
+      // If no regular customer found, check for hotspot voucher
       if (!customer) {
+        hotspotVoucher = await prisma.hotspotVoucher.findUnique({
+          where: {
+            voucherCode: username
+          },
+          include: {
+            package: true
+          }
+        });
+
+        if (hotspotVoucher && hotspotVoucher.voucherCode === password) {
+          isHotspotVoucher = true;
+          // Check if voucher is active and not expired
+          if (hotspotVoucher.status !== 'ACTIVE') {
+            return res.json({
+              result: 'reject',
+              message: 'Voucher not active'
+            });
+          }
+
+          if (hotspotVoucher.expiresAt && new Date() > hotspotVoucher.expiresAt) {
+            return res.json({
+              result: 'reject',
+              message: 'Voucher expired'
+            });
+          }
+        }
+      }
+
+      if (!customer && !hotspotVoucher) {
         return res.json({
           result: 'reject',
           message: 'Invalid credentials'
         });
       }
 
-      // Additional checks for active status and expiry
-      if (customer.status !== 'ACTIVE') {
-        return res.json({
-          result: 'reject',
-          message: 'Account inactive'
-        });
-      }
+      // For regular customers, check if they are active and not expired
+      if (!isHotspotVoucher && customer) {
+        if (customer.status !== 'ACTIVE') {
+          return res.json({
+            result: 'reject',
+            message: 'Account inactive'
+          });
+        }
 
-      if (customer.expiryDate && new Date() > customer.expiryDate) {
-        return res.json({
-          result: 'reject',
-          message: 'Account expired'
-        });
+        if (customer.expiryDate && new Date() > customer.expiryDate) {
+          return res.json({
+            result: 'reject',
+            message: 'Account expired'
+          });
+        }
       }
 
       return res.json({
@@ -522,6 +622,26 @@ export const rlmController = {
         return duration * 60; // minutes to seconds
       default:
         return 0;
+    }
+  },
+
+  // Helper method to convert duration to milliseconds
+  getDurationInMs(durationType: string): number {
+    switch (durationType) {
+      case 'MINUTE':
+        return 60 * 1000;
+      case 'HOUR':
+        return 60 * 60 * 1000;
+      case 'DAY':
+        return 24 * 60 * 60 * 1000;
+      case 'WEEK':
+        return 7 * 24 * 60 * 60 * 1000;
+      case 'MONTH':
+        return 30 * 24 * 60 * 60 * 1000;
+      case 'YEAR':
+        return 365 * 24 * 60 * 60 * 1000;
+      default:
+        return 60 * 60 * 1000; // Default to 1 hour
     }
   }
 };

@@ -107,6 +107,60 @@ export async function POST(request: NextRequest) {
     
     const transactionDateTime = transactionDate ? parseMpesaDateTime(transactionDate) : new Date();
 
+    // First check if this is a hotspot voucher payment
+    const hotspotVoucher = await prisma.hotspotVoucher.findFirst({
+      where: {
+        paymentReference: CheckoutRequestID,
+      },
+      include: {
+        package: true,
+        organization: {
+          select: {
+            mpesaConfiguration: {
+              select: {
+                shortCode: true,
+                transactionType: true,
+              },
+            },
+          },
+        },
+      },
+    });
+
+    // If it's a hotspot voucher, handle it differently
+    if (hotspotVoucher) {
+      if (ResultCode === 0) {
+        // Update voucher status to active
+        await prisma.hotspotVoucher.update({
+          where: { id: hotspotVoucher.id },
+          data: { 
+            status: 'ACTIVE',
+            paymentReference: mpesaReceiptNumber, // Update with actual receipt number
+          }
+        });
+
+        console.log(`Hotspot voucher activated. Voucher ID: ${hotspotVoucher.id}, Receipt: ${mpesaReceiptNumber}`);
+      } else {
+        // Update voucher status to cancelled
+        await prisma.hotspotVoucher.update({
+          where: { id: hotspotVoucher.id },
+          data: { status: 'CANCELLED' }
+        });
+
+        console.log(`Hotspot voucher payment failed. Voucher ID: ${hotspotVoucher.id}, Result: ${ResultDesc}`);
+      }
+
+      // Return success response to M-Pesa
+      return NextResponse.json({
+        success: true,
+        message: 'Hotspot voucher callback processed successfully',
+        voucherId: hotspotVoucher.id,
+        resultCode: ResultCode,
+        resultDesc: ResultDesc
+      });
+    }
+
+    // Handle regular payment links
     const paymentLink = await prisma.mpesaPaymentLink.findFirst({
       where: {
         checkoutRequestId: CheckoutRequestID,

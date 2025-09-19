@@ -5,9 +5,14 @@
     <meta charset="utf-8">
     <meta http-equiv="pragma" content="no-cache" />
     <meta http-equiv="expires" content="-1" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta http-equiv="cache-control" content="no-cache, no-store, must-revalidate" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <title>Internet hotspot - Log in</title>
     <link rel="stylesheet" href="css/style.css">
+    <link rel="icon" type="image/x-icon" href="favicon.ico">
     <!-- Add hidden fields for MikroTik CHAP values -->
     <input type="hidden" id="chap-id" value="$(chap-id)" />
     <input type="hidden" id="chap-challenge" value="$(chap-challenge)" />
@@ -15,12 +20,12 @@
         // Get organization ID from URL parameter or set a default
         function getOrgId() {
             const urlParams = new URLSearchParams(window.location.search);
-            return urlParams.get('org') || '67ed1d0dfa4861088cfcb6a0';
+            return urlParams.get('org') || 'cmfc3c2fa0001kwyk82la4cw7';
         }
 
         // Get base API URL
         function getApiUrl() {
-            return 'https://ispinnacle.co.ke';
+            return 'http://192.168.88.250:3000';
         }
 
         // Get current page URL for debugging
@@ -28,10 +33,38 @@
             return window.location.href;
         }
 
+        // Get MikroTik variables
+        function getMikroTikVar(varName) {
+            const form = document.getElementById('mikrotik-vars-form');
+            if (form) {
+                const input = form.querySelector(`input[name="${varName}"]`);
+                return input ? input.value : `$(${varName})`;
+            }
+            return `$(${varName})`;
+        }
+
+        // Check if we're in MikroTik hotspot environment
+        function isMikroTikHotspot() {
+            const chapId = getMikroTikVar('chap-id');
+            const linkOrig = getMikroTikVar('link-orig');
+            return chapId !== '$(chap-id)' || linkOrig !== '$(link-orig)';
+        }
+
+        // Get device information
+        function getDeviceInfo() {
+            return {
+                mac: getMikroTikVar('mac'),
+                ip: getMikroTikVar('ip'),
+                userAgent: navigator.userAgent,
+                platform: navigator.platform,
+                language: navigator.language
+            };
+        }
+
         // Fetch organization details
         async function fetchOrganizationDetails() {
             const orgId = getOrgId();
-            const apiUrl = `${getApiUrl()}/api/organizations/${orgId}`;
+            const apiUrl = `${getApiUrl()}/api/hotspot/organizations/${orgId}`;
             
             console.log('Current page URL:', getCurrentUrl());
             console.log('Fetching organization details from:', apiUrl);
@@ -270,7 +303,7 @@
                 if (unit === 'hours') return 'hour';
                 if (unit === 'days') return 'day';
                 if (unit === 'weeks') return 'week';
-                if (unit === 'months') return 'month';
+                if (unit === 'months') return 'month'; 
             }
             return unit;
         }
@@ -326,7 +359,7 @@
                 loadingDiv.style.display = 'none';
                 if (!response.ok) {
                     const err = await response.json();
-                    errorDiv.textContent = err.detail || 'Failed to initiate payment.';
+                    errorDiv.textContent = err.detail || err.error || 'Failed to initiate payment.';
                     return;
                 }
                 const data = await response.json();
@@ -361,7 +394,7 @@
                     const response = await fetch(`${getApiUrl()}/api/hotspot/voucher-status/${voucherId}`);
                     const data = await response.json();
                     
-                    if (data.voucher && data.voucher.status === 'active') {
+                    if (data.voucher && data.voucher.status === 'ACTIVE') {
                         // Payment successful, attempt automatic connection
                         document.getElementById('voucher-code').textContent = voucherCode;
                         document.getElementById('voucher-expiry').textContent = 'Payment successful! Attempting to connect...';
@@ -398,7 +431,12 @@
                                     'chap-challenge': chapChallenge,
                                     'chap': '1',  // Enable CHAP authentication
                                     'chap-password': voucherCode,  // Add explicit CHAP password field
-                                    'CHAP-Password': voucherCode  // Add RADIUS CHAP-Password attribute
+                                    'CHAP-Password': voucherCode,  // Add RADIUS CHAP-Password attribute
+                                    'mac': '$(mac)',
+                                    'ip': '$(ip)',
+                                    'link-orig': '$(link-orig)',
+                                    'link-login-only': '$(link-login-only)',
+                                    'link-logout': '$(link-logout)'
                                 };
                                 
                                 // Create and append form fields
@@ -555,7 +593,12 @@
                         'chap-challenge': chapChallenge,
                         'chap': '1',  // Enable CHAP authentication
                         'chap-password': username,  // Add explicit CHAP password field
-                        'CHAP-Password': username  // Add RADIUS CHAP-Password attribute
+                        'CHAP-Password': username,  // Add RADIUS CHAP-Password attribute
+                        'mac': '$(mac)',
+                        'ip': '$(ip)',
+                        'link-orig': '$(link-orig)',
+                        'link-login-only': '$(link-login-only)',
+                        'link-logout': '$(link-logout)'
                     };
                     
                     // Create and append form fields
@@ -572,7 +615,7 @@
                     hotspotForm.submit();
                 } else {
                     const error = await response.json();
-                    alert(error.detail || 'Failed to connect. Please check your voucher code.');
+                    alert(error.detail || error.error || 'Failed to connect. Please check your voucher code.');
                 }
             } catch (error) {
                 console.error('Connection error:', error);
@@ -582,56 +625,113 @@
 
         // Initialize the page
         window.onload = function() {
-            // Set up UI
-            const packageSelection = document.getElementById('package-selection');
-            const paymentOptions = document.getElementById('mpesa-payment');
-            const voucherResult = document.getElementById('voucher-result');
-            const voucherEntry = document.getElementById('voucher-entry');
-            const haveVoucherBtn = document.getElementById('have-voucher-btn');
-            const themeToggle = document.getElementById('theme-toggle');
-            
-            // Check if elements exist before manipulating them
-            if (packageSelection) packageSelection.style.display = 'block';
-            if (paymentOptions) paymentOptions.style.display = 'none';
-            if (voucherResult) voucherResult.style.display = 'none';
-            if (voucherEntry) voucherEntry.style.display = 'none';
-            
-            // Add event listeners if elements exist
-            if (haveVoucherBtn) {
-                haveVoucherBtn.addEventListener('click', showVoucherEntry);
-            }
-            
-            if (themeToggle) {
-                themeToggle.addEventListener('click', toggleTheme);
-            }
-            
-            // Theme initialization
-            const savedTheme = localStorage.getItem('theme');
-            if (savedTheme === 'dark' || (!savedTheme && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
-                document.documentElement.classList.add('dark');
-            }
-            if (typeof updateThemeIcon === 'function') {
-                updateThemeIcon();
-            }
-            
-            // Fetch organization details and packages
-            fetchOrganizationDetails();
-            fetchPackages();
-            
-            // Add form submit handler
-            const voucherForm = document.getElementById('voucher-form');
-            if (voucherForm) {
-                voucherForm.addEventListener('submit', handleVoucherSubmit);
+            try {
+                // Log device information for debugging
+                console.log('Device Info:', getDeviceInfo());
+                console.log('Is MikroTik Hotspot:', isMikroTikHotspot());
+                
+                // Set up UI
+                const packageSelection = document.getElementById('package-selection');
+                const paymentOptions = document.getElementById('mpesa-payment');
+                const voucherResult = document.getElementById('voucher-result');
+                const voucherEntry = document.getElementById('voucher-entry');
+                const haveVoucherBtn = document.getElementById('have-voucher-btn');
+                const themeToggle = document.getElementById('theme-toggle');
+                
+                // Check if elements exist before manipulating them
+                if (packageSelection) packageSelection.style.display = 'block';
+                if (paymentOptions) paymentOptions.style.display = 'none';
+                if (voucherResult) voucherResult.style.display = 'none';
+                if (voucherEntry) voucherEntry.style.display = 'none';
+                
+                // Add event listeners if elements exist
+                if (haveVoucherBtn) {
+                    haveVoucherBtn.addEventListener('click', showVoucherEntry);
+                }
+                
+                if (themeToggle) {
+                    themeToggle.addEventListener('click', toggleTheme);
+                }
+                
+                // Theme initialization
+                const savedTheme = localStorage.getItem('theme');
+                if (savedTheme === 'dark' || (!savedTheme && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
+                    document.documentElement.classList.add('dark');
+                }
+                if (typeof updateThemeIcon === 'function') {
+                    updateThemeIcon();
+                }
+                
+                // Fetch organization details and packages
+                fetchOrganizationDetails();
+                fetchPackages();
+                
+                // Add form submit handler
+                const voucherForm = document.getElementById('voucher-form');
+                if (voucherForm) {
+                    voucherForm.addEventListener('submit', handleVoucherSubmit);
+                }
+                
+                // Add keyboard shortcuts
+                document.addEventListener('keydown', function(e) {
+                    // ESC key to go back
+                    if (e.key === 'Escape') {
+                        if (voucherEntry && voucherEntry.style.display !== 'none') {
+                            document.getElementById('package-selection').style.display = 'block';
+                            voucherEntry.style.display = 'none';
+                        } else if (paymentOptions && paymentOptions.style.display !== 'none') {
+                            packageSelection.style.display = 'block';
+                            paymentOptions.style.display = 'none';
+                        }
+                    }
+                });
+                
+                // Prevent zoom on mobile devices
+                document.addEventListener('touchstart', function(e) {
+                    if (e.touches.length > 1) {
+                        e.preventDefault();
+                    }
+                });
+                
+                let lastTouchEnd = 0;
+                document.addEventListener('touchend', function(e) {
+                    const now = (new Date()).getTime();
+                    if (now - lastTouchEnd <= 300) {
+                        e.preventDefault();
+                    }
+                    lastTouchEnd = now;
+                }, false);
+                
+            } catch (error) {
+                console.error('Error initializing page:', error);
+                // Show fallback message
+                const main = document.querySelector('.main');
+                if (main) {
+                    main.innerHTML = `
+                        <div class="error-container">
+                            <h2>Connection Error</h2>
+                            <p>Unable to load hotspot portal. Please try refreshing the page.</p>
+                            <button onclick="window.location.reload()" class="primary-btn">Refresh Page</button>
+                        </div>
+                    `;
+                }
             }
         };
     </script>
 </head>
 
 <body>
-    <!-- Add hidden form for MikroTik CHAP values -->
-    <form id="mikrotik-chap-form" style="display: none;">
+    <!-- Add hidden form for MikroTik variables -->
+    <form id="mikrotik-vars-form" style="display: none;">
         <input type="hidden" name="chap-id" value="$(chap-id)" />
         <input type="hidden" name="chap-challenge" value="$(chap-challenge)" />
+        <input type="hidden" name="link-orig" value="$(link-orig)" />
+        <input type="hidden" name="link-login-only" value="$(link-login-only)" />
+        <input type="hidden" name="link-logout" value="$(link-logout)" />
+        <input type="hidden" name="mac" value="$(mac)" />
+        <input type="hidden" name="ip" value="$(ip)" />
+        <input type="hidden" name="username" value="$(username)" />
+        <input type="hidden" name="password" value="$(password)" />
     </form>
     
     <!-- Header with organization logo and theme toggle -->

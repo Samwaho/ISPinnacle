@@ -193,6 +193,7 @@ model Organization {
   kopokopoConfiguration KopokopoConfiguration?
   smsConfiguration SMSConfiguration?
   smsTemplates SMSTemplate[]
+  hotspotVouchers HotspotVoucher[]
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -379,6 +380,7 @@ model OrganizationPackage {
   isActive Boolean @default(true)
   customers OrganizationCustomer[]
   payments OrganizationCustomerPayment[]
+  hotspotVouchers HotspotVoucher[]
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 }
@@ -529,6 +531,37 @@ model SMSTemplate {
 
   @@unique([name, organizationId])
   @@index([organizationId])
+}
+
+enum VoucherStatus {
+  PENDING
+  ACTIVE
+  USED
+  EXPIRED
+  CANCELLED
+}
+
+model HotspotVoucher {
+  id String @id @default(cuid())
+  organizationId String
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  packageId String
+  package OrganizationPackage @relation(fields: [packageId], references: [id], onDelete: Cascade)
+  voucherCode String @unique
+  phoneNumber String
+  amount Float
+  status VoucherStatus @default(PENDING)
+  expiresAt DateTime
+  usedAt DateTime?
+  paymentGateway PaymentGateway?
+  paymentReference String? // M-Pesa checkout request ID or KopoKopo location
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([voucherCode])
+  @@index([organizationId])
+  @@index([status])
+  @@index([expiresAt])
 }
 
 

@@ -45,16 +45,6 @@ export const sidebarData: SidebarItem[] = [
     icon: Building,
   },
   {
-    title: "Inventory",
-    path: (id) => `/isp/${id}/inventory`,
-    icon: Box,
-  },
-  {
-    title: "Support Tickets",
-    path: (id) => `/isp/${id}/tickets`,
-    icon: Ticket,
-  },
-  {
     title: "Transactions",
     path: (id) => `/isp/${id}/transactions`,
     icon: DollarSign,

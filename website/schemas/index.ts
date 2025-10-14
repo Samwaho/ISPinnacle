@@ -316,3 +316,32 @@ export const sendTemplateSmsSchema = z.object({
     phoneNumber: z.string().min(1, "Phone number is required"),
     variables: z.record(z.string(), z.string()).default({}), // Key-value pairs for template variables
 });
+
+// Expense schemas
+export const expenseSchema = z.object({
+    name: z.string().min(1, "Name is required"),
+    description: z.string().optional(),
+    amount: z.number().positive("Amount must be positive"),
+    date: z.date(),
+    isRecurring: z.boolean().default(false),
+    recurringInterval: z.number().positive("Recurring interval must be positive").optional(),
+    recurringIntervalType: z.enum(["DAILY", "WEEKLY", "MONTHLY", "YEARLY"]).optional(),
+    recurringStartDate: z.date().optional(),
+    recurringEndDate: z.date().optional(),
+    isPaid: z.boolean().default(false),
+    paidAt: z.date().optional(),
+});
+
+export const createExpenseSchema = expenseSchema.extend({
+    organizationId: z.string().min(1, "Organization ID is required"),
+});
+
+export const updateExpenseSchema = expenseSchema.extend({
+    id: z.string().min(1, "Expense ID is required"),
+    organizationId: z.string().min(1, "Organization ID is required"),
+});
+
+export const deleteExpenseSchema = z.object({
+    id: z.string().min(1, "Expense ID is required"),
+    organizationId: z.string().min(1, "Organization ID is required"),
+});

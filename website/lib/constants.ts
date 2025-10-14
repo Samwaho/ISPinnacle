@@ -7,6 +7,7 @@ import {
   Warehouse,
   Building,
   LayoutDashboard,
+  ChartBar,
 } from "lucide-react";
 
 interface SidebarItem {
@@ -53,5 +54,15 @@ export const sidebarData: SidebarItem[] = [
     title: "Messaging",
     path: (id) => `/isp/${id}/messaging`,
     icon: Warehouse,
+  },
+  {
+    title: "Expenses",
+    path: (id) => `/isp/${id}/expenses`,
+    icon: Box,
+  },
+  {
+    title: "Analytics",
+    path: (id) => `/isp/${id}/analytics`,
+    icon: ChartBar,
   },
 ];

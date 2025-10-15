@@ -16,6 +16,48 @@ import crypto from "crypto";
 import { SmsService } from "@/lib/sms";
 
 export const customerRouter = createTRPCRouter({
+  getCustomerConnection: protectedProcedure
+    .input(
+      z.object({
+        customerId: z.string().min(1, "Customer ID is required"),
+        organizationId: z.string().min(1, "Organization ID is required"),
+      })
+    )
+    .query(async ({ input }) => {
+      const canView = await hasPermissions(input.organizationId, [
+        OrganizationPermission.VIEW_CUSTOMERS,
+      ]);
+      if (!canView) {
+        throw new TRPCError({
+          code: "FORBIDDEN",
+          message: "You are not authorized to view customers in this organization",
+        });
+      }
+
+      const customer = await prisma.organizationCustomer.findFirst({
+        where: {
+          id: input.customerId,
+          organizationId: input.organizationId,
+        },
+        select: { id: true },
+      });
+
+      if (!customer) {
+        throw new TRPCError({ code: "NOT_FOUND", message: "Customer not found" });
+      }
+
+      const existing = await prisma.organizationCustomerConnection.findUnique({
+        where: { customerId: input.customerId },
+      });
+
+      if (existing) return existing;
+
+      const created = await prisma.organizationCustomerConnection.create({
+        data: { customerId: input.customerId },
+      });
+
+      return created;
+    }),
   getCustomers: protectedProcedure
     .input(
       z.object({

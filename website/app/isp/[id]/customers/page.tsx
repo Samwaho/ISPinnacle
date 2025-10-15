@@ -6,7 +6,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { StatCard } from "@/components/StatCard";
 import { DataTable } from "@/components/table/DataTable";
 import { customerColumns, CustomerTableRow } from "@/components/isp/customer-columns";
-import { Users, UserPlus, DollarSign, Plus, Wifi, Globe, MapPin } from "lucide-react";
+import { Users, UserPlus, DollarSign, Plus, MapPin } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
@@ -19,7 +19,7 @@ const CustomerPage = () => {
   const { id } = useParams();
   const router = useRouter();
   const t = useTRPC();
-  const [selectedCustomers, setSelectedCustomers] = React.useState<CustomerTableRow[]>([]);
+  const [, setSelectedCustomers] = React.useState<CustomerTableRow[]>([]);
   const [paymentLinkCustomer, setPaymentLinkCustomer] = React.useState<CustomerTableRow | null>(null);
   const { data: customers, isPending } = useQuery(
     t.customer.getCustomers.queryOptions({ organizationId: id as string })
@@ -79,6 +79,10 @@ const CustomerPage = () => {
     router.push(`/isp/${id}/customers/${customer.id}/payments`);
   };
 
+  const handleViewConnection = (customer: CustomerTableRow) => {
+    router.push(`/isp/${id}/customers/${customer.id}/connection`);
+  };
+
   const handleCreatePaymentLink = (customer: CustomerTableRow) => {
     setPaymentLinkCustomer(customer);
   };
@@ -87,6 +91,7 @@ const CustomerPage = () => {
     onEditCustomer: handleEditCustomer,
     onDeleteCustomer: handleDeleteCustomer,
     onViewPayments: handleViewPayments,
+    onViewConnection: handleViewConnection,
     onCreatePaymentLink: handleCreatePaymentLink,
     canManageCustomers,
   });

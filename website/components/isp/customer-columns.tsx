@@ -4,7 +4,7 @@ import type { ColumnDef } from "@tanstack/react-table"
 import { DataTableColumnHeader } from "@/components/table/DataTableColumnHeader"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import { MoreHorizontal, Edit, Trash2, User, MapPin, Package, Calendar, Phone, Mail, CreditCard } from "lucide-react"
+import { MoreHorizontal, Edit, Trash2, User, MapPin, Package, Calendar, Phone, Mail, CreditCard, Wifi } from "lucide-react"
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -44,12 +44,14 @@ export const customerColumns = ({
   onDeleteCustomer,
   onViewPayments,
   onCreatePaymentLink,
+  onViewConnection,
   canManageCustomers,
 }: {
   onEditCustomer?: (customer: CustomerTableRow) => void;
   onDeleteCustomer?: (customer: CustomerTableRow) => void;
   onViewPayments?: (customer: CustomerTableRow) => void;
   onCreatePaymentLink?: (customer: CustomerTableRow) => void;
+  onViewConnection?: (customer: CustomerTableRow) => void;
   canManageCustomers: boolean;
 }): ColumnDef<CustomerTableRow>[] => [
   {
@@ -182,7 +184,7 @@ export const customerColumns = ({
     id: "actions",
     header: "Actions",
     cell: ({ row }) => {
-      if (!canManageCustomers) return null;
+      if (!canManageCustomers && !onViewPayments && !onViewConnection) return null;
       
       return (
         <DropdownMenu>
@@ -193,6 +195,12 @@ export const customerColumns = ({
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">
+            {onViewConnection && (
+              <DropdownMenuItem onClick={() => onViewConnection(row.original)}>
+                <Wifi className="mr-2 h-4 w-4" />
+                View Connection
+              </DropdownMenuItem>
+            )}
             {onViewPayments && (
               <DropdownMenuItem onClick={() => onViewPayments(row.original)}>
                 <CreditCard className="mr-2 h-4 w-4" />

@@ -158,7 +158,7 @@ export const rlmController = {
         }
 
         // Session timeout based on package duration
-        const sessionTimeout = this.calculateSessionTimeout(packageData);
+        const sessionTimeout = rlmController.calculateSessionTimeout(packageData);
         if (sessionTimeout > 0) {
           flatAttributes['reply:Session-Timeout'] = sessionTimeout;
         }

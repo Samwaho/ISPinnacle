@@ -32,7 +32,14 @@ const CustomerPage = () => {
   const totalCustomers = isPending ? 0 : customers?.length ?? 0;
   const activeCustomers = isPending ? 0 : customers?.filter(c => c.status === "ACTIVE").length ?? 0;
   const inactiveCustomers = isPending ? 0 : customers?.filter(c => c.status === "INACTIVE").length ?? 0;
-  const expiredCustomers = isPending ? 0 : customers?.filter(c => c.status === "EXPIRED").length ?? 0;
+  const now = new Date();
+  const expiredCustomers = isPending
+    ? 0
+    : customers?.filter((c) => {
+        const expiry = c.expiryDate ? (c.expiryDate instanceof Date ? c.expiryDate : new Date(c.expiryDate)) : null;
+        const byDate = expiry ? expiry <= now : false;
+        return byDate || c.status === "EXPIRED";
+      }).length ?? 0;
 
   const queryClient = useQueryClient();
 
@@ -304,10 +311,12 @@ const CustomerPage = () => {
            data={customers?.map((c) => ({
              id: c.id,
              name: c.name,
+              username: c.pppoeUsername || c.hotspotUsername || null,
              email: c.email,
              phone: c.phone || "",
              address: c.address,
              status: c.status as "ACTIVE" | "INACTIVE" | "EXPIRED",
+             connectionStatus: ("connectionStatus" in c ? (c as { connectionStatus?: "ONLINE" | "OFFLINE" | "EXPIRED" | null }).connectionStatus ?? null : null),
              station: c.station ? {
                id: c.station.id,
                name: c.station.name,

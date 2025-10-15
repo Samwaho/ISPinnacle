@@ -19,6 +19,7 @@ export type CustomerTableRow = {
   phone: string
   address?: string | null
   status: "ACTIVE" | "INACTIVE" | "EXPIRED"
+  username?: string | null
   station?: {
     id: string
     name: string
@@ -36,6 +37,7 @@ export type CustomerTableRow = {
     isPaid: boolean
   } | null
   expiryDate?: Date | null
+  connectionStatus?: "ONLINE" | "OFFLINE" | "EXPIRED" | null
   createdAt: Date
 }
 
@@ -63,6 +65,18 @@ export const customerColumns = ({
       <div className="flex items-center gap-2">
         <User className="h-4 w-4 text-muted-foreground" />
         <div className="font-medium">{row.original.name}</div>
+      </div>
+    ),
+  },
+  {
+    accessorKey: "username",
+    header: ({ column }) => (
+      <DataTableColumnHeader column={column} title="Username" />
+    ),
+    cell: ({ row }) => (
+      <div className="flex items-center gap-2 text-sm">
+        <Wifi className="h-4 w-4 text-muted-foreground" />
+        <span>{row.original.username || "-"}</span>
       </div>
     ),
   },
@@ -129,15 +143,31 @@ export const customerColumns = ({
       <DataTableColumnHeader column={column} title="Status" />
     ),
     cell: ({ row }) => {
-      const status = row.original.status;
-      const variant = status === "ACTIVE" ? "default" : status === "INACTIVE" ? "secondary" : "destructive";
-      const label = status === "ACTIVE" ? "Active" : status === "INACTIVE" ? "Inactive" : "Expired";
-      
-      return (
-        <Badge variant={variant}>
-          {label}
-        </Badge>
-      );
+      const now = new Date();
+      const { status, expiryDate, connectionStatus } = row.original;
+
+      // Derive display based on rules:
+      // - If status is ACTIVE:
+      //   - if expiry reached -> Expired (destructive)
+      //   - else show Online/Offline based on connectionStatus
+      // - If status is INACTIVE or EXPIRED: show as-is
+
+      if (status === "ACTIVE") {
+        const isExpired = expiryDate ? expiryDate <= now : false;
+        if (isExpired) {
+          return <Badge variant="destructive">Expired</Badge>;
+        }
+        const isOnline = connectionStatus === "ONLINE";
+        return (
+          <Badge className={isOnline ? "bg-green-100 text-green-700 border-green-200" : "bg-orange-200 text-orange-800 border-orange-200"} variant="outline">
+            {isOnline ? "Online" : "Offline"}
+          </Badge>
+        );
+      }
+
+      const variant = status === "INACTIVE" ? "secondary" : "destructive";
+      const label = status === "INACTIVE" ? "Inactive" : "Expired";
+      return <Badge variant={variant}>{label}</Badge>;
     },
   },
   {
@@ -156,29 +186,6 @@ export const customerColumns = ({
         </span>
       </div>
     ),
-  },
-  {
-    accessorKey: "paymentCount",
-    header: ({ column }) => (
-      <DataTableColumnHeader column={column} title="Payments" />
-    ),
-    cell: ({ row }) => (
-      <div className="text-sm">
-        <div className="font-medium">{row.original.paymentCount}</div>
-        {row.original.lastPayment && row.original.lastPayment.date && (
-          <div className="text-xs text-muted-foreground">
-            Last: {row.original.lastPayment.date.toLocaleDateString()}
-          </div>
-        )}
-      </div>
-    ),
-  },
-  {
-    accessorKey: "createdAt",
-    header: ({ column }) => (
-      <DataTableColumnHeader column={column} title="Created" />
-    ),
-    cell: ({ row }) => row.original.createdAt.toLocaleDateString(),
   },
   {
     id: "actions",

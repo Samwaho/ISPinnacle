@@ -95,10 +95,18 @@ export const customerRouter = createTRPCRouter({
         },
       });
 
+      const customerIds = customers.map((c) => c.id);
+      const connections = await prisma.organizationCustomerConnection.findMany({
+        where: { customerId: { in: customerIds } },
+        select: { customerId: true, sessionStatus: true },
+      });
+      const connectionByCustomerId = new Map(connections.map((c) => [c.customerId, c]));
+
       return customers.map((customer) => ({
         ...customer,
         paymentCount: customer.payments.length,
         lastPayment: customer.payments[0] || null,
+        connectionStatus: connectionByCustomerId.get(customer.id)?.sessionStatus ?? null,
       }));
     }),
 
@@ -592,10 +600,18 @@ export const customerRouter = createTRPCRouter({
         },
       });
 
+      const customerIds = customers.map((c) => c.id);
+      const connections = await prisma.organizationCustomerConnection.findMany({
+        where: { customerId: { in: customerIds } },
+        select: { customerId: true, sessionStatus: true },
+      });
+      const connectionByCustomerId = new Map(connections.map((c) => [c.customerId, c]));
+
       return customers.map((customer) => ({
         ...customer,
         paymentCount: customer.payments.length,
         lastPayment: customer.payments[0] || null,
+        connectionStatus: connectionByCustomerId.get(customer.id)?.sessionStatus ?? null,
       }));
     }),
 
@@ -637,10 +653,18 @@ export const customerRouter = createTRPCRouter({
         },
       });
 
+      const customerIds = customers.map((c) => c.id);
+      const connections = await prisma.organizationCustomerConnection.findMany({
+        where: { customerId: { in: customerIds } },
+        select: { customerId: true, sessionStatus: true },
+      });
+      const connectionByCustomerId = new Map(connections.map((c) => [c.customerId, c]));
+
       return customers.map((customer) => ({
         ...customer,
         paymentCount: customer.payments.length,
         lastPayment: customer.payments[0] || null,
+        connectionStatus: connectionByCustomerId.get(customer.id)?.sessionStatus ?? null,
       }));
     }),
 

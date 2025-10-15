@@ -7,6 +7,8 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { AccessDenied } from "@/components/ui/access-denied";
 import { StatCard } from "@/components/StatCard";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import Link from "next/link";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { CalendarClock, HardDrive, Timer, Wifi } from "lucide-react";
 
@@ -47,9 +49,11 @@ const ConnectionPage = () => {
     t.customer.getCustomerById.queryOptions({ id: customerId as string, organizationId: id as string })
   );
 
-  const { data: connection, isPending } = useQuery(
-    t.customer.getCustomerConnection.queryOptions({ customerId: customerId as string, organizationId: id as string })
-  );
+  const { data: connection, isPending } = useQuery({
+    ...t.customer.getCustomerConnection.queryOptions({ customerId: customerId as string, organizationId: id as string }),
+    refetchInterval: 5000,
+    refetchIntervalInBackground: true,
+  });
 
   const canView = perms?.canViewCustomers || false;
 
@@ -97,17 +101,26 @@ const ConnectionPage = () => {
   }
 
   const status = (connection?.sessionStatus || customer?.connectionStatus || "OFFLINE") as "ONLINE" | "OFFLINE" | "EXPIRED";
-  const statusColor = status === "ONLINE" ? "green" : status === "EXPIRED" ? "red" : "yellow";
+  const statusColor = status === "ONLINE" ? "green" : status === "EXPIRED" ? "red" : "orange";
+  const statusClasses =
+    status === "ONLINE"
+      ? "bg-green-100 text-green-700 border-green-200"
+      : status === "EXPIRED"
+      ? "bg-red-100 text-red-700 border-red-200"
+      : "bg-orange-200 text-orange-800 border-orange-200";
 
   return (
     <div className="flex flex-col gap-6 my-8">
       <div className="flex items-center justify-between">
         <h3 className="text-lg font-bold flex items-center gap-3">
           <Wifi className="h-5 w-5" /> Connection • {customerPending ? <Skeleton className="h-5 w-40" /> : customer?.name}
-          <Badge variant="outline" className="ml-2">
+          <Badge variant="outline" className={`ml-2 ${statusClasses}`}>
             {status}
           </Badge>
         </h3>
+        <Button asChild variant="outline" size="sm">
+          <Link href={`/isp/${id}/customers`}>Back to Customers</Link>
+        </Button>
       </div>
 
       <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">

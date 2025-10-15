@@ -68,8 +68,12 @@ export const rlmController = {
 
       if (!customer && !hotspotVoucher) {
         return res.json({
-          control: { 'Auth-Type': 'Reject' },
-          reply: { 'Reply-Message': 'User not found' }
+          control: [
+            { name: 'Auth-Type', value: 'Reject', op: ':=' }
+          ],
+          reply: [
+            { name: 'Reply-Message', value: 'User not found', op: ':=' }
+          ]
         });
       }
 
@@ -77,15 +81,15 @@ export const rlmController = {
       if (!isHotspotVoucher && customer) {
         if (customer.status !== 'ACTIVE') {
           return res.json({
-            control: { 'Auth-Type': 'Reject' },
-            reply: { 'Reply-Message': 'Account inactive' }
+            control: [ { name: 'Auth-Type', value: 'Reject', op: ':=' } ],
+            reply: [ { name: 'Reply-Message', value: 'Account inactive', op: ':=' } ]
           });
         }
 
         if (customer.expiryDate && new Date() > customer.expiryDate) {
           return res.json({
-            control: { 'Auth-Type': 'Reject' },
-            reply: { 'Reply-Message': 'Account expired' }
+            control: [ { name: 'Auth-Type', value: 'Reject', op: ':=' } ],
+            reply: [ { name: 'Reply-Message', value: 'Account expired', op: ':=' } ]
           });
         }
       }
@@ -93,8 +97,8 @@ export const rlmController = {
       // Ensure we have either a customer or voucher
       if (!customer && !hotspotVoucher) {
         return res.json({
-          control: { 'Auth-Type': 'Reject' },
-          reply: { 'Reply-Message': 'Authentication failed' }
+          control: [ { name: 'Auth-Type', value: 'Reject', op: ':=' } ],
+          reply: [ { name: 'Reply-Message', value: 'Authentication failed', op: ':=' } ]
         });
       }
 
@@ -111,7 +115,7 @@ export const rlmController = {
 
       // Determine connection type and build attributes
       const isPPPoE = customer ? customer.pppoeUsername === username : false;
-      const replyAttributes: Record<string, string | number> = {};
+      const replyAttributes: Array<{ name: string; value: string | number; op?: string }> = [];
 
       if (packageData) {
         // Speed limits in bits per second
@@ -120,8 +124,8 @@ export const rlmController = {
         
         if (isPPPoE) {
           // PPPoE attributes
-          replyAttributes['Framed-Protocol'] = 'PPP';
-          replyAttributes['Mikrotik-Rate-Limit'] = `${uploadSpeed}/${downloadSpeed}`;
+          replyAttributes.push({ name: 'Framed-Protocol', value: 'PPP', op: ':=' });
+          replyAttributes.push({ name: 'Mikrotik-Rate-Limit', value: `${uploadSpeed}/${downloadSpeed}`, op: ':=' });
           
           // Burst settings if available
           if (packageData.burstDownloadSpeed && packageData.burstUploadSpeed) {
@@ -131,16 +135,16 @@ export const rlmController = {
             const burstThresholdUp = packageData.burstThresholdUpload ? packageData.burstThresholdUpload * 1000000 : uploadSpeed * 0.8;
             const burstTime = packageData.burstDuration || 8;
             
-            replyAttributes['Mikrotik-Rate-Limit'] = `${uploadSpeed}/${downloadSpeed} ${burstUp}/${burstDown} ${burstThresholdUp}/${burstThresholdDown} ${burstTime}/${burstTime}`;
+            replyAttributes.push({ name: 'Mikrotik-Rate-Limit', value: `${uploadSpeed}/${downloadSpeed} ${burstUp}/${burstDown} ${burstThresholdUp}/${burstThresholdDown} ${burstTime}/${burstTime}`, op: ':=' });
           }
           
           // Address pool for PPPoE
           if (packageData.addressPool) {
-            replyAttributes['Framed-Pool'] = packageData.addressPool;
+            replyAttributes.push({ name: 'Framed-Pool', value: packageData.addressPool, op: ':=' });
           }
         } else {
           // Hotspot attributes
-          replyAttributes['Mikrotik-Rate-Limit'] = `${uploadSpeed}/${downloadSpeed}`;
+          replyAttributes.push({ name: 'Mikrotik-Rate-Limit', value: `${uploadSpeed}/${downloadSpeed}`, op: ':=' });
           
           // Burst settings for hotspot
           if (packageData.burstDownloadSpeed && packageData.burstUploadSpeed) {
@@ -150,25 +154,25 @@ export const rlmController = {
             const burstThresholdUp = packageData.burstThresholdUpload ? packageData.burstThresholdUpload * 1000000 : uploadSpeed * 0.8;
             const burstTime = packageData.burstDuration || 8;
             
-            replyAttributes['Mikrotik-Rate-Limit'] = `${uploadSpeed}/${downloadSpeed} ${burstUp}/${burstDown} ${burstThresholdUp}/${burstThresholdDown} ${burstTime}/${burstTime}`;
+            replyAttributes.push({ name: 'Mikrotik-Rate-Limit', value: `${uploadSpeed}/${downloadSpeed} ${burstUp}/${burstDown} ${burstThresholdUp}/${burstThresholdDown} ${burstTime}/${burstTime}`, op: ':=' });
           }
           
           // Hotspot specific attributes
-          replyAttributes['Mikrotik-Hotspot-Profile'] = 'default';
+          replyAttributes.push({ name: 'Mikrotik-Hotspot-Profile', value: 'default', op: ':=' });
         }
 
         // Session timeout based on package duration
         const sessionTimeout = this.calculateSessionTimeout(packageData);
         if (sessionTimeout > 0) {
-          replyAttributes['Session-Timeout'] = sessionTimeout;
+          replyAttributes.push({ name: 'Session-Timeout', value: sessionTimeout, op: ':=' });
         }
 
         // Idle timeout
-        replyAttributes['Idle-Timeout'] = 1800; // 30 minutes default
+        replyAttributes.push({ name: 'Idle-Timeout', value: 1800, op: ':=' }); // 30 minutes default
 
         // Max device limit for hotspot
         if (!isPPPoE && packageData.maxDevices) {
-          replyAttributes['Mikrotik-Hotspot-Max-Sessions'] = packageData.maxDevices;
+          replyAttributes.push({ name: 'Mikrotik-Hotspot-Max-Sessions', value: packageData.maxDevices, op: ':=' });
         }
       }
 
@@ -183,9 +187,9 @@ export const rlmController = {
         cleartextPassword = hotspotVoucher.voucherCode;
       }
 
-      const controlAttributes: Record<string, string | number> = {};
+      const controlAttributes: Array<{ name: string; value: string | number; op?: string }> = [];
       if (cleartextPassword) {
-        controlAttributes['Cleartext-Password'] = cleartextPassword;
+        controlAttributes.push({ name: 'Cleartext-Password', value: cleartextPassword, op: ':=' });
       }
 
       return res.json({

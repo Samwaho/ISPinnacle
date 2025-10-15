@@ -68,8 +68,8 @@ export const rlmController = {
 
       if (!customer && !hotspotVoucher) {
         return res.json({
-          result: 'reject',
-          message: 'User not found'
+          control: { 'Auth-Type': 'Reject' },
+          reply: { 'Reply-Message': 'User not found' }
         });
       }
 
@@ -77,15 +77,15 @@ export const rlmController = {
       if (!isHotspotVoucher && customer) {
         if (customer.status !== 'ACTIVE') {
           return res.json({
-            result: 'reject',
-            message: 'Account inactive'
+            control: { 'Auth-Type': 'Reject' },
+            reply: { 'Reply-Message': 'Account inactive' }
           });
         }
 
         if (customer.expiryDate && new Date() > customer.expiryDate) {
           return res.json({
-            result: 'reject',
-            message: 'Account expired'
+            control: { 'Auth-Type': 'Reject' },
+            reply: { 'Reply-Message': 'Account expired' }
           });
         }
       }
@@ -93,8 +93,8 @@ export const rlmController = {
       // Ensure we have either a customer or voucher
       if (!customer && !hotspotVoucher) {
         return res.json({
-          result: 'reject',
-          message: 'Authentication failed'
+          control: { 'Auth-Type': 'Reject' },
+          reply: { 'Reply-Message': 'Authentication failed' }
         });
       }
 
@@ -111,7 +111,7 @@ export const rlmController = {
 
       // Determine connection type and build attributes
       const isPPPoE = customer ? customer.pppoeUsername === username : false;
-      const attributes: any = {};
+      const replyAttributes: Record<string, string | number> = {};
 
       if (packageData) {
         // Speed limits in bits per second
@@ -120,9 +120,8 @@ export const rlmController = {
         
         if (isPPPoE) {
           // PPPoE attributes
-          attributes['Framed-Protocol'] = 'PPP';
-          attributes['Framed-IP-Address'] = packageData.addressPool || '0.0.0.0';
-          attributes['Mikrotik-Rate-Limit'] = `${uploadSpeed}/${downloadSpeed}`;
+          replyAttributes['Framed-Protocol'] = 'PPP';
+          replyAttributes['Mikrotik-Rate-Limit'] = `${uploadSpeed}/${downloadSpeed}`;
           
           // Burst settings if available
           if (packageData.burstDownloadSpeed && packageData.burstUploadSpeed) {
@@ -132,16 +131,16 @@ export const rlmController = {
             const burstThresholdUp = packageData.burstThresholdUpload ? packageData.burstThresholdUpload * 1000000 : uploadSpeed * 0.8;
             const burstTime = packageData.burstDuration || 8;
             
-            attributes['Mikrotik-Rate-Limit'] = `${uploadSpeed}/${downloadSpeed} ${burstUp}/${burstDown} ${burstThresholdUp}/${burstThresholdDown} ${burstTime}/${burstTime}`;
+            replyAttributes['Mikrotik-Rate-Limit'] = `${uploadSpeed}/${downloadSpeed} ${burstUp}/${burstDown} ${burstThresholdUp}/${burstThresholdDown} ${burstTime}/${burstTime}`;
           }
           
           // Address pool for PPPoE
           if (packageData.addressPool) {
-            attributes['Framed-Pool'] = packageData.addressPool;
+            replyAttributes['Framed-Pool'] = packageData.addressPool;
           }
         } else {
           // Hotspot attributes
-          attributes['Mikrotik-Rate-Limit'] = `${uploadSpeed}/${downloadSpeed}`;
+          replyAttributes['Mikrotik-Rate-Limit'] = `${uploadSpeed}/${downloadSpeed}`;
           
           // Burst settings for hotspot
           if (packageData.burstDownloadSpeed && packageData.burstUploadSpeed) {
@@ -151,31 +150,47 @@ export const rlmController = {
             const burstThresholdUp = packageData.burstThresholdUpload ? packageData.burstThresholdUpload * 1000000 : uploadSpeed * 0.8;
             const burstTime = packageData.burstDuration || 8;
             
-            attributes['Mikrotik-Rate-Limit'] = `${uploadSpeed}/${downloadSpeed} ${burstUp}/${burstDown} ${burstThresholdUp}/${burstThresholdDown} ${burstTime}/${burstTime}`;
+            replyAttributes['Mikrotik-Rate-Limit'] = `${uploadSpeed}/${downloadSpeed} ${burstUp}/${burstDown} ${burstThresholdUp}/${burstThresholdDown} ${burstTime}/${burstTime}`;
           }
           
           // Hotspot specific attributes
-          attributes['Mikrotik-Hotspot-Profile'] = 'default';
+          replyAttributes['Mikrotik-Hotspot-Profile'] = 'default';
         }
 
         // Session timeout based on package duration
         const sessionTimeout = this.calculateSessionTimeout(packageData);
         if (sessionTimeout > 0) {
-          attributes['Session-Timeout'] = sessionTimeout;
+          replyAttributes['Session-Timeout'] = sessionTimeout;
         }
 
         // Idle timeout
-        attributes['Idle-Timeout'] = 1800; // 30 minutes default
+        replyAttributes['Idle-Timeout'] = 1800; // 30 minutes default
 
         // Max device limit for hotspot
         if (!isPPPoE && packageData.maxDevices) {
-          attributes['Mikrotik-Hotspot-Max-Sessions'] = packageData.maxDevices;
+          replyAttributes['Mikrotik-Hotspot-Max-Sessions'] = packageData.maxDevices;
         }
       }
 
+      // Provide Cleartext-Password for FreeRADIUS to validate (PAP/MS-CHAPv2)
+      let cleartextPassword: string | undefined;
+      if (isPPPoE && customer) {
+        cleartextPassword = customer.pppoePassword || undefined;
+      } else if (!isPPPoE && customer) {
+        cleartextPassword = customer.hotspotPassword || undefined;
+      } else if (isHotspotVoucher && hotspotVoucher) {
+        // For vouchers, the code acts as the password
+        cleartextPassword = hotspotVoucher.voucherCode;
+      }
+
+      const controlAttributes: Record<string, string | number> = {};
+      if (cleartextPassword) {
+        controlAttributes['Cleartext-Password'] = cleartextPassword;
+      }
+
       return res.json({
-        result: 'accept',
-        attributes
+        control: controlAttributes,
+        reply: replyAttributes
       });
 
     } catch (error) {

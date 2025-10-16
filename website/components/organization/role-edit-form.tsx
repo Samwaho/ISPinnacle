@@ -52,6 +52,8 @@ const permissionLabels: Record<OrganizationPermission, string> = {
   [OrganizationPermission.MANAGE_CUSTOMERS]: "Manage Customers",
   [OrganizationPermission.VIEW_EXPENSES]: "View Expenses",
   [OrganizationPermission.MANAGE_EXPENSES]: "Manage Expenses",
+  [OrganizationPermission.VIEW_SMS_CONFIGURATION]: "View SMS Configuration",
+  [OrganizationPermission.MANAGE_SMS_CONFIGURATION]: "Manage SMS Configuration",
 };
 
 export const RoleEditForm = ({

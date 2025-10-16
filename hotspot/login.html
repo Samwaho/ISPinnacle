@@ -16,6 +16,7 @@
     <!-- Add hidden fields for MikroTik CHAP values -->
     <input type="hidden" id="chap-id" value="$(chap-id)" />
     <input type="hidden" id="chap-challenge" value="$(chap-challenge)" />
+    <script src="md5.js"></script>
     <script>
         // Get organization ID from URL parameter or set a default
         function getOrgId() {
@@ -48,6 +49,26 @@
             const chapId = getMikroTikVar('chap-id');
             const linkOrig = getMikroTikVar('link-orig');
             return chapId !== '$(chap-id)' || linkOrig !== '$(link-orig)';
+        }
+
+        // Compute CHAP-MD5 response for MikroTik
+        function computeChapResponse(password) {
+            try {
+                const chapId = getMikroTikVar('chap-id');
+                const chapChallenge = getMikroTikVar('chap-challenge');
+                if (!chapId || chapId === '$(chap-id)' || !chapChallenge || chapChallenge === '$(chap-challenge)') {
+                    return null; // CHAP not in use
+                }
+                if (typeof hexMD5 !== 'function') {
+                    console.warn('hexMD5 not available');
+                    return null;
+                }
+                // MikroTik expects 00 + MD5(chap-id + password + chap-challenge)
+                return '00' + hexMD5(chapId + password + chapChallenge);
+            } catch (e) {
+                console.warn('Failed to compute CHAP response', e);
+                return null;
+            }
         }
 
         // Get device information
@@ -421,22 +442,14 @@
                                 const chapId = document.getElementById('chap-id')?.value || '$(chap-id)';
                                 const chapChallenge = document.getElementById('chap-challenge')?.value || '$(chap-challenge)';
                                 
-                                // Add required fields for MikroTik authentication with CHAP
+                                // Build required fields for MikroTik authentication
+                                const response = computeChapResponse(voucherCode);
                                 const fields = {
                                     'username': voucherCode,
-                                    'password': voucherCode,
+                                    'password': response ? '' : voucherCode,
+                                    'response': response || '',
                                     'dst': '$(link-orig)',
-                                    'popup': 'true',
-                                    'chap-id': chapId,
-                                    'chap-challenge': chapChallenge,
-                                    'chap': '1',  // Enable CHAP authentication
-                                    'chap-password': voucherCode,  // Add explicit CHAP password field
-                                    'CHAP-Password': voucherCode,  // Add RADIUS CHAP-Password attribute
-                                    'mac': '$(mac)',
-                                    'ip': '$(ip)',
-                                    'link-orig': '$(link-orig)',
-                                    'link-login-only': '$(link-login-only)',
-                                    'link-logout': '$(link-logout)'
+                                    'popup': 'true'
                                 };
                                 
                                 // Create and append form fields
@@ -583,22 +596,14 @@
                     const chapId = document.getElementById('chap-id')?.value || '$(chap-id)';
                     const chapChallenge = document.getElementById('chap-challenge')?.value || '$(chap-challenge)';
                     
-                    // Add required fields for MikroTik authentication with CHAP
+                    // Build required fields for MikroTik authentication
+                    const responseHash = computeChapResponse(username);
                     const fields = {
                         'username': username,
-                        'password': username,  // For CHAP, password should be the same as username
+                        'password': responseHash ? '' : username,
+                        'response': responseHash || '',
                         'dst': '$(link-orig)',
-                        'popup': 'true',
-                        'chap-id': chapId,
-                        'chap-challenge': chapChallenge,
-                        'chap': '1',  // Enable CHAP authentication
-                        'chap-password': username,  // Add explicit CHAP password field
-                        'CHAP-Password': username,  // Add RADIUS CHAP-Password attribute
-                        'mac': '$(mac)',
-                        'ip': '$(ip)',
-                        'link-orig': '$(link-orig)',
-                        'link-login-only': '$(link-login-only)',
-                        'link-logout': '$(link-logout)'
+                        'popup': 'true'
                     };
                     
                     // Create and append form fields

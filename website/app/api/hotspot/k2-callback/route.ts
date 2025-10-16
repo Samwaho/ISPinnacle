@@ -85,7 +85,16 @@ export async function POST(request: NextRequest) {
 
           const expiry = updated.expiresAt ? new Date(updated.expiresAt).toLocaleString() : '';
 
-          await SmsService.sendTemplateSms({
+          console.log('Hotspot: attempting to send voucher SMS (KopoKopo)', {
+            organizationId: updated.organizationId,
+            phoneNumber: updated.phoneNumber,
+            voucherCode: updated.voucherCode,
+            packageName: pkg?.name,
+            amount: pkg?.price ?? amount,
+            expiryDate: expiry
+          });
+
+          const smsResult = await SmsService.sendTemplateSms({
             organizationId: updated.organizationId,
             templateName: 'hotspot_voucher',
             phoneNumber: updated.phoneNumber,
@@ -97,6 +106,7 @@ export async function POST(request: NextRequest) {
               organizationName: org?.name || 'ISPinnacle',
             }
           });
+          console.log('Hotspot: voucher SMS send result (KopoKopo)', smsResult);
         } catch (smsError) {
           console.error('Failed to send hotspot voucher SMS (KopoKopo):', smsError);
         }

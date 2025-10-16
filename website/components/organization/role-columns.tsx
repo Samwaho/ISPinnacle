@@ -3,7 +3,7 @@
 import { ColumnDef } from "@tanstack/react-table"
 import { roleSchema } from "@/schemas"
 import z from "zod"
-import { DropdownMenu, DropdownMenuContent, DropdownMenuSeparator, DropdownMenuItem, DropdownMenuLabel, DropdownMenuTrigger } from "../ui/dropdown-menu"
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuTrigger } from "../ui/dropdown-menu"
 import { Button } from "../ui/button"
 import { MoreHorizontal, Users, Shield, Edit, Trash2 } from "lucide-react"
 import { DataTableColumnHeader } from "../table/DataTableColumnHeader"

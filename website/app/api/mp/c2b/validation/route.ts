@@ -10,17 +10,10 @@ export async function POST(request: NextRequest) {
 
     // Extract the C2B validation data
     const {
-      TransID,
-      TransTime,
       TransAmount,
       BusinessShortCode,
       BillReferenceNumber,
-      InvoiceNumber,
-      OrgAccountBalance,
       MSISDN,
-      FirstName,
-      MiddleName,
-      LastName,
     } = body;
 
     // Validate the payment details

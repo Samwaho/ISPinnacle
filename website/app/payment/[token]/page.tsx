@@ -22,8 +22,8 @@ const phoneSchema = z.object({
 type PhoneFormData = z.infer<typeof phoneSchema>;
 
 const PaymentLinkPage = () => {
-  const searchParams = useSearchParams();
-  const router = useRouter();
+  // const searchParams = useSearchParams();
+  // const router = useRouter();
   const params = useParams();
   const t = useTRPC();
   

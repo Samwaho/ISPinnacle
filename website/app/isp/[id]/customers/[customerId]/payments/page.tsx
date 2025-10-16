@@ -187,7 +187,7 @@ const CustomerPaymentsPage = () => {
       <div className="flex flex-col items-center justify-center min-h-[400px] space-y-4">
         <div className="text-center">
           <h2 className="text-2xl font-semibold">Customer not found</h2>
-          <p className="text-muted-foreground">The customer you're looking for doesn't exist.</p>
+          <p className="text-muted-foreground">The customer you&apos;re looking for doesn&apos;t exist.</p>
         </div>
         <Button onClick={() => router.back()}>
           <ArrowLeft className="mr-2 h-4 w-4" />
@@ -314,7 +314,7 @@ const CustomerPaymentsPage = () => {
               <div className="text-center">
                 <h3 className="text-lg font-medium">No payments found</h3>
                 <p className="text-sm text-muted-foreground">
-                  This customer hasn't made any payments yet.
+                  This customer hasn&apos;t made any payments yet.
                 </p>
               </div>
             </div>

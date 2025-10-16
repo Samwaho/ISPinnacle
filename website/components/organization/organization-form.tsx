@@ -36,7 +36,6 @@ import {
   FileUploaderRegular,
 } from "@uploadcare/react-uploader/next";
 import "@uploadcare/react-uploader/core.css";
-import Image from "next/image";
 import { useTheme } from "next-themes";
 import { toast } from "sonner";
 

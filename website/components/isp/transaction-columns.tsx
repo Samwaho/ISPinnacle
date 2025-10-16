@@ -3,7 +3,7 @@
 import type { ColumnDef } from "@tanstack/react-table"
 import { DataTableColumnHeader } from "@/components/table/DataTableColumnHeader"
 import { Badge } from "@/components/ui/badge"
-import { MoreHorizontal, User, Package, Calendar, DollarSign, CreditCard } from "lucide-react"
+import { MoreHorizontal, User, Calendar, DollarSign, CreditCard } from "lucide-react"
 import {
   DropdownMenu,
   DropdownMenuContent,

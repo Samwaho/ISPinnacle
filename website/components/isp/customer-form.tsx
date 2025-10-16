@@ -1,5 +1,5 @@
 "use client";
-import { useState, useEffect } from "react";
+import { useEffect } from "react";
 import {
   Users,
   User,
@@ -29,7 +29,7 @@ import { Skeleton } from "../ui/skeleton";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useRouter, useParams } from "next/navigation";
 import { useTRPC } from "@/trpc/client";
-import { customerSchema, updateCustomerSchema } from "@/schemas";
+import { customerSchema } from "@/schemas";
 import { useForm } from "react-hook-form";
 import z from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";

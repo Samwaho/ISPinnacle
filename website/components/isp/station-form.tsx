@@ -1,5 +1,5 @@
 "use client";
-import { useState, useEffect } from "react";
+import { useEffect } from "react";
 import {
   Building2,
   MapPin,
@@ -25,7 +25,7 @@ import { Skeleton } from "../ui/skeleton";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useRouter, useParams } from "next/navigation";
 import { useTRPC } from "@/trpc/client";
-import { stationSchema, updateStationSchema } from "@/schemas";
+import { stationSchema } from "@/schemas";
 import { useForm } from "react-hook-form";
 import z from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";

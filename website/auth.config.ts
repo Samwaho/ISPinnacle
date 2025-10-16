@@ -7,6 +7,8 @@ import bcrypt from "bcryptjs";
 
 // Notice this is only an object, not a full Auth.js instance
 export default {
+  // Trust the host defined by NEXTAUTH_URL / incoming request host
+  trustHost: true,
   providers: [
     Credentials({
       async authorize(credentials) {

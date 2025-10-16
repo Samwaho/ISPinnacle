@@ -31,9 +31,10 @@ export class MpesaAPI {
     this.shortCode = config.shortCode;
     this.passKey = config.passKey;
     this.transactionType = config.transactionType;
-    this.baseUrl = process.env.NODE_ENV === "production" 
-      ? "https://api.safaricom.co.ke" 
-      : "https://sandbox.safaricom.co.ke";
+    this.baseUrl = process.env.MPESA_BASE_URL
+      || (process.env.NODE_ENV === "production"
+        ? "https://api.safaricom.co.ke"
+        : "https://sandbox.safaricom.co.ke");
   }
 
   private async getAccessToken(): Promise<string> {

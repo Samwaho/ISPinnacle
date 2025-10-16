@@ -337,6 +337,34 @@
             return `${value} ${unit}`;
         }
 
+        // Normalize Kenyan phone numbers to 2547XXXXXXXX or 2541XXXXXXXX
+        function normalizeKenyanPhoneNumber(input) {
+            if (!input) return null;
+            let digits = String(input).replace(/[^0-9+]/g, '');
+            // Strip leading +
+            if (digits.startsWith('+')) digits = digits.slice(1);
+
+            // +2547XXXXXXXX or 2547XXXXXXXX
+            if (digits.startsWith('254')) {
+                if (digits.length === 12) return digits; // 2547XXXXXXXX or 2541XXXXXXXX
+                // Sometimes users add extra zeros, trim to last 12 if ends with valid pattern
+                if (digits.length > 12 && /^(2547|2541)\d{8}/.test(digits.slice(0,12))) return digits.slice(0,12);
+                return null;
+            }
+
+            // 07XXXXXXXX or 01XXXXXXXX
+            if (digits.startsWith('0') && digits.length === 10 && (/^07\d{8}$/.test(digits) || /^01\d{8}$/.test(digits))) {
+                return '254' + digits.slice(1);
+            }
+
+            // 7XXXXXXXX or 1XXXXXXXX
+            if (digits.length === 9 && (/^7\d{8}$/.test(digits) || /^1\d{8}$/.test(digits))) {
+                return '254' + digits;
+            }
+
+            return null;
+        }
+
         // Handle package selection
         function selectPackage(packageId) {
             localStorage.setItem('selectedPackageId', packageId);
@@ -350,6 +378,7 @@
             const orgId = getOrgId();
             const phoneInput = document.getElementById('mpesa-phone');
             const phoneNumber = phoneInput.value.trim();
+            const normalizedPhone = normalizeKenyanPhoneNumber(phoneNumber);
             const errorDiv = document.getElementById('mpesa-error');
             const loadingDiv = document.getElementById('mpesa-loading');
             errorDiv.textContent = '';
@@ -357,6 +386,12 @@
 
             if (!phoneNumber) {
                 errorDiv.textContent = 'Please enter your phone number.';
+                loadingDiv.style.display = 'none';
+                return;
+            }
+
+            if (!normalizedPhone) {
+                errorDiv.textContent = 'Invalid phone. Use 07XXXXXXXX, 01XXXXXXXX or 2547XXXXXXXX.';
                 loadingDiv.style.display = 'none';
                 return;
             }
@@ -374,7 +409,7 @@
                     body: JSON.stringify({
                         organizationId: orgId,
                         packageId: packageId,
-                        phoneNumber: phoneNumber
+                        phoneNumber: normalizedPhone
                     })
                 });
                 loadingDiv.style.display = 'none';

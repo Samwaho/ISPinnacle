@@ -15,10 +15,10 @@ export function OPTIONS() {
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  context: { params: Promise<{ id: string }> }
 ) {
   try {
-    const voucherId = params.id;
+    const { id: voucherId } = await context.params;
 
     if (!voucherId) {
       return NextResponse.json(

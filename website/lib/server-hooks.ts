@@ -112,7 +112,7 @@ export const processCustomerPayment = async (
 
     console.log("Customer package:", customer.package.id);
 
-  const newPayment = await prisma.organizationCustomerPayment.create({
+  await prisma.organizationCustomerPayment.create({
     data: {
       organizationId: customer.organizationId,
       customerId: customer.id,

@@ -66,7 +66,7 @@ export const AccountLinkForm = () => {
         callbackUrl: "/auth/link-success",
         prompt: "select_account",
       });
-    } catch (error) {
+    } catch {
       setError("Something went wrong. Please try again.");
     } finally {
       setIsPending(false);

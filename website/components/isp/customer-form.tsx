@@ -1,13 +1,8 @@
 "use client";
 import { useEffect } from "react";
 import {
-  Users,
   User,
-  Phone,
-  Mail,
-  MapPin,
   Package,
-  Calendar,
   Loader2,
   Wifi,
   Globe,

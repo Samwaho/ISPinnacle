@@ -5,7 +5,7 @@ import { useTRPC } from "@/trpc/client";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { StatCard } from "@/components/StatCard";
 import { DataTable } from "@/components/table/DataTable";
-import { packageColumns, PackageTableRow } from "@/components/isp/package-columns";
+import { packageColumns } from "@/components/isp/package-columns";
 import { Package, Plus, Wifi, Globe } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
@@ -18,7 +18,7 @@ const PackagePage = () => {
   const { id } = useParams();
   const router = useRouter();
   const t = useTRPC();
-  const [selectedPackages, setSelectedPackages] = React.useState<PackageTableRow[]>([]);
+  
   const { data: packages, isPending } = useQuery(
     t.packages.getPackages.queryOptions({ organizationId: id as string })
   );
@@ -273,7 +273,6 @@ const PackagePage = () => {
             createdAt: p.createdAt instanceof Date ? p.createdAt : new Date(p.createdAt),
           })) ?? []}
           filterPlaceholder="Search packages..."
-          onRowSelectionChange={setSelectedPackages}
         />
       )}
         </>

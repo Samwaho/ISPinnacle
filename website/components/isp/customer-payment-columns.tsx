@@ -17,11 +17,7 @@ export type CustomerPaymentTableRow = {
   updatedAt: Date
 }
 
-export const customerPaymentColumns = ({
-  canManagePayments,
-}: {
-  canManagePayments: boolean;
-}): ColumnDef<CustomerPaymentTableRow>[] => [
+export const customerPaymentColumns = (): ColumnDef<CustomerPaymentTableRow>[] => [
   {
     accessorKey: "amount",
     header: ({ column }) => (

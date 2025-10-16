@@ -62,8 +62,8 @@ async function validateC2BPayment(data: {
     const payment = await prisma.organizationCustomerPayment.findFirst({
       where: {
         customerId: data.billReferenceNumber,
-        isPaid: false,
       },
+      orderBy: { createdAt: 'desc' },
     });
 
     if (!payment) {

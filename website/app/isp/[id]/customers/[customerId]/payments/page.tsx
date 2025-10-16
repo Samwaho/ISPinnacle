@@ -202,7 +202,7 @@ const CustomerPaymentsPage = () => {
   const latestPayment = payments?.[0];
   const averageAmount = totalPayments > 0 ? totalAmount / totalPayments : 0;
 
-  const columns = customerPaymentColumns({ canManagePayments });
+  const columns = customerPaymentColumns();
 
   const tableData: CustomerPaymentTableRow[] = payments?.map((payment) => ({
     id: payment.id,

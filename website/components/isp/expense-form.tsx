@@ -1,5 +1,5 @@
 "use client";
-import { useState, useEffect } from "react";
+import { useEffect } from "react";
 import {
   DollarSign,
   Calendar,
@@ -24,7 +24,7 @@ import { Skeleton } from "../ui/skeleton";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useRouter, useParams } from "next/navigation";
 import { useTRPC } from "@/trpc/client";
-import { expenseSchema, updateExpenseSchema } from "@/schemas";
+import { expenseSchema } from "@/schemas";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Textarea } from "../ui/textarea";

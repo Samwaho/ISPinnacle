@@ -1,16 +1,6 @@
 "use client";
-import { useState } from "react";
-import {
-  Building2,
-  Users,
-  Globe,
-  Mail,
-  Phone,
-  MapPin,
-  ArrowRight,
-  Loader2,
-  CheckCircle,
-} from "lucide-react";
+// import { useState } from "react";
+import { Loader2 } from "lucide-react";
 import { FormWrapper } from "../FormWrapper";
 import {
   Form,
@@ -24,7 +14,7 @@ import { Input } from "../ui/input";
 import { Button } from "../ui/button";
 import FormError from "../FormError";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { useRouter } from "next/navigation";
+// import { useRouter } from "next/navigation";
 import { useTRPC } from "@/trpc/client";
 import { organizationSchema } from "@/schemas";
 import { useForm } from "react-hook-form";
@@ -42,7 +32,7 @@ import { toast } from "sonner";
 export const OrganizationForm = () => {
   const t = useTRPC();
   const { theme } = useTheme();
-  const router = useRouter();
+  // const router = useRouter();
   const queryClient = useQueryClient();
   const {
     mutate: createOrganization,

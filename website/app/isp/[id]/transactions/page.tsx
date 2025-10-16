@@ -5,7 +5,7 @@ import { useTRPC } from "@/trpc/client";
 import { useQuery } from "@tanstack/react-query";
 import { StatCard } from "@/components/StatCard";
 import { DataTable } from "@/components/table/DataTable";
-import { transactionColumns, TransactionTableRow } from "@/components/isp/transaction-columns";
+import { transactionColumns } from "@/components/isp/transaction-columns";
 import { CreditCard, DollarSign, TrendingUp, Calendar } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { AccessDenied } from "@/components/ui/access-denied";

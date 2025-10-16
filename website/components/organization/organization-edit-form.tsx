@@ -29,7 +29,7 @@ import { useTheme } from "next-themes";
 import { Avatar, AvatarFallback, AvatarImage } from "../ui/avatar";
 import { Card, CardContent, CardHeader, CardTitle } from "../ui/card";
 import { Badge } from "../ui/badge";
-import { useRouter } from "next/navigation";
+// import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 
 interface OrganizationEditFormProps {
@@ -51,7 +51,7 @@ export const OrganizationEditForm = ({ organization, onCancel }: OrganizationEdi
   const t = useTRPC();
   const { theme } = useTheme();
   const queryClient = useQueryClient();
-  const router = useRouter();
+  // const router = useRouter();
   const {
     mutate: updateOrganization,
     isPending,

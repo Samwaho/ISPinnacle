@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { useSearchParams, useRouter, useParams } from "next/navigation";
+import { useParams } from "next/navigation";
 import { useTRPC } from "@/trpc/client";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { toast } from "sonner";

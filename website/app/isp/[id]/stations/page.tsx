@@ -5,7 +5,7 @@ import { useTRPC } from "@/trpc/client";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { StatCard } from "@/components/StatCard";
 import { DataTable } from "@/components/table/DataTable";
-import { stationColumns, StationTableRow } from "@/components/isp/station-columns";
+import { stationColumns } from "@/components/isp/station-columns";
 import { Building2, Users, MapPin, Plus } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
@@ -18,7 +18,7 @@ const StationPage = () => {
   const { id } = useParams();
   const router = useRouter();
   const t = useTRPC();
-  const [selectedStations, setSelectedStations] = React.useState<StationTableRow[]>([]);
+  
   const { data: stations, isPending } = useQuery(
     t.stations.getStations.queryOptions({ organizationId: id as string })
   );
@@ -238,7 +238,6 @@ const StationPage = () => {
             createdAt: s.createdAt instanceof Date ? s.createdAt : new Date(s.createdAt),
           })) ?? []}
           filterPlaceholder="Search stations..."
-          onRowSelectionChange={setSelectedStations}
         />
       )}
         </>

@@ -22,6 +22,8 @@ declare module "next-auth/jwt" {
 
 export const { handlers, signIn, signOut, auth } = NextAuth({
   adapter: PrismaAdapter(prisma),
+  // Trust the deployed host to avoid UntrustedHost errors in Auth.js
+  trustHost: true,
   session: {
     strategy: "jwt",
   },

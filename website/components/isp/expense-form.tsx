@@ -126,7 +126,9 @@ export const ExpenseForm = ({ mode = "create" }: ExpenseFormProps) => {
   const isRecurring = form.watch("isRecurring");
   const isPaid = form.watch("isPaid");
 
-  const onSubmit = (data: any) => {
+  type ExpenseFormData = typeof expenseSchema._type;
+
+  const onSubmit = (data: ExpenseFormData) => {
     if (mode === "create") {
       createExpense({
         organizationId,

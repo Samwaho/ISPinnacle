@@ -4,15 +4,15 @@ import { useMemo } from "react";
 import { motion } from "motion/react";
 import Link from "next/link";
 
-export function Hero() {
-  const baseImages = [
-    "/1.png", "/2.png", "/3.png", "/4.png", "/5.png", "/6.png",
-    "/7.png", "/8.png", "/9.png", "/10.png", "/11.png", "/12.png"
-  ];
+const BASE_IMAGES = [
+  "/1.png", "/2.png", "/3.png", "/4.png", "/5.png", "/6.png",
+  "/7.png", "/8.png", "/9.png", "/10.png", "/11.png", "/12.png"
+];
 
+export function Hero() {
   // Create a stable random arrangement using useMemo
   const randomImages = useMemo(() => {
-    const repeated = [...baseImages, ...baseImages, ...baseImages];
+    const repeated = [...BASE_IMAGES, ...BASE_IMAGES, ...BASE_IMAGES];
     // Use a seeded random arrangement
     const arranged = repeated.map((item, index) => ({
       item,

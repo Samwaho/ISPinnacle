@@ -6,12 +6,12 @@ import { useTRPC } from "@/trpc/client";
 import { useQuery } from "@tanstack/react-query";
 import { DataTable } from "@/components/table/DataTable";
 import { customerPaymentColumns, CustomerPaymentTableRow } from "@/components/isp/customer-payment-columns";
-import { ArrowLeft, DollarSign, CreditCard, Calendar, Package } from "lucide-react";
+import { ArrowLeft, DollarSign, CreditCard, Calendar } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
 import { StatCard } from "@/components/StatCard";
 import { AccessDenied } from "@/components/ui/access-denied";
-import { toast } from "sonner";
+// import { toast } from "sonner";
 
 const CustomerPaymentsPage = () => {
   const { id: organizationId, customerId } = useParams();

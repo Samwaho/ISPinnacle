@@ -14,8 +14,6 @@ import {
   TrendingDown, 
   DollarSign, 
   CreditCard, 
-  Users, 
-  Package,
   BarChart3,
   PieChart,
   Activity,
@@ -64,7 +62,7 @@ const MonthlyRevenueChart = ({ data }: { data: Array<{ month: string; amount: nu
         />
         <ChartTooltip
           cursor={{ fill: "hsl(var(--muted))" }}
-          content={<ChartTooltipContent labelFormatter={(v) => v as any} />}
+          content={<ChartTooltipContent labelFormatter={(v) => String(v)} />}
         />
         <Bar dataKey="amount" fill="var(--color-revenue)" radius={[6, 6, 0, 0]} />
       </ReBarChart>
@@ -278,7 +276,7 @@ const AnalyticsPage = () => {
                 key={value}
                 variant={selectedPeriod === value ? "default" : "outline"}
                 size="sm"
-                onClick={() => setSelectedPeriod(value as any)}
+                onClick={() => setSelectedPeriod(value as typeof selectedPeriod)}
                 className="flex items-center gap-2"
               >
                 <Icon className="h-3 w-3" />
@@ -287,7 +285,7 @@ const AnalyticsPage = () => {
             ))}
           </div>
           
-          <Select value={selectedPeriod} onValueChange={(value: any) => setSelectedPeriod(value)}>
+          <Select value={selectedPeriod} onValueChange={(value) => setSelectedPeriod(value as typeof selectedPeriod)}>
             <SelectTrigger className="w-40">
               <SelectValue />
             </SelectTrigger>

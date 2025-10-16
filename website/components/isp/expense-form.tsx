@@ -27,6 +27,7 @@ import { useTRPC } from "@/trpc/client";
 import { expenseSchema } from "@/schemas";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
+import { z } from "zod";
 import { Textarea } from "../ui/textarea";
 import {
   Select,
@@ -126,7 +127,7 @@ export const ExpenseForm = ({ mode = "create" }: ExpenseFormProps) => {
   const isRecurring = form.watch("isRecurring");
   const isPaid = form.watch("isPaid");
 
-  type ExpenseFormData = typeof expenseSchema._type;
+  type ExpenseFormData = z.infer<typeof expenseSchema>;
 
   const onSubmit = (data: ExpenseFormData) => {
     if (mode === "create") {

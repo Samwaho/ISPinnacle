@@ -30,7 +30,7 @@ const PaymentLinkPage = () => {
   const token = params?.token as string;
 
   const [isProcessing, setIsProcessing] = React.useState(false);
-  const [paymentInitiated] = React.useState(false);
+  // Track only processing state; remove unused paymentInitiated flag
 
   const form = useForm<PhoneFormData>({
     resolver: zodResolver(phoneSchema),

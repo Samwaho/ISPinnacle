@@ -21,10 +21,7 @@ import { useForm } from "react-hook-form";
 import z from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Textarea } from "../ui/textarea";
-import {
-  FileUploaderMinimal,
-  FileUploaderRegular,
-} from "@uploadcare/react-uploader/next";
+import { FileUploaderMinimal } from "@uploadcare/react-uploader/next";
 import "@uploadcare/react-uploader/core.css";
 import { useTheme } from "next-themes";
 import { toast } from "sonner";

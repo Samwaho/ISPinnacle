@@ -38,6 +38,8 @@ const CustomerPaymentsPage = () => {
 
   // Check if user has permission to view customers
   const canViewCustomers = userPermissions?.canViewCustomers || false;
+  // Customers payments are view-only in this page; management happens elsewhere
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const canManagePayments = userPermissions?.canManageCustomers || false;
 
   if (permissionsLoading) {

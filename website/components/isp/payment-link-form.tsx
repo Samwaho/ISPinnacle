@@ -113,7 +113,7 @@ export const PaymentLinkForm = ({
     try {
       await navigator.clipboard.writeText(text);
       toast.success("Payment link copied to clipboard!");
-    } catch (error) {
+    } catch {
       toast.error("Failed to copy payment link");
     }
   };

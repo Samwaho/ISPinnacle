@@ -5,7 +5,7 @@ import { useTRPC } from "@/trpc/client";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { StatCard } from "@/components/StatCard";
 import { DataTable } from "@/components/table/DataTable";
-import { packageColumns } from "@/components/isp/package-columns";
+import { packageColumns, type PackageTableRow } from "@/components/isp/package-columns";
 import { Package, Plus, Wifi, Globe } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";

@@ -2,7 +2,6 @@
 import { useState } from "react";
 // import { useForm } from "react-hook-form";
 // import { zodResolver } from "@hookform/resolvers/zod";
-import { z } from "zod";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useTRPC } from "@/trpc/client";
 import { toast } from "sonner";
@@ -18,15 +17,6 @@ import { Separator } from "@/components/ui/separator";
 import { PaymentGatewayEditForm } from "./payment-gateway-edit-form";
 import { KopokopoEditForm } from "./kopokopo-edit-form";
 
-const mpesaConfigSchema = z.object({
-  consumerKey: z.string().min(1, "Consumer key is required"),
-  consumerSecret: z.string().min(1, "Consumer secret is required"),
-  shortCode: z.string().min(1, "Short code is required"),
-  passKey: z.string().min(1, "Pass key is required"),
-  transactionType: z.enum(["PAYBILL", "BUYGOODS"]),
-});
-
-type MpesaConfigFormData = z.infer<typeof mpesaConfigSchema>;
 
 interface PaymentGatewayConfigProps {
   organizationId: string;

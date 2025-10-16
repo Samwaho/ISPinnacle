@@ -40,6 +40,13 @@ export const defaultSmsTemplates = [
     isDefault: true,
   },
   {
+    name: "hotspot_voucher",
+    message: "Payment confirmed! Your hotspot voucher code is {{voucherCode}} for {{packageName}} (KES {{amount}}). Expires: {{expiryDate}}. – {{organizationName}}",
+    variables: ["voucherCode", "packageName", "amount", "expiryDate", "organizationName"],
+    isActive: true,
+    isDefault: true,
+  },
+  {
     name: "customer_expiry_reminder",
     message: "Dear {{customerName}}, your internet package expires on {{expiryDate}}. Please renew to avoid service interruption. Contact {{supportNumber}} for assistance. - {{organizationName}}",
     variables: ["customerName", "expiryDate", "supportNumber", "organizationName"],

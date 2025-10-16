@@ -36,7 +36,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "../ui/select";
-import { Switch } from "../ui/switch";
+// import { Switch } from "../ui/switch";
 import { toast } from "sonner";
 
 interface CustomerFormProps {

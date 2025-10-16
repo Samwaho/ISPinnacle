@@ -30,7 +30,7 @@ const PaymentLinkPage = () => {
   const token = params?.token as string;
 
   const [isProcessing, setIsProcessing] = React.useState(false);
-  const [paymentInitiated, setPaymentInitiated] = React.useState(false);
+  const [paymentInitiated] = React.useState(false);
 
   const form = useForm<PhoneFormData>({
     resolver: zodResolver(phoneSchema),
@@ -56,9 +56,9 @@ const PaymentLinkPage = () => {
     isPending: isProcessingPayment,
   } = useMutation(
     t.customer.processPaymentLink.mutationOptions({
-      onSuccess: (data) => {
+      onSuccess: () => {
         toast.success("Payment initiated successfully! Please check your phone for the M-Pesa prompt.");
-        setPaymentInitiated(true);
+        // setPaymentInitiated(true);
         setIsProcessing(true);
         // Don't redirect immediately - wait for actual payment completion
         // The success page should only be shown after M-Pesa callback confirms payment

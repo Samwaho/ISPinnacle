@@ -314,10 +314,10 @@ const AnalyticsPage = () => {
               icon={<DollarSign className="h-5 w-5" />}
               color="green"
               isClickable={false}
-              subtitle={financialOverview?.revenueGrowth ? 
-                `${financialOverview.revenueGrowth > 0 ? '+' : ''}${financialOverview.revenueGrowth.toFixed(1)}%` : 
-                undefined
-              }
+              trend={financialOverview?.revenueGrowth !== undefined ? {
+                value: Number(financialOverview.revenueGrowth.toFixed(1)),
+                isPositive: (financialOverview.revenueGrowth || 0) >= 0,
+              } : undefined}
             />
             <StatCard
               title="Total Expenses"
@@ -325,10 +325,10 @@ const AnalyticsPage = () => {
               icon={<CreditCard className="h-5 w-5" />}
               color="red"
               isClickable={false}
-              subtitle={financialOverview?.expenseGrowth ? 
-                `${financialOverview.expenseGrowth > 0 ? '+' : ''}${financialOverview.expenseGrowth.toFixed(1)}%` : 
-                undefined
-              }
+              trend={financialOverview?.expenseGrowth !== undefined ? {
+                value: Number(financialOverview.expenseGrowth.toFixed(1)),
+                isPositive: (financialOverview.expenseGrowth || 0) >= 0,
+              } : undefined}
             />
             <StatCard
               title="Net Profit"

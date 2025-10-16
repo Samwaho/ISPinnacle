@@ -38,7 +38,6 @@ export const OrganizationForm = () => {
     mutate: createOrganization,
     isPending,
     error,
-    data,
   } = useMutation(t.organization.createOrganization.mutationOptions({
     onSuccess: () => {
       toast.success("Organization created successfully");

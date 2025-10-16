@@ -2,8 +2,6 @@
 import { useEffect } from "react";
 import {
   Building2,
-  MapPin,
-  FileText,
   Home,
   Building,
   Briefcase,

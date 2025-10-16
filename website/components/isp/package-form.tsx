@@ -3,7 +3,6 @@ import { useEffect } from "react";
 import {
   Package,
   DollarSign,
-  Clock,
   Wifi,
   Globe,
   Loader2,

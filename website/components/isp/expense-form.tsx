@@ -191,7 +191,7 @@ export const ExpenseForm = ({ mode = "create" }: ExpenseFormProps) => {
     >
       <Form {...form}>
         <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
-          <FormError message={createError?.message || updateError?.message} />
+          <FormError message={createError?.message ?? updateError?.message ?? ""} />
           
           <div className="grid gap-6 md:grid-cols-2">
             <FormField

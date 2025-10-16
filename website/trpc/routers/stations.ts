@@ -269,7 +269,7 @@ export const stationsRouter = createTRPCRouter({
                     package: true,
                     payments: {
                         orderBy: {
-                            date: "desc",
+                            createdAt: "desc",
                         },
                         take: 5,
                     },

@@ -8,6 +8,14 @@ export const rlmController = {
   async authorize(req: Request, res: Response) {
     try {
       const { username, password, nas_ip_address, nas_port } = req.body;
+      
+      console.log('RADIUS Authorization request:', {
+        username,
+        password: password ? '***' : 'none',
+        nas_ip_address,
+        nas_port,
+        timestamp: new Date().toISOString()
+      });
 
       // First, try to find a regular customer
       let customer = await prisma.organizationCustomer.findFirst({
@@ -181,6 +189,32 @@ export const rlmController = {
         flatAttributes['control:Cleartext-Password'] = cleartextPassword;
       }
 
+      // Add additional attributes for hotspot authentication
+      if (isHotspotVoucher || (!isPPPoE && customer)) {
+        // Set Auth-Type to PAP for hotspot
+        flatAttributes['control:Auth-Type'] = 'PAP';
+        
+        // Add service type for hotspot
+        flatAttributes['reply:Service-Type'] = 'Framed-User';
+        
+        // Add framed protocol for hotspot
+        flatAttributes['reply:Framed-Protocol'] = 'PPP';
+        
+        // Add session timeout for hotspot
+        if (packageData) {
+          const sessionTimeout = rlmController.calculateSessionTimeout(packageData);
+          if (sessionTimeout > 0) {
+            flatAttributes['reply:Session-Timeout'] = sessionTimeout;
+          }
+        }
+      }
+
+      console.log('RADIUS Authorization response:', {
+        username,
+        attributes: Object.keys(flatAttributes),
+        timestamp: new Date().toISOString()
+      });
+      
       return res.json(flatAttributes);
 
     } catch (error) {
@@ -196,6 +230,12 @@ export const rlmController = {
   async authenticate(req: Request, res: Response) {
     try {
       const { username, password } = req.body;
+      
+      console.log('RADIUS Authentication request:', {
+        username,
+        password: password ? '***' : 'none',
+        timestamp: new Date().toISOString()
+      });
 
       // First, try to find a regular customer
       let customer = await prisma.organizationCustomer.findFirst({
@@ -282,6 +322,12 @@ export const rlmController = {
         }
       }
 
+      console.log('RADIUS Authentication response:', {
+        username,
+        result: 'accept',
+        timestamp: new Date().toISOString()
+      });
+      
       return res.json({
         result: 'accept'
       });

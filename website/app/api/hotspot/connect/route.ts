@@ -18,6 +18,11 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
     const { voucherCode } = body;
 
+    console.log('Connect endpoint called with voucherCode:', voucherCode);
+    console.log('VoucherCode type:', typeof voucherCode);
+    console.log('VoucherCode length:', voucherCode?.length);
+    console.log('VoucherCode trimmed:', voucherCode?.trim());
+
     if (!voucherCode) {
       return NextResponse.json(
         { error: 'Voucher code is required' },
@@ -25,9 +30,12 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Find voucher by code
-    const voucher = await prisma.hotspotVoucher.findUnique({
-      where: { voucherCode },
+    // Find voucher by code (trim whitespace)
+    const trimmedVoucherCode = voucherCode.trim();
+    console.log('Searching for voucher with code:', trimmedVoucherCode);
+    
+    let voucher = await prisma.hotspotVoucher.findUnique({
+      where: { voucherCode: trimmedVoucherCode },
       include: {
         package: {
           select: {
@@ -52,11 +60,54 @@ export async function POST(request: NextRequest) {
     });
 
     if (!voucher) {
-      return NextResponse.json(
-        { error: 'Invalid voucher code' },
-        { status: 404, headers: CORS_HEADERS }
-      );
+      console.log('Voucher not found for code:', trimmedVoucherCode);
+      // Try case-insensitive search as fallback
+      console.log('Trying case-insensitive search...');
+      voucher = await prisma.hotspotVoucher.findFirst({
+        where: { 
+          voucherCode: {
+            equals: trimmedVoucherCode,
+            mode: 'insensitive'
+          }
+        },
+        include: {
+          package: {
+            select: {
+              id: true,
+              name: true,
+              description: true,
+              price: true,
+              duration: true,
+              durationType: true,
+              downloadSpeed: true,
+              uploadSpeed: true,
+              maxDevices: true,
+            }
+          },
+          organization: {
+            select: {
+              id: true,
+              name: true,
+            }
+          }
+        }
+      });
+      
+      if (!voucher) {
+        console.log('Voucher still not found after case-insensitive search');
+        return NextResponse.json(
+          { error: 'Invalid voucher code' },
+          { status: 404, headers: CORS_HEADERS }
+        );
+      }
     }
+
+    console.log('Voucher found:', {
+      id: voucher.id,
+      voucherCode: voucher.voucherCode,
+      status: voucher.status,
+      expiresAt: voucher.expiresAt
+    });
 
     // Check voucher status
     if (voucher.status === 'USED') {

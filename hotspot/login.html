@@ -56,15 +56,26 @@
             try {
                 const chapId = getMikroTikVar('chap-id');
                 const chapChallenge = getMikroTikVar('chap-challenge');
+                
+                console.log('CHAP computation:', { chapId, chapChallenge, password });
+                
                 if (!chapId || chapId === '$(chap-id)' || !chapChallenge || chapChallenge === '$(chap-challenge)') {
-                    return null; // CHAP not in use
+                    console.log('CHAP not in use, using PAP authentication');
+                    return null; // CHAP not in use, will use PAP
                 }
+                
                 if (typeof hexMD5 !== 'function') {
-                    console.warn('hexMD5 not available');
+                    console.warn('hexMD5 not available, falling back to PAP');
                     return null;
                 }
+                
                 // MikroTik expects 00 + MD5(chap-id + password + chap-challenge)
-                return '00' + hexMD5(chapId + password + chapChallenge);
+                const hashInput = chapId + password + chapChallenge;
+                const hash = hexMD5(hashInput);
+                const response = '00' + hash;
+                
+                console.log('CHAP response computed:', response);
+                return response;
             } catch (e) {
                 console.warn('Failed to compute CHAP response', e);
                 return null;
@@ -468,21 +479,17 @@
                             });
                             
                             if (connectResponse.ok) {
-                                // Instead of redirecting directly, submit the form to MikroTik's hotspot system
+                                // Voucher is valid, submit form to MikroTik
                                 const form = document.createElement('form');
                                 form.method = 'POST';
                                 form.action = '$(link-login-only)';
                                 
-                                // Get CHAP values from MikroTik
-                                const chapId = document.getElementById('chap-id')?.value || '$(chap-id)';
-                                const chapChallenge = document.getElementById('chap-challenge')?.value || '$(chap-challenge)';
-                                
                                 // Build required fields for MikroTik authentication
-                                const response = computeChapResponse(voucherCode);
+                                const responseHash = computeChapResponse(voucherCode);
                                 const fields = {
                                     'username': voucherCode,
-                                    'password': response ? '' : voucherCode,
-                                    'response': response || '',
+                                    'password': responseHash ? '' : voucherCode,
+                                    'response': responseHash || '',
                                     'dst': '$(link-orig)',
                                     'popup': 'true'
                                 };
@@ -533,6 +540,24 @@
         function showVoucherEntry() {
             document.getElementById('package-selection').style.display = 'none';
             document.getElementById('voucher-entry').style.display = 'block';
+        }
+
+        // Handle manual connection with voucher
+        function loginWithVoucher() {
+            const voucherCode = document.getElementById('voucher-code').textContent;
+            if (voucherCode && voucherCode !== 'Waiting for payment confirmation...') {
+                // Pre-fill the voucher form
+                document.getElementById('voucher-entry').style.display = 'block';
+                document.getElementById('voucher-result').style.display = 'none';
+                
+                const form = document.getElementById('voucher-form');
+                if (form) {
+                    form.username.value = voucherCode;
+                    form.password.value = voucherCode;
+                }
+            } else {
+                showVoucherEntry();
+            }
         }
 
         // Add theme toggle functionality
@@ -593,7 +618,7 @@
             displayPackages(localPackages);
         }
 
-        // Add this function to handle voucher form submission
+        // Handle voucher form submission with MikroTik compliance
         async function handleVoucherSubmit(event) {
             event.preventDefault();
             const form = event.target;
@@ -610,6 +635,7 @@
                 return;
             }
             
+            // Validate voucher with API first
             try {
                 const response = await fetch(`${getApiUrl()}/api/hotspot/connect`, {
                     method: 'POST',
@@ -622,43 +648,28 @@
                 });
                 
                 if (response.ok) {
-                    // Create and submit the form to MikroTik's hotspot system
-                    const hotspotForm = document.createElement('form');
-                    hotspotForm.method = 'POST';
-                    hotspotForm.action = '$(link-login-only)';
-                    
-                    // Get CHAP values from MikroTik
-                    const chapId = document.getElementById('chap-id')?.value || '$(chap-id)';
-                    const chapChallenge = document.getElementById('chap-challenge')?.value || '$(chap-challenge)';
-                    
-                    // Build required fields for MikroTik authentication
+                    // Voucher is valid, prepare CHAP response for MikroTik
                     const responseHash = computeChapResponse(username);
-                    const fields = {
-                        'username': username,
-                        'password': responseHash ? '' : username,
-                        'response': responseHash || '',
-                        'dst': '$(link-orig)',
-                        'popup': 'true'
-                    };
                     
-                    // Create and append form fields
-                    for (const [name, value] of Object.entries(fields)) {
-                        const input = document.createElement('input');
-                        input.type = 'hidden';
-                        input.name = name;
-                        input.value = value;
-                        hotspotForm.appendChild(input);
+                    // Update the hidden response field
+                    const responseField = document.getElementById('chap-response');
+                    if (responseField) {
+                        responseField.value = responseHash || '';
                     }
                     
-                    // Add form to document and submit
-                    document.body.appendChild(hotspotForm);
-                    hotspotForm.submit();
+                    // Clear password field if using CHAP
+                    if (responseHash) {
+                        form.password.value = '';
+                    }
+                    
+                    // Submit the form to MikroTik
+                    form.submit();
                 } else {
                     const error = await response.json();
-                    alert(error.detail || error.error || 'Failed to connect. Please check your voucher code.');
+                    alert(error.detail || error.error || 'Invalid voucher code. Please check and try again.');
                 }
             } catch (error) {
-                console.error('Connection error:', error);
+                console.error('Voucher validation error:', error);
                 alert('Network error. Please try again.');
             }
         }
@@ -772,6 +783,8 @@
         <input type="hidden" name="ip" value="$(ip)" />
         <input type="hidden" name="username" value="$(username)" />
         <input type="hidden" name="password" value="$(password)" />
+        <input type="hidden" name="link-status" value="$(link-status)" />
+        <input type="hidden" name="link-logout-only" value="$(link-logout-only)" />
     </form>
     
     <!-- Header with organization logo and theme toggle -->
@@ -859,20 +872,25 @@
                 <!-- Voucher Entry Section -->
                 <div id="voucher-entry" style="display: none;">
                     <h2>Enter Your Voucher</h2>
-                    <form id="voucher-form" class="voucher-form">
+                    <form id="voucher-form" class="voucher-form" method="POST" action="$(link-login-only)">
                         <div class="form-group">
                             <label>
                                 <span class="input-icon">🎟️</span>
-                                <input name="username" type="text" placeholder="Voucher Code" />
+                                <input name="username" type="text" placeholder="Voucher Code" required />
                             </label>
                         </div>
 
                         <div class="form-group">
                             <label>
                                 <span class="input-icon">🔑</span>
-                                <input name="password" type="password" placeholder="Voucher Code (same as above)" />
+                                <input name="password" type="password" placeholder="Voucher Code (same as above)" required />
                             </label>
                         </div>
+
+                        <!-- Required MikroTik parameters -->
+                        <input type="hidden" name="dst" value="$(link-orig)" />
+                        <input type="hidden" name="popup" value="true" />
+                        <input type="hidden" name="response" value="" id="chap-response" />
 
                         <button type="submit" class="primary-btn">
                             <span class="icon">🔌</span>

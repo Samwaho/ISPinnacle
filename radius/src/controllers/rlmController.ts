@@ -55,14 +55,8 @@ export const rlmController = {
             });
           }
 
-          // Mark voucher as used
-          await prisma.hotspotVoucher.update({
-            where: { id: hotspotVoucher.id },
-            data: { 
-              status: 'USED',
-              usedAt: new Date()
-            }
-          });
+          // Don't mark voucher as used here - wait for successful authentication
+          // The voucher will be marked as used in the accounting Start event
         }
       }
 
@@ -236,20 +230,29 @@ export const rlmController = {
           }
         });
 
-        if (hotspotVoucher && hotspotVoucher.voucherCode === password) {
-          isHotspotVoucher = true;
-          // Check if voucher is active and not expired
-          if (hotspotVoucher.status !== 'ACTIVE') {
-            return res.json({
-              result: 'reject',
-              message: 'Voucher not active'
-            });
-          }
+        if (hotspotVoucher) {
+          // For hotspot vouchers, the voucher code should match both username and password
+          if (hotspotVoucher.voucherCode === password) {
+            isHotspotVoucher = true;
+            // Check if voucher is active and not expired
+            if (hotspotVoucher.status !== 'ACTIVE') {
+              return res.json({
+                result: 'reject',
+                message: 'Voucher not active'
+              });
+            }
 
-          if (hotspotVoucher.expiresAt && new Date() > hotspotVoucher.expiresAt) {
+            if (hotspotVoucher.expiresAt && new Date() > hotspotVoucher.expiresAt) {
+              return res.json({
+                result: 'reject',
+                message: 'Voucher expired'
+              });
+            }
+          } else {
+            // Voucher exists but password doesn't match
             return res.json({
               result: 'reject',
-              message: 'Voucher expired'
+              message: 'Invalid voucher code'
             });
           }
         }
@@ -354,7 +357,7 @@ export const rlmController = {
         user_agent
       } = req.body;
 
-      // Find customer
+      // Find customer or hotspot voucher
       const customer = await prisma.organizationCustomer.findFirst({
         where: {
           OR: [
@@ -369,7 +372,21 @@ export const rlmController = {
         }
       });
 
+      // If no customer found, check for hotspot voucher
+      let hotspotVoucher = null;
       if (!customer) {
+        hotspotVoucher = await prisma.hotspotVoucher.findUnique({
+          where: {
+            voucherCode: username
+          },
+          include: {
+            package: true,
+            organization: true
+          }
+        });
+      }
+
+      if (!customer && !hotspotVoucher) {
         console.log(`Accounting: User ${username} not found`);
         return res.json({
           result: 'accept'
@@ -377,17 +394,32 @@ export const rlmController = {
       }
 
       // Determine connection type
-      const connectionType = customer.pppoeUsername === username ? 'PPPoE' : 'Hotspot';
+      const connectionType = customer ? (customer.pppoeUsername === username ? 'PPPoE' : 'Hotspot') : 'Hotspot';
 
       // Handle different accounting status types
       switch (acct_status_type) {
         case 'Start':
-          console.log(`Session started for ${username} (${customer.name}): ${acct_session_id}`);
+          const displayName = customer ? customer.name : `Voucher ${username}`;
+          console.log(`Session started for ${username} (${displayName}): ${acct_session_id}`);
           console.log(`IP: ${framed_ip_address}, NAS: ${nas_ip_address}`);
           
-          // Upsert connection record (create if doesn't exist, update if exists)
-          await prisma.organizationCustomerConnection.upsert({
-            where: { customerId: customer.id },
+          // Mark hotspot voucher as used when session starts
+          if (hotspotVoucher) {
+            await prisma.hotspotVoucher.update({
+              where: { id: hotspotVoucher.id },
+              data: { 
+                status: 'USED',
+                usedAt: new Date()
+              }
+            });
+            console.log(`Hotspot voucher ${username} marked as used`);
+          }
+          
+          // Only create connection record for regular customers, not vouchers
+          if (customer) {
+            // Upsert connection record (create if doesn't exist, update if exists)
+            await prisma.organizationCustomerConnection.upsert({
+              where: { customerId: customer.id },
             create: {
               customerId: customer.id,
               currentSessionId: acct_session_id,
@@ -446,10 +478,12 @@ export const rlmController = {
             where: { id: customer.id },
             data: { connectionStatus: 'ONLINE' }
           });
+          }
           break;
         
         case 'Stop':
-          console.log(`Session stopped for ${username} (${customer.name}): ${acct_session_id}`);
+          const stopDisplayName = customer ? customer.name : `Voucher ${username}`;
+          console.log(`Session stopped for ${username} (${stopDisplayName}): ${acct_session_id}`);
           console.log(`Usage - Input: ${acct_input_octets} bytes, Output: ${acct_output_octets} bytes, Time: ${acct_session_time} seconds`);
           
           const inputOctets = acct_input_octets ? BigInt(acct_input_octets) : BigInt(0);
@@ -465,8 +499,8 @@ export const rlmController = {
           
           console.log(`Total usage: ${totalMB} MB, Session duration: ${sessionMinutes} minutes`);
           
-          // Update connection record with final session data and accumulate totals
-          if (customer.connection) {
+          // Update connection record with final session data and accumulate totals (only for customers)
+          if (customer && customer.connection) {
             await prisma.organizationCustomerConnection.update({
               where: { customerId: customer.id },
               data: {
@@ -492,18 +526,20 @@ export const rlmController = {
             });
           }
 
-          // Update customer connection status to OFFLINE
-          await prisma.organizationCustomer.update({
-            where: { id: customer.id },
-            data: { connectionStatus: 'OFFLINE' }
-          });
+          // Update customer connection status to OFFLINE (only for customers)
+          if (customer) {
+            await prisma.organizationCustomer.update({
+              where: { id: customer.id },
+              data: { connectionStatus: 'OFFLINE' }
+            });
+          }
           break;
         
         case 'Interim-Update':
           console.log(`Interim update for ${username}: ${acct_session_id}`);
           
-          // Update current session data
-          if (customer.connection) {
+          // Update current session data (only for customers)
+          if (customer && customer.connection) {
             await prisma.organizationCustomerConnection.update({
               where: { customerId: customer.id },
               data: {
@@ -551,15 +587,41 @@ export const rlmController = {
         }
       });
 
+      // If no customer found, check for hotspot voucher
+      let hotspotVoucher = null;
       if (!customer) {
+        hotspotVoucher = await prisma.hotspotVoucher.findUnique({
+          where: {
+            voucherCode: username
+          },
+          include: {
+            package: true
+          }
+        });
+      }
+
+      if (!customer && !hotspotVoucher) {
         return res.json({
           result: 'reject',
           message: 'User not found'
         });
       }
 
+      // For hotspot vouchers, only one session allowed (vouchers are single-use)
+      if (hotspotVoucher) {
+        if (hotspotVoucher.status === 'USED') {
+          return res.json({
+            result: 'reject',
+            message: 'Voucher already used'
+          });
+        }
+        return res.json({
+          result: 'accept'
+        });
+      }
+
       // Check if customer already has an active session
-      if (customer.connection?.sessionStatus === 'ONLINE') {
+      if (customer && customer.connection?.sessionStatus === 'ONLINE') {
         // For PPPoE, typically only one session allowed
         if (customer.pppoeUsername === username) {
           return res.json({

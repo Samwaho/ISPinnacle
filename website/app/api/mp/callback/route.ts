@@ -131,6 +131,26 @@ export async function POST(request: NextRequest) {
     // If it's a hotspot voucher, handle it differently
     if (hotspotVoucher) {
       if (ResultCode === 0) {
+        // Store M-Pesa transaction for hotspot voucher
+        try {
+          await storeMpesaTransaction(
+            mpesaReceiptNumber || CheckoutRequestID,
+            amount,
+            hotspotVoucher.organization.mpesaConfiguration?.transactionType || MpesaTransactionType.PAYBILL,
+            transactionDateTime,
+            hotspotVoucher.organization.mpesaConfiguration?.shortCode || '',
+            phoneNumber,
+            phoneNumber,
+            hotspotVoucher.voucherCode, // Use voucher code as account reference
+            mpesaReceiptNumber || CheckoutRequestID,
+            0 // No org account balance for STK push
+          );
+          console.log("Hotspot voucher M-Pesa transaction stored successfully");
+        } catch (error) {
+          console.error("Error storing hotspot voucher M-Pesa transaction:", error);
+          // Continue processing even if transaction storage fails
+        }
+
         // Update voucher status to active
         const updated = await prisma.hotspotVoucher.update({
           where: { id: hotspotVoucher.id },

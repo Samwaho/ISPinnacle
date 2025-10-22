@@ -5,6 +5,7 @@ import {
   storeMpesaTransaction,
 } from "@/lib/server-hooks";
 import { MpesaTransactionType } from "@/lib/generated/prisma";
+import { SmsService } from '@/lib/sms';
 
 export async function POST(request: NextRequest) {
   try {
@@ -131,7 +132,7 @@ export async function POST(request: NextRequest) {
     if (hotspotVoucher) {
       if (ResultCode === 0) {
         // Update voucher status to active
-        await prisma.hotspotVoucher.update({
+        const updated = await prisma.hotspotVoucher.update({
           where: { id: hotspotVoucher.id },
           data: { 
             status: 'ACTIVE',
@@ -140,6 +141,45 @@ export async function POST(request: NextRequest) {
         });
 
         console.log(`Hotspot voucher activated. Voucher ID: ${hotspotVoucher.id}, Receipt: ${mpesaReceiptNumber}`);
+
+        // Attempt to send voucher SMS to the purchaser
+        try {
+          const org = await prisma.organization.findUnique({
+            where: { id: updated.organizationId },
+            select: { name: true }
+          });
+
+          const pkg = await prisma.organizationPackage.findUnique({
+            where: { id: updated.packageId },
+            select: { name: true, price: true, duration: true, durationType: true }
+          });
+
+          const expiry = updated.expiresAt ? new Date(updated.expiresAt).toLocaleString() : '';
+          console.log('Hotspot: attempting to send voucher SMS', {
+            organizationId: updated.organizationId,
+            phoneNumber: updated.phoneNumber,
+            voucherCode: updated.voucherCode,
+            packageName: pkg?.name,
+            amount: pkg?.price,
+            expiryDate: expiry
+          });
+
+          const smsResult = await SmsService.sendTemplateSms({
+            organizationId: updated.organizationId,
+            templateName: 'hotspot_voucher',
+            phoneNumber: updated.phoneNumber,
+            variables: {
+              voucherCode: updated.voucherCode,
+              packageName: pkg?.name || 'Hotspot Package',
+              amount: String(pkg?.price ?? ''),
+              expiryDate: expiry,
+              organizationName: org?.name || 'ISPinnacle',
+            }
+          });
+          console.log('Hotspot: voucher SMS send result', smsResult);
+        } catch (smsError) {
+          console.error('Failed to send hotspot voucher SMS:', smsError);
+        }
       } else {
         // Update voucher status to cancelled
         await prisma.hotspotVoucher.update({

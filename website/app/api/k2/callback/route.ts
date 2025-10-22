@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import crypto from "crypto";
 import { processCustomerPayment, storeKopoKopoTransaction } from "@/lib/server-hooks";
+import { SmsService } from '@/lib/sms';
 
 function hmacSha256Hex(key: string, data: string) {
   return crypto.createHmac("sha256", key).update(data, "utf8").digest("hex");
@@ -147,7 +148,7 @@ export async function POST(request: NextRequest) {
 
       if (hotspotVoucher) {
         // Update voucher status to active
-        await prisma.hotspotVoucher.update({
+        const updated = await prisma.hotspotVoucher.update({
           where: { id: hotspotVoucher.id },
           data: { 
             status: 'ACTIVE',
@@ -156,6 +157,45 @@ export async function POST(request: NextRequest) {
         });
 
         console.log(`Hotspot voucher activated via KopoKopo. Voucher ID: ${hotspotVoucher.id}, Payment ID: ${transactionId}`);
+
+        // Attempt to send voucher SMS to the purchaser
+        try {
+          const org = await prisma.organization.findUnique({
+            where: { id: updated.organizationId },
+            select: { name: true }
+          });
+
+          const pkg = await prisma.organizationPackage.findUnique({
+            where: { id: updated.packageId },
+            select: { name: true, price: true, duration: true, durationType: true }
+          });
+
+          const expiry = updated.expiresAt ? new Date(updated.expiresAt).toLocaleString() : '';
+          console.log('Hotspot: attempting to send voucher SMS (KopoKopo)', {
+            organizationId: updated.organizationId,
+            phoneNumber: updated.phoneNumber,
+            voucherCode: updated.voucherCode,
+            packageName: pkg?.name,
+            amount: pkg?.price ?? amount,
+            expiryDate: expiry
+          });
+
+          const smsResult = await SmsService.sendTemplateSms({
+            organizationId: updated.organizationId,
+            templateName: 'hotspot_voucher',
+            phoneNumber: updated.phoneNumber,
+            variables: {
+              voucherCode: updated.voucherCode,
+              packageName: pkg?.name || 'Hotspot Package',
+              amount: String(pkg?.price ?? amount ?? ''),
+              expiryDate: expiry,
+              organizationName: org?.name || 'ISPinnacle',
+            }
+          });
+          console.log('Hotspot: voucher SMS send result (KopoKopo)', smsResult);
+        } catch (smsError) {
+          console.error('Failed to send hotspot voucher SMS (KopoKopo):', smsError);
+        }
       } else {
         // Handle regular customer payment
         try {

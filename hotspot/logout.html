@@ -8,6 +8,35 @@
     <title>Internet hotspot - Log out</title>
     <link rel="stylesheet" href="css/style.css">
     <script>
+        function getOrgId() {
+            const urlParams = new URLSearchParams(window.location.search);
+            return urlParams.get('org') || 'cmfc3c2fa0001kwyk82la4cw7';
+        }
+
+        function getApiUrl() { return 'https://ispinnacle.co.ke'; }
+
+        async function fetchOrganizationDetails() {
+            const orgId = getOrgId();
+            const apiUrl = `${getApiUrl()}/api/hotspot/organizations/${orgId}`;
+            try {
+                const res = await fetch(apiUrl, { headers: { 'Accept': 'application/json', 'Cache-Control': 'no-cache' } });
+                if (!res.ok) return;
+                const data = await res.json();
+                if (data && data.organization) updateOrganizationBranding(data.organization);
+            } catch (e) { /* ignore */ }
+        }
+
+        function updateOrganizationBranding(org) {
+            if (org.name) document.title = `${org.name} - Log out`;
+            const headerLogo = document.querySelector('.header .header-logo');
+            if (headerLogo) {
+                let html = '';
+                if (org.business && org.business.logo) html += `<img src=\"${org.business.logo}\" alt=\"${org.name}\" class=\"skeleton rounded\" onload=\"this.classList.remove('skeleton')\">`;
+                html += `<div class=\"org-name\">${org.name || 'ISPinnacle Hotspot'}</div>`;
+                headerLogo.innerHTML = html;
+            }
+        }
+
         function openLogin() {
             if (window.name != 'hotspot_logout') return true;
             open('$(link-login)', '_blank', '');
@@ -33,14 +62,20 @@
                 document.documentElement.classList.add('dark');
             }
             updateThemeIcon();
+            fetchOrganizationDetails();
         };
     </script>
 </head>
 
 <body>
-    <button class="theme-toggle" onclick="toggleTheme()">
-        <span id="theme-icon">🌙</span>
-    </button>
+    <header class="header">
+        <div class="header-logo">
+            <div class="org-name">ISPinnacle Hotspot</div>
+        </div>
+        <button class="theme-toggle" onclick="toggleTheme()">
+            <span id="theme-icon">🌙</span>
+        </button>
+    </header>
     
     <div class="ie-fixMinHeight">
         <div class="main">

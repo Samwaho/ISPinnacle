@@ -20,7 +20,7 @@
         // Get organization ID from URL parameter or set a default
         function getOrgId() {
             const urlParams = new URLSearchParams(window.location.search);
-            return urlParams.get('org') || '67ed1d0dfa4861088cfcb6a0';
+            return urlParams.get('org') || 'cmfc3c2fa0001kwyk82la4cw7';
         }
 
         // Get base API URL
@@ -31,7 +31,7 @@
         // Fetch organization details
         async function fetchOrganizationDetails() {
             const orgId = getOrgId();
-            const apiUrl = `${getApiUrl()}/api/organizations/${orgId}`;
+            const apiUrl = `${getApiUrl()}/api/hotspot/organizations/${orgId}`;
             
             try {
                 const response = await fetch(apiUrl, {
@@ -69,11 +69,11 @@
                     
                     // Add organization logo if available
                     if (org.business && org.business.logo) {
-                        logoHtml += `<img src="${org.business.logo}" alt="${org.name}">`;
+                        logoHtml += `<img src="${org.business.logo}" alt="${org.name}" class="skeleton rounded" onload="this.classList.remove('skeleton')">`;
                     }
                     
                     // Add organization name
-                    logoHtml += `<div class="org-name">${org.name || 'Ispinnacle Hotspot'}</div>`;
+                    logoHtml += `<div class="org-name">${org.name || 'ISPinnacle Hotspot'}</div>`;
                     
                     headerLogo.innerHTML = logoHtml;
                 }
@@ -86,7 +86,7 @@
                 
                 // Add organization banner if available
                 if (org.business && org.business.banner) {
-                    logoHtml += `<img src="${org.business.banner}" alt="${org.name}" class="org-banner">`;
+                    logoHtml += `<img src="${org.business.banner}" alt="${org.name}" class="org-banner skeleton rounded" onload="this.classList.remove('skeleton')">`;
                 }
                 
                 // Add organization description

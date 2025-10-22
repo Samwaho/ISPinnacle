@@ -93,6 +93,9 @@ body {
     height: 40px;
     border-radius: 8px;
     object-fit: cover;
+    background-color: var(--secondary);
+    border: 1px solid var(--border);
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.06);
 }
 
 .header-logo .org-name {
@@ -122,6 +125,13 @@ body {
 .header .theme-toggle:hover {
     transform: scale(1.05);
     box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+}
+
+/* Global focus styles for accessibility */
+:focus-visible {
+    outline: 2px solid var(--primary);
+    outline-offset: 2px;
+    border-radius: 8px;
 }
 
 .main {
@@ -412,6 +422,8 @@ table td:last-child {
     object-fit: cover;
     border-radius: 16px;
     margin-bottom: 30px;
+    border: 1px solid var(--card-border);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
 }
 
 .org-info {
@@ -528,6 +540,37 @@ table td:last-child {
 .info {
     text-align: center;
     margin-top: 20px;
+}
+
+.info a {
+    color: var(--primary);
+    text-decoration: none;
+    font-weight: 600;
+}
+
+.info a:hover {
+    text-decoration: underline;
+}
+
+/* Skeleton shimmer utilities */
+.skeleton {
+    background: linear-gradient(90deg, var(--secondary) 25%, rgba(0,0,0,0.06) 37%, var(--secondary) 63%);
+    background-size: 400% 100%;
+    animation: shimmer 1.2s ease-in-out infinite;
+    color: transparent;
+}
+
+.skeleton.rounded {
+    border-radius: 12px;
+}
+
+.skeleton.circle {
+    border-radius: 50%;
+}
+
+@keyframes shimmer {
+    0% { background-position: 100% 0; }
+    100% { background-position: 0 0; }
 }
 
 /* Form elements */

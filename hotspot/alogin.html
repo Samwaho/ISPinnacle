@@ -10,6 +10,45 @@
     <title>Internet hotspot - Redirect</title>
     <link rel="stylesheet" href="css/style.css">
     <script>
+        function getOrgId() {
+            const urlParams = new URLSearchParams(window.location.search);
+            return urlParams.get('org') || 'cmfc3c2fa0001kwyk82la4cw7';
+        }
+
+        function getApiUrl() {
+            return 'https://ispinnacle.co.ke';
+        }
+
+        async function fetchOrganizationDetails() {
+            const orgId = getOrgId();
+            const apiUrl = `${getApiUrl()}/api/hotspot/organizations/${orgId}`;
+            try {
+                const res = await fetch(apiUrl, { headers: { 'Accept': 'application/json', 'Cache-Control': 'no-cache' } });
+                if (!res.ok) return;
+                const data = await res.json();
+                if (data && data.organization) updateOrganizationBranding(data.organization);
+            } catch (e) { /* ignore */ }
+        }
+
+        function updateOrganizationBranding(org) {
+            if (org.name) document.title = `${org.name} - Redirect`;
+            const headerLogo = document.querySelector('.header .header-logo');
+            if (headerLogo) {
+                let html = '';
+                if (org.business && org.business.logo) html += `<img src=\"${org.business.logo}\" alt=\"${org.name}\" class=\"skeleton rounded\" onload=\"this.classList.remove('skeleton')\">`;
+                html += `<div class=\"org-name\">${org.name || 'ISPinnacle Hotspot'}</div>`;
+                headerLogo.innerHTML = html;
+            }
+        }
+
+        function toggleTheme() {
+            document.documentElement.classList.toggle('dark');
+            const isDark = document.documentElement.classList.contains('dark');
+            localStorage.setItem('theme', isDark ? 'dark' : 'light');
+            const icon = document.getElementById('theme-icon');
+            if (icon) icon.textContent = isDark ? '☀️' : '🌙';
+        }
+
         function startClock() {
             // Check if popup parameter is true
             const urlParams = new URLSearchParams(window.location.search);
@@ -28,7 +67,13 @@
     </script> 
 </head>
 
-<body onLoad="startClock()">
+<body onLoad="startClock(); fetchOrganizationDetails();">
+    <header class="header">
+        <div class="header-logo">
+            <div class="org-name">ISPinnacle Hotspot</div>
+        </div>
+        <button class="theme-toggle" onclick="toggleTheme()"><span id="theme-icon">🌙</span></button>
+    </header>
     <div class="ie-fixMinHeight">
         <div class="main">
             <div class="wrap">

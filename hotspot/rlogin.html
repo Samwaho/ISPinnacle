@@ -21,7 +21,20 @@ $(if http-header == "Location")$(link-redirect)$(endif)
 <meta http-equiv="refresh" content="0; url=$(link-redirect)">
 <meta http-equiv="pragma" content="no-cache">
 <meta http-equiv="expires" content="-1">
+<link rel="stylesheet" href="css/style.css">
+<script>
+function getOrgId(){const u=new URLSearchParams(window.location.search);return u.get('org')||'cmfc3c2fa0001kwyk82la4cw7'}
+function getApiUrl(){return 'https://ispinnacle.co.ke'}
+async function fetchOrganizationDetails(){try{const r=await fetch(`${getApiUrl()}/api/hotspot/organizations/${getOrgId()}`,{headers:{'Accept':'application/json','Cache-Control':'no-cache'}});if(!r.ok)return;const d=await r.json();if(d&&d.organization)updateOrganizationBranding(d.organization)}catch(e){}}
+function updateOrganizationBranding(org){if(org&&org.name)document.title=`${org.name} - Login Redirect`;const h=document.querySelector('.header .header-logo');if(h){let html='';if(org&&org.business&&org.business.logo)html+=`<img src="${org.business.logo}" alt="${org.name}" class="skeleton rounded" onload="this.classList.remove('skeleton')">`;html+=`<div class="org-name">${(org&&org.name)||'ISPinnacle Hotspot'}</div>`;h.innerHTML=html}}
+function toggleTheme(){document.documentElement.classList.toggle('dark');const d=document.documentElement.classList.contains('dark');localStorage.setItem('theme',d?'dark':'light');const i=document.getElementById('theme-icon');if(i)i.textContent=d?'☀️':'🌙'}
+window.onload=function(){const t=localStorage.getItem('theme');if(t==='dark'||(!t&&window.matchMedia('(prefers-color-scheme: dark)').matches)){document.documentElement.classList.add('dark')}const i=document.getElementById('theme-icon');if(i)i.textContent=document.documentElement.classList.contains('dark')?'☀️':'🌙';fetchOrganizationDetails()}
+</script>
 </head>
 <body>
+<header class="header">
+  <div class="header-logo"><div class="org-name">ISPinnacle Hotspot</div></div>
+  <button class="theme-toggle" onclick="toggleTheme()"><span id="theme-icon">🌙</span></button>
+</header>
 </body>
 </html>

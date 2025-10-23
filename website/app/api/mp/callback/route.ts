@@ -7,6 +7,26 @@ import {
 import { MpesaTransactionType } from "@/lib/generated/prisma";
 import { SmsService } from '@/lib/sms';
 
+// Helper function to convert duration to milliseconds
+function getDurationInMs(durationType: string): number {
+  switch (durationType) {
+    case 'MINUTE':
+      return 60 * 1000;
+    case 'HOUR':
+      return 60 * 60 * 1000;
+    case 'DAY':
+      return 24 * 60 * 60 * 1000;
+    case 'WEEK':
+      return 7 * 24 * 60 * 60 * 1000;
+    case 'MONTH':
+      return 30 * 24 * 60 * 60 * 1000;
+    case 'YEAR':
+      return 365 * 24 * 60 * 60 * 1000;
+    default:
+      return 60 * 60 * 1000; // Default to 1 hour
+  }
+}
+
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
@@ -174,14 +194,20 @@ export async function POST(request: NextRequest) {
             select: { name: true, price: true, duration: true, durationType: true }
           });
 
-          const expiry = updated.expiresAt ? new Date(updated.expiresAt).toLocaleString() : '';
+          // Calculate actual usage expiry (when voucher duration expires after first use)
+          const usageExpiry = updated.lastUsedAt ? 
+            new Date(updated.lastUsedAt.getTime() + (getDurationInMs(pkg?.durationType || 'HOUR') * (pkg?.duration || 1))) :
+            new Date(updated.expiresAt || new Date());
+          
+          const expiry = usageExpiry.toLocaleString();
           console.log('Hotspot: attempting to send voucher SMS', {
             organizationId: updated.organizationId,
             phoneNumber: updated.phoneNumber,
             voucherCode: updated.voucherCode,
             packageName: pkg?.name,
             amount: pkg?.price,
-            expiryDate: expiry
+            expiryDate: expiry,
+            usageExpiry: usageExpiry.toISOString()
           });
 
           const smsResult = await SmsService.sendTemplateSms({

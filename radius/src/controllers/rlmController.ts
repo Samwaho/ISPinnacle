@@ -48,6 +48,14 @@ export const rlmController = {
 
         if (hotspotVoucher) {
           isHotspotVoucher = true;
+          console.log(`Found hotspot voucher for ${username}:`, {
+            id: hotspotVoucher.id,
+            status: hotspotVoucher.status,
+            lastUsedAt: hotspotVoucher.lastUsedAt,
+            expiresAt: hotspotVoucher.expiresAt,
+            packageDuration: `${hotspotVoucher.package?.duration} ${hotspotVoucher.package?.durationType}`
+          });
+          
           // Check if voucher is active and not expired
           if (hotspotVoucher.status !== 'ACTIVE') {
             return res.json({
@@ -68,8 +76,18 @@ export const rlmController = {
             const durationMs = rlmController.getDurationInMs(hotspotVoucher.package.durationType);
             const totalDurationMs = durationMs * hotspotVoucher.package.duration;
             const timeSinceFirstUse = new Date().getTime() - hotspotVoucher.lastUsedAt.getTime();
+            const remainingMs = Math.max(0, totalDurationMs - timeSinceFirstUse);
             
-            console.log(`Voucher duration check: ${timeSinceFirstUse}ms since first use, limit: ${totalDurationMs}ms`);
+            console.log(`Voucher duration check for ${username}:`, {
+              lastUsedAt: hotspotVoucher.lastUsedAt.toISOString(),
+              packageDuration: `${hotspotVoucher.package.duration} ${hotspotVoucher.package.durationType}`,
+              durationMs: durationMs,
+              totalDurationMs: totalDurationMs,
+              timeSinceFirstUse: timeSinceFirstUse,
+              remainingMs: remainingMs,
+              remainingHours: Math.floor(remainingMs / (60 * 60 * 1000)),
+              remainingMinutes: Math.floor((remainingMs % (60 * 60 * 1000)) / (60 * 1000))
+            });
             
             if (timeSinceFirstUse > totalDurationMs) {
               // Mark voucher as expired due to duration
@@ -191,12 +209,23 @@ export const rlmController = {
           const timeSinceFirstUse = new Date().getTime() - hotspotVoucher.lastUsedAt.getTime();
           const remainingMs = Math.max(0, totalDurationMs - timeSinceFirstUse);
           
+          console.log(`Session timeout calculation for voucher ${username}:`, {
+            lastUsedAt: hotspotVoucher.lastUsedAt.toISOString(),
+            currentTime: new Date().toISOString(),
+            timeSinceFirstUse: timeSinceFirstUse,
+            totalDurationMs: totalDurationMs,
+            remainingMs: remainingMs,
+            remainingHours: Math.floor(remainingMs / (60 * 60 * 1000)),
+            remainingMinutes: Math.floor((remainingMs % (60 * 60 * 1000)) / (60 * 1000))
+          });
+          
           if (remainingMs > 0) {
             const remainingSeconds = Math.floor(remainingMs / 1000);
             flatAttributes['reply:Session-Timeout'] = remainingSeconds;
-            console.log(`Setting session timeout to ${remainingSeconds} seconds for voucher ${username}`);
+            console.log(`Setting session timeout to ${remainingSeconds} seconds (${Math.floor(remainingSeconds/3600)}h ${Math.floor((remainingSeconds%3600)/60)}m) for voucher ${username}`);
           } else {
             // Duration has expired, reject the connection
+            console.log(`Voucher ${username} duration expired, rejecting connection`);
             return res.json({
               result: 'reject',
               message: 'Voucher duration expired'
@@ -495,6 +524,9 @@ export const rlmController = {
             const updateData: any = {};
             if (!hotspotVoucher.lastUsedAt) {
               updateData.lastUsedAt = new Date();
+              console.log(`Setting lastUsedAt for voucher ${username} to: ${updateData.lastUsedAt.toISOString()}`);
+            } else {
+              console.log(`Voucher ${username} already has lastUsedAt: ${hotspotVoucher.lastUsedAt.toISOString()}`);
             }
             
             if (Object.keys(updateData).length > 0) {

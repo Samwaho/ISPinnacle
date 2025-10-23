@@ -550,10 +550,55 @@
         function showVoucherEntry() {
             document.getElementById('package-selection').style.display = 'none';
             document.getElementById('voucher-entry').style.display = 'block';
+            
+            // Add event listener to check remaining time when voucher code is entered
+            const usernameInput = document.querySelector('#voucher-form input[name="username"]');
+            if (usernameInput) {
+                usernameInput.addEventListener('blur', async function() {
+                    const voucherCode = this.value.trim();
+                    if (voucherCode && voucherCode.length >= 6) {
+                        try {
+                            const response = await fetch(`${getApiUrl()}/api/hotspot/connect`, {
+                                method: 'POST',
+                                headers: {
+                                    'Content-Type': 'application/json'
+                                },
+                                body: JSON.stringify({
+                                    voucherCode: voucherCode
+                                })
+                            });
+                            
+                            if (response.ok) {
+                                const connectData = await response.json();
+                                if (connectData.voucher && connectData.voucher.remainingDuration) {
+                                    const remaining = connectData.voucher.remainingDuration;
+                                    const formatted = formatRemainingDuration(remaining.milliseconds);
+                                    console.log(`Voucher remaining time: ${formatted}`);
+                                    
+                                    // Show remaining time in the voucher entry form
+                                    const voucherEntryDiv = document.getElementById('voucher-entry');
+                                    if (voucherEntryDiv) {
+                                        let timeDisplay = voucherEntryDiv.querySelector('.remaining-time');
+                                        if (!timeDisplay) {
+                                            timeDisplay = document.createElement('div');
+                                            timeDisplay.className = 'remaining-time';
+                                            timeDisplay.style.cssText = 'margin: 10px 0; padding: 10px; background: #f0f0f0; border-radius: 5px; text-align: center; font-weight: bold;';
+                                            voucherEntryDiv.insertBefore(timeDisplay, voucherEntryDiv.querySelector('form'));
+                                        }
+                                        timeDisplay.textContent = `Remaining time: ${formatted}`;
+                                    }
+                                }
+                            }
+                        } catch (error) {
+                            console.error('Error fetching voucher info:', error);
+                        }
+                    }
+                });
+            }
         }
 
         // Handle manual connection with voucher
-        function loginWithVoucher() {
+        async function loginWithVoucher() {
             const voucherCode = document.getElementById('voucher-code').textContent;
             if (voucherCode && voucherCode !== 'Waiting for payment confirmation...') {
                 // Pre-fill the voucher form
@@ -564,6 +609,43 @@
                 if (form) {
                     form.username.value = voucherCode;
                     form.password.value = voucherCode;
+                    
+                    // Get updated voucher info to show remaining time
+                    try {
+                        const response = await fetch(`${getApiUrl()}/api/hotspot/connect`, {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json'
+                            },
+                            body: JSON.stringify({
+                                voucherCode: voucherCode
+                            })
+                        });
+                        
+                        if (response.ok) {
+                            const connectData = await response.json();
+                            if (connectData.voucher && connectData.voucher.remainingDuration) {
+                                const remaining = connectData.voucher.remainingDuration;
+                                const formatted = formatRemainingDuration(remaining.milliseconds);
+                                console.log(`Voucher remaining time: ${formatted}`);
+                                
+                                // Show remaining time in the voucher entry form
+                                const voucherEntryDiv = document.getElementById('voucher-entry');
+                                if (voucherEntryDiv) {
+                                    let timeDisplay = voucherEntryDiv.querySelector('.remaining-time');
+                                    if (!timeDisplay) {
+                                        timeDisplay = document.createElement('div');
+                                        timeDisplay.className = 'remaining-time';
+                                        timeDisplay.style.cssText = 'margin: 10px 0; padding: 10px; background: #f0f0f0; border-radius: 5px; text-align: center; font-weight: bold;';
+                                        voucherEntryDiv.insertBefore(timeDisplay, voucherEntryDiv.querySelector('form'));
+                                    }
+                                    timeDisplay.textContent = `Remaining time: ${formatted}`;
+                                }
+                            }
+                        }
+                    } catch (error) {
+                        console.error('Error fetching voucher info:', error);
+                    }
                 }
             } else {
                 showVoucherEntry();

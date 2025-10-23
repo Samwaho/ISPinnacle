@@ -126,7 +126,9 @@ export async function POST(request: NextRequest) {
       id: voucher.id,
       voucherCode: voucher.voucherCode,
       status: voucher.status,
-      expiresAt: voucher.expiresAt
+      expiresAt: voucher.expiresAt,
+      lastUsedAt: voucher.lastUsedAt,
+      packageDuration: `${voucher.package?.duration} ${voucher.package?.durationType}`
     });
 
     // Check voucher status
@@ -177,6 +179,18 @@ export async function POST(request: NextRequest) {
       const timeSinceFirstUse = new Date().getTime() - voucher.lastUsedAt.getTime();
       const remainingMs = Math.max(0, totalDurationMs - timeSinceFirstUse);
       
+      console.log('Remaining duration calculation:', {
+        lastUsedAt: voucher.lastUsedAt.toISOString(),
+        currentTime: new Date().toISOString(),
+        packageDuration: `${voucher.package.duration} ${voucher.package.durationType}`,
+        durationMs: durationMs,
+        totalDurationMs: totalDurationMs,
+        timeSinceFirstUse: timeSinceFirstUse,
+        remainingMs: remainingMs,
+        remainingHours: Math.floor(remainingMs / (60 * 60 * 1000)),
+        remainingMinutes: Math.floor((remainingMs % (60 * 60 * 1000)) / (60 * 1000))
+      });
+      
       if (remainingMs > 0) {
         remainingDuration = {
           milliseconds: remainingMs,
@@ -185,6 +199,8 @@ export async function POST(request: NextRequest) {
           seconds: Math.floor((remainingMs % (60 * 1000)) / 1000)
         };
       }
+    } else {
+      console.log('No remaining duration calculation - lastUsedAt:', voucher.lastUsedAt, 'package:', !!voucher.package);
     }
 
     // Transform package data to match expected format

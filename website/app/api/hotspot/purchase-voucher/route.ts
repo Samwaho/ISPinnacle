@@ -116,12 +116,10 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Calculate expiry time based on package duration + buffer time
+    // Calculate expiry time based on exact package duration (no buffer)
     const now = new Date();
-    const bufferHours = 24; // 24 hours buffer to use the voucher
     const packageDurationMs = getDurationInMs(packageData.durationType) * packageData.duration;
-    const totalDurationMs = packageDurationMs + (bufferHours * 60 * 60 * 1000);
-    const expiresAt = new Date(now.getTime() + totalDurationMs);
+    const expiresAt = new Date(now.getTime() + packageDurationMs);
 
     // Create voucher record
     const voucher = await prisma.hotspotVoucher.create({

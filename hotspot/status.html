@@ -54,6 +54,77 @@
             }
         }
 
+        // Fetch voucher remaining time for hotspot users
+        async function fetchVoucherRemainingTime() {
+            const username = '$(username)';
+            if (!username || username === '$(username)') {
+                return; // Not a valid username or not in MikroTik environment
+            }
+
+            try {
+                const response = await fetch(`${getApiUrl()}/api/hotspot/connect`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        voucherCode: username
+                    })
+                });
+
+                if (response.ok) {
+                    const data = await response.json();
+                    if (data.voucher && data.voucher.remainingDuration) {
+                        updateRemainingTimeDisplay(data.voucher.remainingDuration);
+                    }
+                }
+            } catch (error) {
+                console.error('Failed to fetch voucher remaining time:', error);
+            }
+        }
+
+        // Update remaining time display with actual voucher remaining time
+        function updateRemainingTimeDisplay(remainingDuration) {
+            const formatted = formatRemainingDuration(remainingDuration.milliseconds);
+            
+            // Find the session time row and update it
+            const table = document.querySelector('table');
+            if (table) {
+                const rows = table.querySelectorAll('tr');
+                for (let row of rows) {
+                    const cells = row.querySelectorAll('td');
+                    if (cells.length >= 2) {
+                        const label = cells[0].textContent.trim();
+                        if (label === 'Connected / left' || label === 'Connected') {
+                            // Update the time display
+                            const currentUptime = '$(uptime)';
+                            cells[1].innerHTML = `${currentUptime} / <span style="color: #007bff; font-weight: bold;">${formatted}</span>`;
+                            break;
+                        }
+                    }
+                }
+            }
+        }
+
+        // Format remaining duration for display
+        function formatRemainingDuration(remainingMs) {
+            if (!remainingMs || remainingMs <= 0) {
+                return 'Expired';
+            }
+            
+            const hours = Math.floor(remainingMs / (60 * 60 * 1000));
+            const minutes = Math.floor((remainingMs % (60 * 60 * 1000)) / (60 * 1000));
+            const seconds = Math.floor((remainingMs % (60 * 1000)) / 1000);
+            
+            if (hours > 0) {
+                return `${hours}h ${minutes}m ${seconds}s`;
+            } else if (minutes > 0) {
+                return `${minutes}m ${seconds}s`;
+            } else {
+                return `${seconds}s`;
+            }
+        }
+
         // Update organization branding
         function updateOrganizationBranding(org) {
             // Update page title
@@ -165,6 +236,12 @@
             
             // Fetch organization details
             fetchOrganizationDetails();
+            
+            // Fetch voucher remaining time for hotspot users
+            fetchVoucherRemainingTime();
+            
+            // Set up periodic refresh of remaining time (every 30 seconds)
+            setInterval(fetchVoucherRemainingTime, 30000);
             
             // Open advert if pending
             if (advertPending) {

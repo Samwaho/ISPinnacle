@@ -199,7 +199,17 @@ export async function POST(request: NextRequest) {
             new Date(updated.lastUsedAt.getTime() + (getDurationInMs(pkg?.durationType || 'HOUR') * (pkg?.duration || 1))) :
             new Date(updated.expiresAt || new Date());
           
-          const expiry = usageExpiry.toLocaleString();
+          // Format expiry time in East Africa Time (UTC+3) for Kenya
+          const expiry = usageExpiry.toLocaleString('en-KE', {
+            timeZone: 'Africa/Nairobi',
+            year: 'numeric',
+            month: '2-digit',
+            day: '2-digit',
+            hour: '2-digit',
+            minute: '2-digit',
+            second: '2-digit',
+            hour12: false
+          });
           console.log('Hotspot: attempting to send voucher SMS', {
             organizationId: updated.organizationId,
             phoneNumber: updated.phoneNumber,

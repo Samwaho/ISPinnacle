@@ -1,6 +1,26 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
 
+// Helper function to convert duration to milliseconds
+function getDurationInMs(durationType: string): number {
+  switch (durationType) {
+    case 'MINUTE':
+      return 60 * 1000;
+    case 'HOUR':
+      return 60 * 60 * 1000;
+    case 'DAY':
+      return 24 * 60 * 60 * 1000;
+    case 'WEEK':
+      return 7 * 24 * 60 * 60 * 1000;
+    case 'MONTH':
+      return 30 * 24 * 60 * 60 * 1000;
+    case 'YEAR':
+      return 365 * 24 * 60 * 60 * 1000;
+    default:
+      return 60 * 60 * 1000; // Default to 1 hour
+  }
+}
+
 const CORS_HEADERS = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
@@ -149,6 +169,24 @@ export async function POST(request: NextRequest) {
     // will handle the authentication and mark it as used when the customer actually connects.
     // This allows the voucher to be used for the actual RADIUS authentication.
 
+    // Calculate remaining duration if voucher has been used
+    let remainingDuration = null;
+    if (voucher.lastUsedAt && voucher.package) {
+      const durationMs = getDurationInMs(voucher.package.durationType);
+      const totalDurationMs = durationMs * voucher.package.duration;
+      const timeSinceFirstUse = new Date().getTime() - voucher.lastUsedAt.getTime();
+      const remainingMs = Math.max(0, totalDurationMs - timeSinceFirstUse);
+      
+      if (remainingMs > 0) {
+        remainingDuration = {
+          milliseconds: remainingMs,
+          hours: Math.floor(remainingMs / (60 * 60 * 1000)),
+          minutes: Math.floor((remainingMs % (60 * 60 * 1000)) / (60 * 1000)),
+          seconds: Math.floor((remainingMs % (60 * 1000)) / 1000)
+        };
+      }
+    }
+
     // Transform package data to match expected format
     const packageData = {
       id: voucher.package.id,
@@ -171,6 +209,8 @@ export async function POST(request: NextRequest) {
         status: voucher.status,
         package: packageData,
         organization: voucher.organization,
+        remainingDuration: remainingDuration,
+        lastUsedAt: voucher.lastUsedAt,
       }
     }, { headers: CORS_HEADERS });
 

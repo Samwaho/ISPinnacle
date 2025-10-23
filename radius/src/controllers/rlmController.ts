@@ -63,8 +63,27 @@ export const rlmController = {
             });
           }
 
-          // Don't mark voucher as used here - wait for successful authentication
-          // The voucher will be marked as used in the accounting Start event
+          // Check if voucher duration has been exceeded
+          if (hotspotVoucher.lastUsedAt && hotspotVoucher.package) {
+            const durationMs = rlmController.getDurationInMs(hotspotVoucher.package.durationType);
+            const totalDurationMs = durationMs * hotspotVoucher.package.duration;
+            const timeSinceFirstUse = new Date().getTime() - hotspotVoucher.lastUsedAt.getTime();
+            
+            console.log(`Voucher duration check: ${timeSinceFirstUse}ms since first use, limit: ${totalDurationMs}ms`);
+            
+            if (timeSinceFirstUse > totalDurationMs) {
+              // Mark voucher as expired due to duration
+              await prisma.hotspotVoucher.update({
+                where: { id: hotspotVoucher.id },
+                data: { status: 'EXPIRED' }
+              });
+              
+              return res.json({
+                result: 'reject',
+                message: 'Voucher duration expired'
+              });
+            }
+          }
         }
       }
 
@@ -163,6 +182,26 @@ export const rlmController = {
         const sessionTimeout = rlmController.calculateSessionTimeout(packageData);
         if (sessionTimeout > 0) {
           flatAttributes['reply:Session-Timeout'] = sessionTimeout;
+        }
+
+        // For hotspot vouchers, calculate remaining time if already used
+        if (isHotspotVoucher && hotspotVoucher && hotspotVoucher.lastUsedAt && packageData) {
+          const durationMs = rlmController.getDurationInMs(packageData.durationType);
+          const totalDurationMs = durationMs * packageData.duration;
+          const timeSinceFirstUse = new Date().getTime() - hotspotVoucher.lastUsedAt.getTime();
+          const remainingMs = Math.max(0, totalDurationMs - timeSinceFirstUse);
+          
+          if (remainingMs > 0) {
+            const remainingSeconds = Math.floor(remainingMs / 1000);
+            flatAttributes['reply:Session-Timeout'] = remainingSeconds;
+            console.log(`Setting session timeout to ${remainingSeconds} seconds for voucher ${username}`);
+          } else {
+            // Duration has expired, reject the connection
+            return res.json({
+              result: 'reject',
+              message: 'Voucher duration expired'
+            });
+          }
         }
 
         // Idle timeout
@@ -449,16 +488,22 @@ export const rlmController = {
           console.log(`Session started for ${username} (${displayName}): ${acct_session_id}`);
           console.log(`IP: ${framed_ip_address}, NAS: ${nas_ip_address}`);
           
-          // Mark hotspot voucher as used when session starts
+          // For hotspot vouchers, don't mark as used immediately
+          // They should remain active until their duration expires
           if (hotspotVoucher) {
-            await prisma.hotspotVoucher.update({
-              where: { id: hotspotVoucher.id },
-              data: { 
-                status: 'USED',
-                usedAt: new Date()
-              }
-            });
-            console.log(`Hotspot voucher ${username} marked as used`);
+            // Set lastUsedAt only if it's the first time being used
+            const updateData: any = {};
+            if (!hotspotVoucher.lastUsedAt) {
+              updateData.lastUsedAt = new Date();
+            }
+            
+            if (Object.keys(updateData).length > 0) {
+              await prisma.hotspotVoucher.update({
+                where: { id: hotspotVoucher.id },
+                data: updateData
+              });
+            }
+            console.log(`Hotspot voucher ${username} session started`);
           }
           
           // Only create connection record for regular customers, not vouchers
@@ -762,6 +807,13 @@ export const rlmController = {
       default:
         return 60 * 60 * 1000; // Default to 1 hour
     }
+  },
+
+  // Helper method to get current time in user's timezone
+  getCurrentTimeInUserTimezone(): Date {
+    // For now, return current time - in production, you might want to
+    // determine user's timezone from their location or settings
+    return new Date();
   }
 };
 

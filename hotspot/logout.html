@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />   
     <meta http-equiv="pragma" content="no-cache">
     <meta http-equiv="expires" content="-1">
+    <meta http-equiv="cache-control" content="no-cache, no-store, must-revalidate, max-age=0">
     <title>Internet hotspot - Log out</title>
     <link rel="stylesheet" href="css/style.css">
     <script>
@@ -57,6 +58,15 @@
         }
         
         window.onload = function() {
+            // Force cache clearing
+            if ('caches' in window) {
+                caches.keys().then(function(names) {
+                    for (let name of names) {
+                        caches.delete(name);
+                    }
+                });
+            }
+            
             const savedTheme = localStorage.getItem('theme');
             if (savedTheme === 'dark' || (!savedTheme && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
                 document.documentElement.classList.add('dark');

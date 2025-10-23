@@ -5,7 +5,7 @@
     <meta charset="utf-8">
     <meta http-equiv="pragma" content="no-cache" />
     <meta http-equiv="expires" content="-1" />
-    <meta http-equiv="cache-control" content="no-cache, no-store, must-revalidate" />
+    <meta http-equiv="cache-control" content="no-cache, no-store, must-revalidate, max-age=0" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
     <meta name="mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-capable" content="yes">
@@ -479,6 +479,16 @@
                             });
                             
                             if (connectResponse.ok) {
+                                const connectData = await connectResponse.json();
+                                // Show remaining duration if available
+                                if (connectData.voucher && connectData.voucher.remainingDuration) {
+                                    const remaining = connectData.voucher.remainingDuration;
+                                    const formatted = formatRemainingDuration(remaining.milliseconds);
+                                    document.getElementById('voucher-expiry').textContent = `Remaining time: ${formatted}`;
+                                }
+                            }
+                            
+                            if (connectResponse.ok) {
                                 // Voucher is valid, submit form to MikroTik
                                 const form = document.createElement('form');
                                 form.method = 'POST';
@@ -557,6 +567,25 @@
                 }
             } else {
                 showVoucherEntry();
+            }
+        }
+
+        // Format remaining duration for display
+        function formatRemainingDuration(remainingMs) {
+            if (!remainingMs || remainingMs <= 0) {
+                return 'Expired';
+            }
+            
+            const hours = Math.floor(remainingMs / (60 * 60 * 1000));
+            const minutes = Math.floor((remainingMs % (60 * 60 * 1000)) / (60 * 1000));
+            const seconds = Math.floor((remainingMs % (60 * 1000)) / 1000);
+            
+            if (hours > 0) {
+                return `${hours}h ${minutes}m ${seconds}s`;
+            } else if (minutes > 0) {
+                return `${minutes}m ${seconds}s`;
+            } else {
+                return `${seconds}s`;
             }
         }
 
@@ -677,6 +706,19 @@
         // Initialize the page
         window.onload = function() {
             try {
+                // Force cache clearing
+                if ('caches' in window) {
+                    caches.keys().then(function(names) {
+                        for (let name of names) {
+                            caches.delete(name);
+                        }
+                    });
+                }
+                
+                // Clear any stored data that might interfere
+                localStorage.removeItem('selectedPackageId');
+                sessionStorage.clear();
+                
                 // Log device information for debugging
                 console.log('Device Info:', getDeviceInfo());
                 console.log('Is MikroTik Hotspot:', isMikroTikHotspot());

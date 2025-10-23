@@ -553,6 +553,7 @@ model HotspotVoucher {
   status VoucherStatus @default(PENDING)
   expiresAt DateTime
   usedAt DateTime?
+  lastUsedAt DateTime? // Track when voucher was first used for duration calculation
   paymentGateway PaymentGateway?
   paymentReference String? // M-Pesa checkout request ID or KopoKopo location
   createdAt DateTime @default(now())

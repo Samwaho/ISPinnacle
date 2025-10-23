@@ -3,6 +3,26 @@ import { prisma } from '@/lib/db';
 import { MpesaAPI } from '@/trpc/routers/mpesa';
 import { KopoKopoAPI } from '@/trpc/routers/kopokopo';
 import { PaymentGateway } from '@/lib/generated/prisma';
+
+// Helper function to convert duration to milliseconds
+function getDurationInMs(durationType: string): number {
+  switch (durationType) {
+    case 'MINUTE':
+      return 60 * 1000;
+    case 'HOUR':
+      return 60 * 60 * 1000;
+    case 'DAY':
+      return 24 * 60 * 60 * 1000;
+    case 'WEEK':
+      return 7 * 24 * 60 * 60 * 1000;
+    case 'MONTH':
+      return 30 * 24 * 60 * 60 * 1000;
+    case 'YEAR':
+      return 365 * 24 * 60 * 60 * 1000;
+    default:
+      return 60 * 60 * 1000; // Default to 1 hour
+  }
+}
 const CORS_HEADERS = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
@@ -96,9 +116,12 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Calculate expiry time (24 hours from now)
-    const expiresAt = new Date();
-    expiresAt.setHours(expiresAt.getHours() + 24);
+    // Calculate expiry time based on package duration + buffer time
+    const now = new Date();
+    const bufferHours = 24; // 24 hours buffer to use the voucher
+    const packageDurationMs = getDurationInMs(packageData.durationType) * packageData.duration;
+    const totalDurationMs = packageDurationMs + (bufferHours * 60 * 60 * 1000);
+    const expiresAt = new Date(now.getTime() + totalDurationMs);
 
     // Create voucher record
     const voucher = await prisma.hotspotVoucher.create({
@@ -111,6 +134,7 @@ export async function POST(request: NextRequest) {
         status: 'PENDING',
         expiresAt,
         paymentGateway,
+        lastUsedAt: null, // Will be set when first used
       }
     });
 

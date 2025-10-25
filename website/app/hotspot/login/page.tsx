@@ -48,18 +48,17 @@ export default function HotspotLoginPage() {
   const extractErrorMessage = (error: unknown, fallback = 'Unable to validate voucher'): string => {
     try {
       if (error && typeof error === 'object') {
-        const anyErr = error as any;
-        if (anyErr.message && typeof anyErr.message === 'string') return anyErr.message;
-        if (anyErr.data?.code) {
-          const code = String(anyErr.data.code);
-          switch (code) {
-            case 'NOT_FOUND':
-              return 'Invalid voucher code. Please check and try again.';
-            case 'BAD_REQUEST':
-              return anyErr.data?.message || 'Voucher is not usable at the moment.';
-            case 'PRECONDITION_FAILED':
-              return 'Voucher prerequisites not met.';
-          }
+        const err = error as { message?: unknown; data?: { code?: unknown; message?: unknown } };
+        if (typeof err.message === 'string') return err.message;
+        const code = typeof err.data?.code === 'string' ? err.data.code : undefined;
+        const dataMsg = typeof err.data?.message === 'string' ? err.data.message : undefined;
+        switch (code) {
+          case 'NOT_FOUND':
+            return 'Invalid voucher code. Please check and try again.';
+          case 'BAD_REQUEST':
+            return dataMsg || 'Voucher is not usable at the moment.';
+          case 'PRECONDITION_FAILED':
+            return 'Voucher prerequisites not met.';
         }
       }
     } catch {}
@@ -99,7 +98,7 @@ export default function HotspotLoginPage() {
   );
 
   // Connect voucher mutation
-  const { mutate: connectVoucher, mutateAsync: connectVoucherAsync, isPending: isConnecting } = useMutation(
+  const { mutateAsync: connectVoucherAsync, isPending: isConnecting } = useMutation(
     trpc.hotspot.connectVoucher.mutationOptions({
       onSuccess: (result) => {
         if (result.voucher && result.voucher.remainingDuration) {

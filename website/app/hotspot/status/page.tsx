@@ -82,9 +82,9 @@ export default function HotspotStatusPage() {
         console.error('Error checking voucher:', error);
         const msg = (() => {
           try {
-            const anyErr: any = error;
-            if (anyErr?.data?.code === 'NOT_FOUND') return 'Invalid voucher code. Please check and try again.';
-            if (anyErr?.message) return anyErr.message as string;
+            const e = error as { data?: { code?: string }; message?: string };
+            if (e?.data?.code === 'NOT_FOUND') return 'Invalid voucher code. Please check and try again.';
+            if (e?.message) return e.message;
           } catch {}
           return 'Could not verify voucher';
         })();

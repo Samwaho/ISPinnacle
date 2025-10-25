@@ -27,6 +27,10 @@ interface Package {
 export default function HotspotLoginPage() {
   const searchParams = useSearchParams();
   const orgId = searchParams.get('org') || 'cmfc3c2fa0001kwyk82la4cw7';
+  const linkLoginOnly = searchParams.get('link-login-only') || '';
+  const linkOrig = searchParams.get('link-orig') || '';
+  const chapId = searchParams.get('chap-id') || '';
+  const chapChallenge = searchParams.get('chap-challenge') || '';
   
   const [selectedPackageId, setSelectedPackageId] = useState<string | null>(null);
   const [phoneNumber, setPhoneNumber] = useState('');
@@ -55,14 +59,15 @@ export default function HotspotLoginPage() {
   const { mutate: purchaseVoucher, isPending: isPurchasing } = useMutation(
     trpc.hotspot.purchaseVoucher.mutationOptions({
       onSuccess: (result) => {
+        // Do NOT reveal voucher code until payment confirmed
         setVoucherResult({
-          voucherCode: result.voucherCode || 'Waiting for payment confirmation...',
+          voucherCode: 'Waiting for payment confirmation...',
           status: 'pending',
           message: 'Please check your phone to complete the payment'
         });
         setShowPaymentForm(false);
-        
-        // Start polling for payment status
+
+        // Start polling for payment status with server-provided code
         pollPaymentStatus(result.voucherId, result.voucherCode);
       },
       onError: (error) => {
@@ -85,9 +90,10 @@ export default function HotspotLoginPage() {
           toast.success('Voucher is valid!');
         }
         
-        // Redirect to MikroTik login (this would be handled by your router)
-        // For now, we'll just show success
-        toast.success('Please use this voucher code to connect to the hotspot');
+        // Auto-login to MikroTik if parameters are available
+        // We avoid showing the voucher code; attempt seamless connection
+        // Note: actual submission occurs in attemptAutoLogin on payment confirmation
+        toast.success('Voucher validated. Connecting...');
       },
       onError: (error) => {
         console.error('Connection error:', error);
@@ -95,6 +101,96 @@ export default function HotspotLoginPage() {
       }
     })
   );
+
+  // Minimal MD5 implementation (for MikroTik CHAP). Public-domain style utility.
+  function md5(input: string): string {
+    function cmn(q: number, a: number, b: number, x: number, s: number, t: number) {
+      a = (((a + q) | 0) + ((x + t) | 0)) | 0;
+      return (((a << s) | (a >>> (32 - s))) + b) | 0;
+    }
+    function ff(a: number, b: number, c: number, d: number, x: number, s: number, t: number) { return cmn((b & c) | (~b & d), a, b, x, s, t); }
+    function gg(a: number, b: number, c: number, d: number, x: number, s: number, t: number) { return cmn((b & d) | (c & ~d), a, b, x, s, t); }
+    function hh(a: number, b: number, c: number, d: number, x: number, s: number, t: number) { return cmn(b ^ c ^ d, a, b, x, s, t); }
+    function ii(a: number, b: number, c: number, d: number, x: number, s: number, t: number) { return cmn(c ^ (b | ~d), a, b, x, s, t); }
+    function toBlocks(str: string) {
+      const n = str.length;
+      const blocks = new Array(((n + 8) >>> 6 << 4) + 16).fill(0);
+      for (let i = 0; i < n; i++) blocks[i >> 2] |= str.charCodeAt(i) << ((i % 4) << 3);
+      blocks[n >> 2] |= 0x80 << ((n % 4) << 3);
+      blocks[(((n + 8) >>> 6) << 4) + 14] = n << 3;
+      return blocks;
+    }
+    function hex(x: number) {
+      let s = "";
+      for (let i = 0; i < 4; i++) s += ("0" + (((x >> (i * 8)) & 255) as number).toString(16)).slice(-2);
+      return s;
+    }
+    const x = toBlocks(input);
+    let a = 1732584193, b = -271733879, c = -1732584194, d = 271733878;
+    for (let i = 0; i < x.length; i += 16) {
+      const oa = a, ob = b, oc = c, od = d;
+      a = ff(a, b, c, d, x[i + 0], 7, -680876936); d = ff(d, a, b, c, x[i + 1], 12, -389564586); c = ff(c, d, a, b, x[i + 2], 17, 606105819); b = ff(b, c, d, a, x[i + 3], 22, -1044525330);
+      a = ff(a, b, c, d, x[i + 4], 7, -176418897); d = ff(d, a, b, c, x[i + 5], 12, 1200080426); c = ff(c, d, a, b, x[i + 6], 17, -1473231341); b = ff(b, c, d, a, x[i + 7], 22, -45705983);
+      a = ff(a, b, c, d, x[i + 8], 7, 1770035416); d = ff(d, a, b, c, x[i + 9], 12, -1958414417); c = ff(c, d, a, b, x[i + 10], 17, -42063); b = ff(b, c, d, a, x[i + 11], 22, -1990404162);
+      a = ff(a, b, c, d, x[i + 12], 7, 1804603682); d = ff(d, a, b, c, x[i + 13], 12, -40341101); c = ff(c, d, a, b, x[i + 14], 17, -1502002290); b = ff(b, c, d, a, x[i + 15], 22, 1236535329);
+      a = gg(a, b, c, d, x[i + 1], 5, -165796510); d = gg(d, a, b, c, x[i + 6], 9, -1069501632); c = gg(c, d, a, b, x[i + 11], 14, 643717713); b = gg(b, c, d, a, x[i + 0], 20, -373897302);
+      a = gg(a, b, c, d, x[i + 5], 5, -701558691); d = gg(d, a, b, c, x[i + 10], 9, 38016083); c = gg(c, d, a, b, x[i + 15], 14, -660478335); b = gg(b, c, d, a, x[i + 4], 20, -405537848);
+      a = gg(a, b, c, d, x[i + 9], 5, 568446438); d = gg(d, a, b, c, x[i + 14], 9, -1019803690); c = gg(c, d, a, b, x[i + 3], 14, -187363961); b = gg(b, c, d, a, x[i + 8], 20, 1163531501);
+      a = gg(a, b, c, d, x[i + 13], 5, -1444681467); d = gg(d, a, b, c, x[i + 2], 9, -51403784); c = gg(c, d, a, b, x[i + 7], 14, 1735328473); b = gg(b, c, d, a, x[i + 12], 20, -1926607734);
+      a = hh(a, b, c, d, x[i + 5], 4, -378558); d = hh(d, a, b, c, x[i + 8], 11, -2022574463); c = hh(c, d, a, b, x[i + 11], 16, 1839030562); b = hh(b, c, d, a, x[i + 14], 23, -35309556);
+      a = hh(a, b, c, d, x[i + 1], 4, -1530992060); d = hh(d, a, b, c, x[i + 4], 11, 1272893353); c = hh(c, d, a, b, x[i + 7], 16, -155497632); b = hh(b, c, d, a, x[i + 10], 23, -1094730640);
+      a = ii(a, b, c, d, x[i + 0], 6, 681279174); d = ii(d, a, b, c, x[i + 7], 10, -358537222); c = ii(c, d, a, b, x[i + 14], 15, -722521979); b = ii(b, c, d, a, x[i + 5], 21, 76029189);
+      a = ii(a, b, c, d, x[i + 12], 6, -640364487); d = ii(d, a, b, c, x[i + 3], 10, -421815835); c = ii(c, d, a, b, x[i + 10], 15, 530742520); b = ii(b, c, d, a, x[i + 1], 21, -995338651);
+      a = (a + oa) | 0; b = (b + ob) | 0; c = (c + oc) | 0; d = (d + od) | 0;
+    }
+    return hex(a) + hex(b) + hex(c) + hex(d);
+  }
+
+  const computeChapResponse = (password: string) => {
+    if (!chapId || !chapChallenge) return null;
+    // MikroTik: response = 00 + MD5(chap-id + password + chap-challenge)
+    const hash = md5(chapId + password + chapChallenge);
+    return '00' + hash;
+  };
+
+  const attemptAutoLogin = async (code: string) => {
+    try {
+      // Validate voucher on server (also returns remaining time)
+      await new Promise<void>((resolve, reject) => {
+        connectVoucher({ voucherCode: code }, {
+          onSuccess: () => resolve(),
+          onError: (e) => reject(e),
+        } as any);
+      });
+
+      if (!linkLoginOnly) return; // Nothing to submit to if not on MikroTik flow
+
+      const form = document.createElement('form');
+      form.method = 'POST';
+      form.action = linkLoginOnly;
+
+      const responseHash = computeChapResponse(code);
+      const fields: Record<string, string> = {
+        username: code,
+        password: responseHash ? '' : code,
+        response: responseHash || '',
+        dst: linkOrig || '',
+        popup: 'true',
+      };
+      Object.entries(fields).forEach(([name, value]) => {
+        const input = document.createElement('input');
+        input.type = 'hidden';
+        input.name = name;
+        input.value = value;
+        form.appendChild(input);
+      });
+      document.body.appendChild(form);
+      form.submit();
+    } catch (e) {
+      console.error('Auto login failed:', e);
+      toast.error('Connection failed. Use voucher code to connect manually.');
+    }
+  };
 
   // Normalize Kenyan phone numbers
   const normalizeKenyanPhoneNumber = (input: string): string | null => {
@@ -172,6 +268,8 @@ export default function HotspotLoginPage() {
             status: 'active',
             message: 'Payment successful! You can now connect.'
           });
+          // Attempt auto-login to MikroTik if context is available
+          attemptAutoLogin(voucherCode);
           return;
         }
 

@@ -3,6 +3,8 @@ import { prisma } from "@/lib/db";
 import { z } from "zod";
 import { TRPCError } from "@trpc/server";
 import { OrganizationPackageType } from "@/lib/generated/prisma";
+import { MpesaAPI } from "./mpesa";
+import { KopoKopoAPI } from "./kopokopo";
 
 // Helper function to convert duration to milliseconds
 function getDurationInMs(durationType: string): number {
@@ -158,45 +160,113 @@ export const hotspotRouter = createTRPCRouter({
         }
       });
 
-      // Determine payment method based on organization configuration
-      let paymentMethod = 'mpesa';
-      let paymentData: Record<string, string> = {};
-
-      // Check if organization has M-Pesa configuration
-      const mpesaConfig = await prisma.mpesaConfiguration.findFirst({
+      // Determine and initiate payment based on organization configuration
+      // Prefer M-Pesa if configured; otherwise try KopoKopo
+      const fullMpesaConfig = await prisma.mpesaConfiguration.findFirst({
         where: { organizationId },
-        select: { shortCode: true, transactionType: true }
       });
 
-      if (mpesaConfig) {
-        paymentMethod = 'mpesa';
-        paymentData = {
-          shortCode: mpesaConfig.shortCode,
-          transactionType: mpesaConfig.transactionType,
-        };
-      } else {
-        // Check if organization has KopoKopo configuration
-        const k2Config = await prisma.kopokopoConfiguration.findFirst({
-          where: { organizationId },
-          select: { tillNumber: true }
-        });
+      if (fullMpesaConfig) {
+        try {
+          const mpesaAPI = new MpesaAPI({
+            consumerKey: fullMpesaConfig.consumerKey,
+            consumerSecret: fullMpesaConfig.consumerSecret,
+            shortCode: fullMpesaConfig.shortCode,
+            passKey: fullMpesaConfig.passKey,
+            transactionType: fullMpesaConfig.transactionType,
+          });
 
-        if (k2Config) {
-          paymentMethod = 'kopokopo';
-          paymentData = {
-            tillNumber: k2Config.tillNumber,
+          const result = await mpesaAPI.initiateSTKPush(
+            phoneNumber,
+            packageData.price,
+            voucher.voucherCode,
+            `Hotspot ${packageData.name}`
+          );
+
+          // Link voucher to this STK request for callback matching
+          const checkoutRequestId: string | undefined = result?.CheckoutRequestID;
+          if (checkoutRequestId) {
+            await prisma.hotspotVoucher.update({
+              where: { id: voucher.id },
+              data: { paymentReference: checkoutRequestId },
+            });
+          }
+
+          return {
+            voucherId: voucher.id,
+            voucherCode: voucher.voucherCode,
+            paymentMethod: 'mpesa' as const,
+            paymentData: {
+              shortCode: fullMpesaConfig.shortCode,
+              transactionType: fullMpesaConfig.transactionType,
+              checkoutRequestId: checkoutRequestId || '',
+            },
+            package: packageData,
+            organization: organization,
           };
+        } catch (err) {
+          // If M-Pesa initiation fails, surface error
+          throw new TRPCError({
+            code: "INTERNAL_SERVER_ERROR",
+            message: `Failed to initiate M-Pesa STK Push: ${err instanceof Error ? err.message : 'Unknown error'}`,
+          });
         }
       }
 
-      return {
-        voucherId: voucher.id,
-        voucherCode: voucher.voucherCode,
-        paymentMethod,
-        paymentData,
-        package: packageData,
-        organization: organization,
-      };
+      // Fallback to KopoKopo if configured
+      const k2Config = await prisma.kopokopoConfiguration.findFirst({
+        where: { organizationId },
+      });
+
+      if (k2Config) {
+        try {
+          const k2 = new KopoKopoAPI({
+            clientId: k2Config.clientId,
+            clientSecret: k2Config.clientSecret,
+            apiKey: k2Config.apiKey,
+            tillNumber: k2Config.tillNumber,
+          });
+
+          // Use voucher.id as reference so webhook can match it
+          const reference = voucher.id;
+          // Pre-store reference for matching before webhook arrives
+          await prisma.hotspotVoucher.update({
+            where: { id: voucher.id },
+            data: { paymentReference: reference },
+          });
+
+          const result = await k2.initiateIncomingPayment({
+            phoneNumber,
+            amount: packageData.price,
+            reference,
+            description: `Hotspot ${packageData.name}`,
+          });
+
+          return {
+            voucherId: voucher.id,
+            voucherCode: voucher.voucherCode,
+            paymentMethod: 'kopokopo' as const,
+            paymentData: {
+              tillNumber: k2Config.tillNumber,
+              location: result.location || '',
+              reference,
+            },
+            package: packageData,
+            organization: organization,
+          };
+        } catch (err) {
+          throw new TRPCError({
+            code: "INTERNAL_SERVER_ERROR",
+            message: `Failed to initiate KopoKopo payment: ${err instanceof Error ? err.message : 'Unknown error'}`,
+          });
+        }
+      }
+
+      // No payment configuration found
+      throw new TRPCError({
+        code: "FAILED_PRECONDITION",
+        message: "No payment gateway configured for this organization",
+      });
     }),
 
   // Check voucher status

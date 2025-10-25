@@ -11,6 +11,7 @@ import { toast } from 'sonner';
 import { useTRPC } from '@/trpc/client';
 import { useQuery, useMutation } from '@tanstack/react-query';
 import Image from 'next/image';
+import { ModeToggle } from '@/components/ModeToggle';
 
 interface Package {
   id: string;
@@ -229,6 +230,10 @@ export default function HotspotLoginPage() {
               <h1 className="text-xl font-semibold text-gray-900 dark:text-white">
                 {organization?.name || 'ISPinnacle Hotspot'}
               </h1>
+            </div>
+            <div className="flex items-center space-x-2">
+              <span className="text-sm text-gray-500 dark:text-gray-400 hidden sm:inline">Theme</span>
+              <ModeToggle />
             </div>
           </div>
         </div>

@@ -1,6 +1,7 @@
 'use client';
 
 import { ReactNode } from 'react';
+import Image from 'next/image';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 
 interface Organization {
@@ -43,10 +44,13 @@ export function HotspotLayout({
           <div className="flex justify-between items-center h-16">
             <div className="flex items-center space-x-3">
               {organization?.business?.logo && (
-                <img 
+                <Image 
                   src={organization.business.logo} 
-                  alt={organization.name} 
-                  className="h-8 w-8 rounded"
+                  alt={organization?.name || 'Organization logo'} 
+                  width={32}
+                  height={32}
+                  className="h-8 w-8 rounded object-cover"
+                  priority
                 />
               )}
               <h1 className="text-xl font-semibold text-gray-900 dark:text-white">
@@ -88,11 +92,13 @@ export function HotspotLayout({
             </CardHeader>
             <CardContent>
               {organization.business?.banner && (
-                <div className="mb-4">
-                  <img 
+                <div className="mb-4 relative w-full h-32">
+                  <Image 
                     src={organization.business.banner} 
-                    alt={organization.name}
-                    className="w-full h-32 object-cover rounded-lg"
+                    alt={`${organization?.name || 'Organization'} banner`}
+                    fill
+                    className="rounded-lg object-cover"
+                    sizes="(max-width: 640px) 100vw, (max-width: 1024px) 75vw, 50vw"
                   />
                 </div>
               )}

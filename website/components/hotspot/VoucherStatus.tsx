@@ -1,6 +1,6 @@
 'use client';
 
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Clock, CheckCircle, XCircle, AlertCircle } from 'lucide-react';
 
@@ -15,7 +15,6 @@ interface VoucherInfo {
 interface VoucherStatusProps {
   voucherInfo: VoucherInfo;
   onConnect?: () => void;
-  onBack?: () => void;
 }
 
 // Format remaining duration for display
@@ -37,7 +36,7 @@ const formatRemainingDuration = (remainingMs: number): string => {
   }
 };
 
-export function VoucherStatus({ voucherInfo, onConnect, onBack }: VoucherStatusProps) {
+export function VoucherStatus({ voucherInfo, onConnect }: VoucherStatusProps) {
   const getStatusIcon = () => {
     switch (voucherInfo.status) {
       case 'ACTIVE':

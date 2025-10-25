@@ -3,7 +3,6 @@ import { prisma } from "@/lib/db";
 import Credentials from "next-auth/providers/credentials";
 import Google from "next-auth/providers/google";
 import { loginSchema } from "./schemas";
-import bcrypt from "bcryptjs";
 
 // Notice this is only an object, not a full Auth.js instance
 export default {
@@ -25,6 +24,8 @@ export default {
           return null;
         }
 
+        const bcryptModule = await import('bcryptjs');
+        const bcrypt = bcryptModule.default ?? bcryptModule;
         const passwordsMatch = await bcrypt.compare(password, user.password);
 
         if (!passwordsMatch) {

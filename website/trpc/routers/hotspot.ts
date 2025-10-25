@@ -2,6 +2,7 @@ import { createTRPCRouter, baseProcedure, protectedProcedure } from "../init";
 import { prisma } from "@/lib/db";
 import { z } from "zod";
 import { TRPCError } from "@trpc/server";
+import { OrganizationPackageType } from "@/lib/generated/prisma";
 
 // Helper function to convert duration to milliseconds
 function getDurationInMs(durationType: string): number {
@@ -62,6 +63,7 @@ export const hotspotRouter = createTRPCRouter({
         where: {
           organizationId: input.organizationId,
           isActive: true,
+          type: OrganizationPackageType.HOTSPOT,
         },
         select: {
           id: true,
@@ -79,6 +81,7 @@ export const hotspotRouter = createTRPCRouter({
           burstThresholdUpload: true,
           burstDuration: true,
           addressPool: true,
+          type: true,
         },
         orderBy: {
           price: 'asc',

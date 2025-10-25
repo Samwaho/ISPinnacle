@@ -10,6 +10,9 @@ export const publicRoutes = [
     "/auth/link-account",
     "/auth/link-success",
     "/payment",
+    "/hotspot/login",
+    "/hotspot/logout",
+    "/hotspot/status",
 ]
 
 export const authRoutes = [

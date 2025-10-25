@@ -14,6 +14,7 @@ import Image from 'next/image';
 export default function HotspotLogoutPage() {
   const searchParams = useSearchParams();
   const orgId = searchParams.get('org') || 'cmfc3c2fa0001kwyk82la4cw7';
+  const linkLogout = searchParams.get('link-logout') || '';
   
   const [isLoggingOut, setIsLoggingOut] = useState(false);
   const [isLoggedOut, setIsLoggedOut] = useState(false);
@@ -30,16 +31,19 @@ export default function HotspotLogoutPage() {
     setIsLoggingOut(true);
     
     try {
-      // Simulate logout process
-      await new Promise(resolve => setTimeout(resolve, 2000));
-      
-      setIsLoggedOut(true);
-      toast.success('Successfully disconnected from hotspot');
-      
-      // Redirect to login page after 3 seconds
-      setTimeout(() => {
-        window.location.href = `/hotspot/login?org=${orgId}`;
-      }, 3000);
+      if (linkLogout) {
+        // Redirect browser to MikroTik logout URL to terminate session
+        window.location.href = linkLogout;
+        return;
+      } else {
+        // Fallback: small delay and show success (cannot force router to disconnect)
+        await new Promise(resolve => setTimeout(resolve, 1500));
+        setIsLoggedOut(true);
+        toast.success('Logout requested');
+        setTimeout(() => {
+          window.location.href = `/hotspot/login?org=${orgId}`;
+        }, 2000);
+      }
     } catch (error) {
       console.error('Logout error:', error);
       toast.error('Error disconnecting. Please try again.');

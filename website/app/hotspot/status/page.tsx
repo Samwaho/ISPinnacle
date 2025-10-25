@@ -5,7 +5,7 @@ import { useSearchParams } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Loader2, Wifi, Clock, Download, Upload } from 'lucide-react';
+import { Loader2, Wifi, Clock, Download, Upload, LogOut } from 'lucide-react';
 import { toast } from 'sonner';
 import { useTRPC } from '@/trpc/client';
 import { useQuery, useMutation } from '@tanstack/react-query';
@@ -45,6 +45,7 @@ export default function HotspotStatusPage() {
   const searchParams = useSearchParams();
   const orgId = searchParams.get('org') || 'cmfc3c2fa0001kwyk82la4cw7';
   const voucherCode = searchParams.get('voucher') || searchParams.get('username') || '';
+  const linkLogout = searchParams.get('link-logout') || '';
   
   const [voucher, setVoucher] = useState<Voucher | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -202,13 +203,25 @@ export default function HotspotStatusPage() {
               </CardDescription>
             </CardHeader>
             <CardContent className="text-center">
-              <Button 
-                onClick={() => window.location.href = `/hotspot/login?org=${orgId}`}
-                className="w-full"
-              >
-                <Wifi className="h-4 w-4 mr-2" />
-                Get New Voucher
-              </Button>
+              <div className="space-y-3">
+                {linkLogout ? (
+                  <Button
+                    variant="destructive"
+                    onClick={() => (window.location.href = linkLogout)}
+                    className="w-full"
+                  >
+                    <LogOut className="h-4 w-4 mr-2" />
+                    Disconnect Now
+                  </Button>
+                ) : null}
+                <Button 
+                  onClick={() => (window.location.href = `/hotspot/login?org=${orgId}`)}
+                  className="w-full"
+                >
+                  <Wifi className="h-4 w-4 mr-2" />
+                  Get New Voucher
+                </Button>
+              </div>
             </CardContent>
           </Card>
         </main>

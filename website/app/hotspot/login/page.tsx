@@ -78,7 +78,7 @@ export default function HotspotLoginPage() {
   );
 
   // Connect voucher mutation
-  const { mutate: connectVoucher, isPending: isConnecting } = useMutation(
+  const { mutate: connectVoucher, mutateAsync: connectVoucherAsync, isPending: isConnecting } = useMutation(
     trpc.hotspot.connectVoucher.mutationOptions({
       onSuccess: (result) => {
         if (result.voucher && result.voucher.remainingDuration) {
@@ -156,12 +156,7 @@ export default function HotspotLoginPage() {
   const attemptAutoLogin = async (code: string) => {
     try {
       // Validate voucher on server (also returns remaining time)
-      await new Promise<void>((resolve, reject) => {
-        connectVoucher({ voucherCode: code }, {
-          onSuccess: () => resolve(),
-          onError: (e) => reject(e),
-        } as any);
-      });
+      await connectVoucherAsync({ voucherCode: code });
 
       if (!linkLoginOnly) return; // Nothing to submit to if not on MikroTik flow
 

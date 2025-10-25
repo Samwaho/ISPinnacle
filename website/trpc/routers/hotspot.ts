@@ -264,7 +264,7 @@ export const hotspotRouter = createTRPCRouter({
 
       // No payment configuration found
       throw new TRPCError({
-        code: "FAILED_PRECONDITION",
+        code: "PRECONDITION_FAILED",
         message: "No payment gateway configured for this organization",
       });
     }),

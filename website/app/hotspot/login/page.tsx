@@ -203,6 +203,15 @@ export default function HotspotLoginPage() {
       });
       document.body.appendChild(form);
       form.submit();
+
+      // After submitting to MikroTik, navigate to our status page with voucher param
+      // Delay slightly to give MikroTik time to accept the login.
+      setTimeout(() => {
+        try {
+          const url = `/hotspot/status?org=${encodeURIComponent(orgId)}&voucher=${encodeURIComponent(code)}`;
+          window.location.href = url;
+        } catch {}
+      }, 1200);
     } catch (e) {
       console.error('Auto login failed:', e);
       toast.error('Connection failed. Use voucher code to connect manually.');

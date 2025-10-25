@@ -44,7 +44,7 @@ interface Voucher {
 export default function HotspotStatusPage() {
   const searchParams = useSearchParams();
   const orgId = searchParams.get('org') || 'cmfc3c2fa0001kwyk82la4cw7';
-  const voucherCode = searchParams.get('voucher') || '';
+  const voucherCode = searchParams.get('voucher') || searchParams.get('username') || '';
   
   const [voucher, setVoucher] = useState<Voucher | null>(null);
   const [isLoading, setIsLoading] = useState(true);

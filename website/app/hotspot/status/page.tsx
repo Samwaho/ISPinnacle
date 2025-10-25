@@ -80,7 +80,15 @@ export default function HotspotStatusPage() {
       },
       onError: (error) => {
         console.error('Error checking voucher:', error);
-        toast.error('Invalid voucher code');
+        const msg = (() => {
+          try {
+            const anyErr: any = error;
+            if (anyErr?.data?.code === 'NOT_FOUND') return 'Invalid voucher code. Please check and try again.';
+            if (anyErr?.message) return anyErr.message as string;
+          } catch {}
+          return 'Could not verify voucher';
+        })();
+        toast.error(msg);
         setIsLoading(false);
       }
     })

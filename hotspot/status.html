@@ -21,7 +21,7 @@
     </form>
     <script>
       (function () {
-        var base = (window.EXTERNAL_PORTAL_BASE || '').replace(/\/+$/, '');
+        var base = (window.EXTERNAL_PORTAL_BASE || 'https://ispinnacle.co.ke').replace(/\/+$/, '');
         var org = window.EXTERNAL_PORTAL_ORG || '';
         var params = new URLSearchParams();
         if (org) params.set('org', org);

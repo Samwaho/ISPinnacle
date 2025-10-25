@@ -45,6 +45,27 @@ export default function HotspotLoginPage() {
 
   const trpc = useTRPC();
 
+  const extractErrorMessage = (error: unknown, fallback = 'Unable to validate voucher'): string => {
+    try {
+      if (error && typeof error === 'object') {
+        const anyErr = error as any;
+        if (anyErr.message && typeof anyErr.message === 'string') return anyErr.message;
+        if (anyErr.data?.code) {
+          const code = String(anyErr.data.code);
+          switch (code) {
+            case 'NOT_FOUND':
+              return 'Invalid voucher code. Please check and try again.';
+            case 'BAD_REQUEST':
+              return anyErr.data?.message || 'Voucher is not usable at the moment.';
+            case 'PRECONDITION_FAILED':
+              return 'Voucher prerequisites not met.';
+          }
+        }
+      }
+    } catch {}
+    return fallback;
+  };
+
   // Fetch organization details
   const { data: organizationData } = useQuery(
     trpc.hotspot.getOrganization.queryOptions({ orgId })
@@ -97,7 +118,7 @@ export default function HotspotLoginPage() {
       },
       onError: (error) => {
         console.error('Connection error:', error);
-        toast.error('Network error. Please try again.');
+        toast.error(extractErrorMessage(error));
       }
     })
   );
@@ -153,10 +174,12 @@ export default function HotspotLoginPage() {
     return '00' + hash;
   };
 
-  const attemptAutoLogin = async (code: string) => {
+  const attemptAutoLogin = async (code: string, alreadyValidated: boolean = false) => {
     try {
-      // Validate voucher on server (also returns remaining time)
-      await connectVoucherAsync({ voucherCode: code });
+      // Validate voucher on server (also returns remaining time) unless already validated
+      if (!alreadyValidated) {
+        await connectVoucherAsync({ voucherCode: code });
+      }
 
       if (!linkLoginOnly) return; // Nothing to submit to if not on MikroTik flow
 
@@ -297,8 +320,14 @@ export default function HotspotLoginPage() {
       toast.error('Please enter the voucher code');
       return;
     }
-
-    connectVoucher({ voucherCode });
+    try {
+      await connectVoucherAsync({ voucherCode });
+      // After successful validation, attempt auto-login to MikroTik
+      await attemptAutoLogin(voucherCode, true);
+    } catch (e) {
+      console.error('Connection error:', e);
+      toast.error(extractErrorMessage(e));
+    }
   };
 
   const organization = organizationData?.organization;

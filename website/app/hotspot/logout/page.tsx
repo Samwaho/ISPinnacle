@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -14,7 +14,27 @@ import Image from 'next/image';
 export default function HotspotLogoutPage() {
   const searchParams = useSearchParams();
   const orgId = searchParams.get('org') || 'cmfc3c2fa0001kwyk82la4cw7';
-  const linkLogout = searchParams.get('link-logout') || '';
+  const rawLinkLogout = searchParams.get('link-logout') || '';
+  const linkLoginOnly = searchParams.get('link-login-only') || '';
+
+  const effectiveLogoutUrl = useMemo(() => {
+    let url = rawLinkLogout;
+    if (!url && linkLoginOnly) {
+      try {
+        const u = new URL(linkLoginOnly);
+        u.pathname = u.pathname.replace(/login$/i, 'logout');
+        u.search = '';
+        url = u.toString();
+      } catch {
+        url = linkLoginOnly.replace(/login$/i, 'logout');
+      }
+    }
+    if (url) {
+      const hasQuery = url.includes('?');
+      url += (hasQuery ? '&' : '?') + 'erase-cookie=yes';
+    }
+    return url;
+  }, [rawLinkLogout, linkLoginOnly]);
   
   const [isLoggingOut, setIsLoggingOut] = useState(false);
   const [isLoggedOut, setIsLoggedOut] = useState(false);
@@ -31,9 +51,9 @@ export default function HotspotLogoutPage() {
     setIsLoggingOut(true);
     
     try {
-      if (linkLogout) {
+      if (effectiveLogoutUrl) {
         // Redirect browser to MikroTik logout URL to terminate session
-        window.location.href = linkLogout;
+        window.location.href = effectiveLogoutUrl;
         return;
       } else {
         // Fallback: small delay and show success (cannot force router to disconnect)

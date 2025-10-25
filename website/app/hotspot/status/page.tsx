@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -45,7 +45,30 @@ export default function HotspotStatusPage() {
   const searchParams = useSearchParams();
   const orgId = searchParams.get('org') || 'cmfc3c2fa0001kwyk82la4cw7';
   const voucherCode = searchParams.get('voucher') || searchParams.get('username') || '';
-  const linkLogout = searchParams.get('link-logout') || '';
+  const rawLinkLogout = searchParams.get('link-logout') || '';
+  const linkLoginOnly = searchParams.get('link-login-only') || '';
+
+  const effectiveLogoutUrl = useMemo(() => {
+    let url = rawLinkLogout;
+    if (!url && linkLoginOnly) {
+      try {
+        const u = new URL(linkLoginOnly);
+        // Replace /login path with /logout
+        u.pathname = u.pathname.replace(/login$/i, 'logout');
+        u.search = '';
+        url = u.toString();
+      } catch {
+        // Fallback: if simple string, try replace
+        url = linkLoginOnly.replace(/login$/i, 'logout');
+      }
+    }
+    if (url) {
+      // Ensure cookie is erased to avoid auto-login persisting the session
+      const hasQuery = url.includes('?');
+      url += (hasQuery ? '&' : '?') + 'erase-cookie=yes';
+    }
+    return url;
+  }, [rawLinkLogout, linkLoginOnly]);
   
   const [voucher, setVoucher] = useState<Voucher | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -204,10 +227,10 @@ export default function HotspotStatusPage() {
             </CardHeader>
             <CardContent className="text-center">
               <div className="space-y-3">
-                {linkLogout ? (
+                {effectiveLogoutUrl ? (
                   <Button
                     variant="destructive"
-                    onClick={() => (window.location.href = linkLogout)}
+                    onClick={() => (window.location.href = effectiveLogoutUrl)}
                     className="w-full"
                   >
                     <LogOut className="h-4 w-4 mr-2" />

@@ -9,6 +9,7 @@ import { toast } from 'sonner';
 import { useTRPC } from '@/trpc/client';
 import { useQuery } from '@tanstack/react-query';
 import Image from 'next/image';
+import { ModeToggle } from '@/components/ModeToggle';
 
 
 export default function HotspotLogoutPage() {
@@ -152,6 +153,9 @@ export default function HotspotLogoutPage() {
               <h1 className="text-xl font-semibold text-gray-900 dark:text-white">
                 {organization?.name || 'ISPinnacle Hotspot'}
               </h1>
+            </div>
+            <div className="flex items-center gap-3">
+              <ModeToggle />
             </div>
           </div>
         </div>

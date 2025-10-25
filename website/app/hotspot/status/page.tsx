@@ -10,6 +10,7 @@ import { toast } from 'sonner';
 import { useTRPC } from '@/trpc/client';
 import { useQuery, useMutation } from '@tanstack/react-query';
 import Image from 'next/image';
+import { ModeToggle } from '@/components/ModeToggle';
 
 interface Organization {
   id: string;
@@ -47,6 +48,8 @@ export default function HotspotStatusPage() {
   const voucherCode = searchParams.get('voucher') || searchParams.get('username') || '';
   const rawLinkLogout = searchParams.get('link-logout') || '';
   const linkLoginOnly = searchParams.get('link-login-only') || '';
+  const clientMac = searchParams.get('mac') || '';
+  const clientIp = searchParams.get('ip') || '';
 
   const effectiveLogoutUrl = useMemo(() => {
     let url = rawLinkLogout;
@@ -180,6 +183,35 @@ export default function HotspotStatusPage() {
 
   const organization = organizationData?.organization;
 
+  // Helper – total duration in ms from package
+  const getDurationInMs = (unit?: string): number => {
+    switch (unit) {
+      case 'MINUTE':
+        return 60 * 1000;
+      case 'HOUR':
+        return 60 * 60 * 1000;
+      case 'DAY':
+        return 24 * 60 * 60 * 1000;
+      case 'WEEK':
+        return 7 * 24 * 60 * 60 * 1000;
+      case 'MONTH':
+        return 30 * 24 * 60 * 60 * 1000;
+      case 'YEAR':
+        return 365 * 24 * 60 * 60 * 1000;
+      default:
+        return 60 * 60 * 1000;
+    }
+  };
+
+  const usage = useMemo(() => {
+    if (!voucher?.package) return null;
+    const totalMs = (voucher.package.duration || 0) * getDurationInMs(voucher.package.durationType);
+    const remainingMs = voucher.remainingDuration?.milliseconds ?? totalMs;
+    const usedMs = Math.max(0, totalMs - remainingMs);
+    const pct = totalMs > 0 ? Math.min(100, Math.round((usedMs / totalMs) * 100)) : 0;
+    return { totalMs, remainingMs, usedMs, pct };
+  }, [voucher]);
+
   if (isLoading) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 dark:from-gray-900 dark:to-gray-800 flex items-center justify-center">
@@ -272,10 +304,13 @@ export default function HotspotStatusPage() {
                 {organization?.name || 'ISPinnacle Hotspot'}
               </h1>
             </div>
-            <Badge variant="secondary" className="flex items-center">
-              <Wifi className="h-4 w-4 mr-1" />
-              Connected
-            </Badge>
+            <div className="flex items-center gap-3">
+              <ModeToggle />
+              <Badge variant="secondary" className="flex items-center">
+                <Wifi className="h-4 w-4 mr-1" />
+                Connected
+              </Badge>
+            </div>
           </div>
         </div>
       </header>
@@ -361,6 +396,53 @@ export default function HotspotStatusPage() {
             </CardContent>
           </Card>
         </div>
+
+        {/* Connection & Usage */}
+        {voucher && usage && (
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+            <Card>
+              <CardHeader>
+                <CardTitle>Connection Details</CardTitle>
+                <CardDescription>Device and session context</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-2 text-sm text-gray-600 dark:text-gray-300">
+                {clientMac ? <div>MAC: <span className="font-mono">{clientMac}</span></div> : null}
+                {clientIp ? <div>IP: <span className="font-mono">{clientIp}</span></div> : null}
+                <div>Voucher: <span className="font-mono">{voucher.voucherCode}</span></div>
+                <div>Status: <Badge variant="secondary">{voucher.status}</Badge></div>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardHeader>
+                <CardTitle>Usage</CardTitle>
+                <CardDescription>Time-based usage of this voucher</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="mb-2 flex items-center justify-between text-xs text-gray-500 dark:text-gray-400">
+                  <span>Used</span>
+                  <span>{usage.pct}%</span>
+                </div>
+                <div className="h-3 w-full rounded bg-gray-200 dark:bg-gray-700 overflow-hidden">
+                  <div className="h-3 bg-blue-600 dark:bg-blue-500" style={{ width: `${usage.pct}%` }} />
+                </div>
+                <div className="mt-3 grid grid-cols-3 text-xs text-gray-500 dark:text-gray-400">
+                  <div>
+                    <div className="font-semibold text-gray-700 dark:text-gray-200">Remaining</div>
+                    <div>{Math.max(0, Math.floor(usage.remainingMs / 3600000))}h</div>
+                  </div>
+                  <div className="text-center">
+                    <div className="font-semibold text-gray-700 dark:text-gray-200">Used</div>
+                    <div>{Math.floor(usage.usedMs / 3600000)}h</div>
+                  </div>
+                  <div className="text-right">
+                    <div className="font-semibold text-gray-700 dark:text-gray-200">Total</div>
+                    <div>{Math.floor(usage.totalMs / 3600000)}h</div>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        )}
 
         {/* Package Information */}
         {voucher.package && (

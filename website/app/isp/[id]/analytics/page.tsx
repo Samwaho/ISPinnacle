@@ -164,6 +164,14 @@ const AnalyticsPage = () => {
     })
   );
 
+  // Revenue sources (PPPoE vs Hotspot)
+  const { data: revenueSources, isPending: sourcesLoading } = useQuery(
+    t.analytics.getRevenueSources.queryOptions({
+      organizationId,
+      period: selectedPeriod,
+    })
+  );
+
   const canViewAnalytics = userPermissions?.canView || false;
 
   // Loading state
@@ -308,9 +316,8 @@ const AnalyticsPage = () => {
 
       {/* Charts and Detailed Analytics */}
       <Tabs defaultValue="overview" className="w-full">
-        <TabsList className="w-full overflow-x-auto sm:grid sm:grid-cols-3 gap-2">
+        <TabsList className="w-full overflow-x-auto sm:grid sm:grid-cols-2 gap-2">
           <TabsTrigger value="overview">Overview</TabsTrigger>
-          <TabsTrigger value="revenue">Revenue</TabsTrigger>
           <TabsTrigger value="expenses">Expenses</TabsTrigger>
         </TabsList>
 
@@ -344,7 +351,7 @@ const AnalyticsPage = () => {
                   <PieChart className="h-5 w-5" />
                   Payment Methods
                 </CardTitle>
-                <CardDescription>Revenue by payment method</CardDescription>
+                <CardDescription>By rails (M-Pesa Paybill vs M-Pesa Buygoods)</CardDescription>
               </CardHeader>
               <CardContent className="overflow-x-auto">
                 {paymentLoading ? (
@@ -352,8 +359,8 @@ const AnalyticsPage = () => {
                 ) : (
                   <PieChartComponent 
                     data={[
-                      { name: "M-Pesa", amount: paymentMethods?.mpesa.amount || 0 },
-                      { name: "Payment Links", amount: paymentMethods?.paymentLinks.amount || 0 },
+                      { name: "M-Pesa (Paybill)", amount: paymentMethods?.mpesaPaybill.amount || 0 },
+                      { name: "M-Pesa (Buygoods)", amount: paymentMethods?.mpesaBuygoods.amount || 0 },
                     ]} 
                     title="" 
                   />
@@ -361,29 +368,31 @@ const AnalyticsPage = () => {
               </CardContent>
             </Card>
           </div>
-        </TabsContent>
-
-        <TabsContent value="revenue" className="space-y-6">
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             <Card>
               <CardHeader>
-                <CardTitle>Revenue Trends</CardTitle>
-                <CardDescription>Daily revenue over the selected period</CardDescription>
+                <CardTitle className="flex items-center gap-2">
+                  <BarChart3 className="h-5 w-5" />
+                  Revenue Sources
+                </CardTitle>
+                <CardDescription>PPPoE vs Hotspot</CardDescription>
               </CardHeader>
-              <CardContent className="overflow-x-auto">
-                {trendsLoading ? (
-                  <Skeleton className="h-80 w-full" />
+              <CardContent>
+                {sourcesLoading ? (
+                  <Skeleton className="h-64 w-full" />
                 ) : (
-                  <TrendBarChart data={(revenueTrends || []).map(d => ({ label: formatTrendLabel(d.date), amount: d.amount }))} />
-                )}
-                {trendsError && (
-                  <div className="text-center text-red-500 py-4">
-                    Error loading revenue trends: {trendsError.message}
-                  </div>
+                  <PieChartComponent 
+                    data={[
+                      { name: "PPPoE", amount: revenueSources?.pppoe || 0 },
+                      { name: "Hotspot", amount: revenueSources?.hotspot || 0 },
+                    ]}
+                    title=""
+                  />
                 )}
               </CardContent>
             </Card>
-
+          </div>
+          <div className="grid grid-cols-1 gap-6">
             <Card>
               <CardHeader>
                 <CardTitle>Recent Payments</CardTitle>
@@ -414,6 +423,8 @@ const AnalyticsPage = () => {
             </Card>
           </div>
         </TabsContent>
+
+        
 
         <TabsContent value="expenses" className="space-y-6">
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">

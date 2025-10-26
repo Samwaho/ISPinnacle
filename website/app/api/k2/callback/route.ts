@@ -1,260 +1,150 @@
-import { NextRequest, NextResponse } from "next/server";
-import { prisma } from "@/lib/db";
-import crypto from "crypto";
-import { processCustomerPayment, storeKopoKopoTransaction } from "@/lib/server-hooks";
+import { NextRequest, NextResponse } from 'next/server';
+import { prisma } from '@/lib/db';
+import { storeKopoKopoTransaction, processCustomerPayment } from '@/lib/server-hooks';
+import { MpesaTransactionType } from '@/lib/generated/prisma';
 import { SmsService } from '@/lib/sms';
 
-// Helper function to convert duration to milliseconds
-function getDurationInMs(durationType: string): number {
-  switch (durationType) {
-    case 'MINUTE':
-      return 60 * 1000;
-    case 'HOUR':
-      return 60 * 60 * 1000;
-    case 'DAY':
-      return 24 * 60 * 60 * 1000;
-    case 'WEEK':
-      return 7 * 24 * 60 * 60 * 1000;
-    case 'MONTH':
-      return 30 * 24 * 60 * 60 * 1000;
-    case 'YEAR':
-      return 365 * 24 * 60 * 60 * 1000;
-    default:
-      return 60 * 60 * 1000; // Default to 1 hour
-  }
-}
-
-function hmacSha256Hex(key: string, data: string) {
-  return crypto.createHmac("sha256", key).update(data, "utf8").digest("hex");
-}
-
-function pick<T = unknown>(obj: unknown, path: string[]): T | undefined {
-  try {
-    return path.reduce((acc: unknown, k: string) => {
-      if (acc && typeof acc === 'object' && acc !== null && k in acc) {
-        return (acc as Record<string, unknown>)[k];
-      }
-      return undefined;
-    }, obj) as T | undefined;
-  } catch {
-    return undefined;
-  }
-}
-
+// Kopo Kopo webhook for Incoming Payments
 export async function POST(request: NextRequest) {
   try {
-    const raw = await request.text();
+    const body = await request.json().catch(() => ({}));
+    console.log('K2 Callback received:', JSON.stringify(body, null, 2));
 
-    console.log("K2 webhook received:", raw);
+    // KopoKopo may send different structures; normalize common fields
+    const eventType: string | undefined = body.event_type || body.eventType || body.type;
+    const resource = body.resource || body.data || {};
+    const metadata = body.metadata || resource.metadata || {};
+    const embedded = body._embedded || {};
 
-    const signature = request.headers.get("x-kopokopo-signature") || request.headers.get("X-KopoKopo-Signature");
-    if (!signature) {
-      return NextResponse.json({ success: false, message: "Missing signature" }, { status: 401 });
-    }
-
-    const body = JSON.parse(raw);
-
-    // Try to identify the till number to fetch the organization + apiKey
-    const tillNumber =
-      pick<string>(body, ["event", "resource", "till_number"]) ||
-      pick<string>(body, ["data", "attributes", "till_number"]) ||
-      pick<string>(body, ["event", "resource", "tillNumber"]) ||
-      pick<string>(body, ["data", "attributes", "resource", "till_number"]) ||
-      pick<string>(body, ["data", "attributes", "event", "resource", "till_number"]) ||
-      "";
+    // Success indicator and core fields
+    const status: string = (resource.status || body.status || '').toString().toUpperCase();
+    const amountRaw = resource.amount || resource.value || body.amount || 0;
+    const amount = typeof amountRaw === 'string' ? parseFloat(amountRaw) : Number(amountRaw || 0);
+    const tillNumber: string = resource.till_number || resource.tillNumber || metadata.till_number || '';
+    const transactionId: string = resource.id || resource.transaction_id || metadata.transaction_id || metadata.reference || '';
+    const phoneRaw = embedded.customer?.phone_number || resource.phone_number || resource.msisdn || metadata.msisdn || '';
+    const phoneNumber = String(phoneRaw || '');
+    const reference: string = metadata.reference || metadata.account_reference || metadata.ref || '';
 
     if (!tillNumber) {
-      return NextResponse.json(
-        { success: false, message: "Unable to determine till number from payload" },
-        { status: 400 }
-      );
+      return NextResponse.json({ success: false, message: 'Missing till number' }, { status: 400 });
     }
 
-    // Get K2 configuration by till number
-    const k2Config = await prisma.kopokopoConfiguration.findFirst({ where: { tillNumber } });
-    if (!k2Config) {
-      return NextResponse.json(
-        { success: false, message: `No Kopo Kopo configuration for till ${tillNumber}` },
-        { status: 404 }
-      );
+    if (!amount || Number.isNaN(amount)) {
+      return NextResponse.json({ success: false, message: 'Invalid amount' }, { status: 400 });
     }
 
-    // Verify HMAC signature with apiKey
-    const computed = hmacSha256Hex(k2Config.apiKey, raw);
-    if (computed !== signature) {
-      return NextResponse.json({ success: false, message: "Invalid signature" }, { status: 401 });
+    const isSuccess = status === 'SUCCESS' || /success/i.test(eventType || '') || /paid|complete/i.test(status);
+
+    if (!isSuccess) {
+      console.log('K2 Callback not success; storing for audit');
+      try {
+        await storeKopoKopoTransaction(
+          transactionId || `K2-${Date.now()}`,
+          amount,
+          new Date(),
+          tillNumber,
+          phoneNumber,
+          phoneNumber,
+          reference || '',
+          transactionId || '',
+          0
+        );
+      } catch (e) {
+        console.error('Failed to store failed K2 transaction:', e);
+      }
+      return NextResponse.json({ success: true, message: 'Callback processed (non-success status)' });
     }
 
-    // Normalized accessors
-    const resource =
-      pick<Record<string, unknown>>(body, ["event", "resource"]) ||
-      pick<Record<string, unknown>>(body, ["data", "attributes", "event", "resource"]) ||
-      pick<Record<string, unknown>>(body, ["data", "attributes", "resource"]) ||
-      pick<Record<string, unknown>>(body, ["data", "attributes"]) ||
-      {};
+    // Attempt to resolve voucher by reference first (we pre-store voucher.id in reference)
+    let voucher = null as null | (await prisma.hotspotVoucher.findFirst({
+      where: {
+        OR: [
+          { id: reference },
+          { paymentReference: reference },
+          { voucherCode: reference },
+        ],
+      },
+    }));
 
-    const topic: string | undefined = body?.topic || body?.data?.type || undefined;
-    const status: string = (resource?.status || body?.data?.attributes?.status || "").toString();
-    const amountStr: string | number = resource?.amount ?? body?.data?.attributes?.amount ?? 0;
-    const amount = typeof amountStr === "string" ? parseFloat(amountStr) : Number(amountStr);
-
-    const phone: string =
-      (resource?.sender_phone_number as string) ||
-      (resource?.msisdn as string) ||
-      ((resource?.customer as Record<string, unknown>)?.phone_number as string) ||
-      "";
-
-    const transactionId: string = (resource?.reference as string) || (body?.data?.attributes?.reference as string) || (resource?.id as string) || (body?.id as string) || (body?.data?.id as string) || "";
-
-    // metadata reference we set during initiation
-    const metadataRef: string | undefined =
-      ((resource?.metadata as Record<string, unknown>)?.reference as string) ||
-      (body?.metadata?.reference as string) ||
-      ((body?.data?.attributes?.metadata as Record<string, unknown>)?.reference as string) ||
-      undefined;
-
-    const mpesaRef: string | undefined = (resource?.reference as string) || (body?.data?.attributes?.reference as string) || undefined;
-
-    const accountReference = metadataRef || mpesaRef || transactionId;
-
-    const originationTime = resource?.origination_time
-      ? new Date(resource.origination_time as string | number | Date)
-      : new Date();
-
-    // Log received webhook
-    console.log("Kopo Kopo webhook received:", JSON.stringify({ topic, status, amount, phone, tillNumber, accountReference, transactionId }, null, 2));
-
-    if (!amount || isNaN(amount) || amount <= 0) {
-      return NextResponse.json({ success: false, message: "Invalid amount" }, { status: 400 });
-    }
-
-    if (!phone) {
-      // Not fatal for storage, but warn - we'll still store
-      console.warn("K2 webhook: missing phone number in payload");
-    }
-
-    // Treat statuses: Received/Success -> successful payment
-    const isSuccess = /received|success/i.test(status);
-
-    // Persist transaction for audit (store under BUYGOODS type)
     try {
       await storeKopoKopoTransaction(
-        transactionId || mpesaRef || accountReference,
+        transactionId || `K2-${Date.now()}`,
         amount,
-        originationTime,
+        new Date(),
         tillNumber,
-        phone || "",
-        phone || "",
-        accountReference,
-        mpesaRef || transactionId || "",
+        phoneNumber,
+        phoneNumber,
+        voucher?.voucherCode || reference || '',
+        transactionId || '',
         0
       );
-    } catch (err) {
-      console.error("Failed to store Kopo Kopo transaction:", err);
-      // Continue - don't fail webhook
+      console.log('K2 transaction stored');
+    } catch (e) {
+      console.error('Error storing K2 transaction:', e);
+      // continue
     }
 
-    if (isSuccess && accountReference) {
-      // First check if this is a hotspot voucher payment
-      const hotspotVoucher = await prisma.hotspotVoucher.findFirst({
-        where: {
-          paymentReference: accountReference,
+    if (voucher) {
+      // Activate voucher
+      const updated = await prisma.hotspotVoucher.update({
+        where: { id: voucher.id },
+        data: {
+          status: 'ACTIVE',
+          paymentGateway: 'KOPOKOPO',
+          paymentReference: transactionId || reference,
         },
         include: {
           package: true,
           organization: true,
-        },
+        }
       });
 
-      if (hotspotVoucher) {
-        // Update voucher status to active
-        const updated = await prisma.hotspotVoucher.update({
-          where: { id: hotspotVoucher.id },
-          data: { 
-            status: 'ACTIVE',
-            paymentReference: transactionId, // Update with actual payment ID
+      // Try to send voucher SMS
+      try {
+        const org = await prisma.organization.findUnique({ where: { id: updated.organizationId }, select: { name: true } });
+        const pkg = updated.package;
+        const usageExpiry = updated.lastUsedAt ? 
+          new Date(updated.lastUsedAt.getTime() + /* default hours */ 60 * 60 * 1000) :
+          new Date(updated.expiresAt || new Date());
+        const expiry = usageExpiry.toLocaleString('en-KE', { timeZone: 'Africa/Nairobi', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false });
+        await SmsService.sendTemplateSms({
+          organizationId: updated.organizationId,
+          templateName: 'hotspot_voucher',
+          phoneNumber: updated.phoneNumber,
+          variables: {
+            voucherCode: updated.voucherCode,
+            packageName: pkg?.name || 'Hotspot Package',
+            amount: String(pkg?.price ?? ''),
+            expiryDate: expiry,
+            organizationName: org?.name || 'ISPinnacle',
           }
         });
+      } catch (smsErr) {
+        console.error('Failed to send K2 voucher SMS:', smsErr);
+      }
 
-        console.log(`Hotspot voucher activated via KopoKopo. Voucher ID: ${hotspotVoucher.id}, Payment ID: ${transactionId}`);
+      return NextResponse.json({ success: true, message: 'Voucher payment processed', voucherId: voucher.id });
+    }
 
-        // Attempt to send voucher SMS to the purchaser
-        try {
-          const org = await prisma.organization.findUnique({
-            where: { id: updated.organizationId },
-            select: { name: true }
-          });
-
-          const pkg = await prisma.organizationPackage.findUnique({
-            where: { id: updated.packageId },
-            select: { name: true, price: true, duration: true, durationType: true }
-          });
-
-          // Calculate actual usage expiry (when voucher duration expires after first use)
-          const usageExpiry = updated.lastUsedAt ? 
-            new Date(updated.lastUsedAt.getTime() + (getDurationInMs(pkg?.durationType || 'HOUR') * (pkg?.duration || 1))) :
-            new Date(updated.expiresAt || new Date());
-          
-          // Format expiry time in East Africa Time (UTC+3) for Kenya
-          const expiry = usageExpiry.toLocaleString('en-KE', {
-            timeZone: 'Africa/Nairobi',
-            year: 'numeric',
-            month: '2-digit',
-            day: '2-digit',
-            hour: '2-digit',
-            minute: '2-digit',
-            second: '2-digit',
-            hour12: false
-          });
-          console.log('Hotspot: attempting to send voucher SMS (KopoKopo)', {
-            organizationId: updated.organizationId,
-            phoneNumber: updated.phoneNumber,
-            voucherCode: updated.voucherCode,
-            packageName: pkg?.name,
-            amount: pkg?.price ?? amount,
-            expiryDate: expiry,
-            usageExpiry: usageExpiry.toISOString()
-          });
-
-          const smsResult = await SmsService.sendTemplateSms({
-            organizationId: updated.organizationId,
-            templateName: 'hotspot_voucher',
-            phoneNumber: updated.phoneNumber,
-            variables: {
-              voucherCode: updated.voucherCode,
-              packageName: pkg?.name || 'Hotspot Package',
-              amount: String(pkg?.price ?? amount ?? ''),
-              expiryDate: expiry,
-              organizationName: org?.name || 'ISPinnacle',
-            }
-          });
-          console.log('Hotspot: voucher SMS send result (KopoKopo)', smsResult);
-        } catch (smsError) {
-          console.error('Failed to send hotspot voucher SMS (KopoKopo):', smsError);
-        }
-      } else {
-        // Handle regular customer payment
-        try {
-          await processCustomerPayment(accountReference, amount);
-          console.log("Customer payment processed for:", accountReference);
-        } catch (err) {
-          console.error("Failed to process customer payment:", err);
-          // Continue - respond success so K2 doesn't retry unnecessarily
-        }
+    // Otherwise, treat reference as PPPoE username for customer payment
+    if (reference) {
+      try {
+        await processCustomerPayment(reference, amount);
+      } catch (err) {
+        console.error('Failed to process PPPoE payment via K2:', err);
+        // continue
       }
     }
 
-    return NextResponse.json({ success: true, message: "Webhook processed" });
+    return NextResponse.json({ success: true, message: 'K2 callback processed' });
   } catch (error) {
-    console.error("Error processing Kopo Kopo webhook:", error);
-    return NextResponse.json(
-      { success: false, message: "Internal server error", error: error instanceof Error ? error.message : "Unknown" },
-      { status: 500 }
-    );
+    console.error('Error processing K2 callback:', error);
+    return NextResponse.json({ success: false, message: 'Internal server error' }, { status: 500 });
   }
 }
 
 export async function GET() {
-  return NextResponse.json({ message: "Kopo Kopo callback endpoint is working", timestamp: new Date().toISOString() });
+  return NextResponse.json({ message: 'K2 callback endpoint active', timestamp: new Date().toISOString() });
 }
 

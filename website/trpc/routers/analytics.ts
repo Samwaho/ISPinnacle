@@ -2,7 +2,7 @@ import { createTRPCRouter, protectedProcedure } from "../init";
 import { prisma } from "@/lib/db";
 import { z } from "zod";
 import { TRPCError } from "@trpc/server";
-import { OrganizationPermission } from "@/lib/generated/prisma";
+import { OrganizationPermission, VoucherStatus } from "@/lib/generated/prisma";
 import { hasPermissions } from "@/lib/server-hooks";
 
 export const analyticsRouter = createTRPCRouter({
@@ -76,9 +76,13 @@ export const analyticsRouter = createTRPCRouter({
       });
 
       // Get M-Pesa transactions
+      // Only include successful transactions (heuristic: have a non-empty invoiceNumber/receipt)
       const mpesaTransactions = await prisma.mpesaTransaction.findMany({
         where: {
           organizationId: input.organizationId,
+          invoiceNumber: { not: null },
+          // Exclude empty-string receipts
+          NOT: [{ invoiceNumber: "" }],
           ...(input.period !== "all" && {
             transactionDateTime: {
               gte: startDate,
@@ -326,6 +330,59 @@ export const analyticsRouter = createTRPCRouter({
       return result;
     }),
 
+  // Split revenue by product/source: PPPoE (customer payments) vs Hotspot (vouchers)
+  getRevenueSources: protectedProcedure
+    .input(z.object({
+      organizationId: z.string().min(1, "Organization ID is required"),
+      period: z.enum(["7d", "30d", "90d", "1y", "all"]).default("30d"),
+    }))
+    .query(async ({ input }) => {
+      const canView = await hasPermissions(input.organizationId, [OrganizationPermission.VIEW_ORGANIZATION_DETAILS]);
+      if (!canView) {
+        throw new TRPCError({
+          code: "FORBIDDEN",
+          message: "You are not authorized to view financial analytics in this organization"
+        });
+      }
+
+      const now = new Date();
+      let startDate: Date;
+      switch (input.period) {
+        case "7d": startDate = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000); break;
+        case "30d": startDate = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000); break;
+        case "90d": startDate = new Date(now.getTime() - 90 * 24 * 60 * 60 * 1000); break;
+        case "1y": startDate = new Date(now.getTime() - 365 * 24 * 60 * 60 * 1000); break;
+        default: startDate = new Date(0);
+      }
+
+      // PPPoE revenue from customer payments
+      const pppoeAgg = await prisma.organizationCustomerPayment.aggregate({
+        where: {
+          organizationId: input.organizationId,
+          ...(input.period !== 'all' && { createdAt: { gte: startDate } }),
+        },
+        _sum: { amount: true },
+      });
+      const pppoeRevenue = pppoeAgg._sum.amount || 0;
+
+      // Hotspot revenue from vouchers that were activated/used in the period (paid vouchers)
+      const hotspotVouchers = await prisma.hotspotVoucher.findMany({
+        where: {
+          organizationId: input.organizationId,
+          status: { in: [VoucherStatus.ACTIVE, VoucherStatus.USED] },
+          ...(input.period !== 'all' && { updatedAt: { gte: startDate } }),
+        },
+        select: { amount: true },
+      });
+      const hotspotRevenue = hotspotVouchers.reduce((s, v) => s + (v.amount || 0), 0);
+
+      return {
+        pppoe: pppoeRevenue,
+        hotspot: hotspotRevenue,
+        total: pppoeRevenue + hotspotRevenue,
+      };
+    }),
+
   getExpenseBreakdown: protectedProcedure
     .input(z.object({
       organizationId: z.string().min(1, "Organization ID is required"),
@@ -519,10 +576,12 @@ export const analyticsRouter = createTRPCRouter({
           startDate = new Date(0);
       }
 
-      // Get M-Pesa transactions
+      // Get successful transactions only (non-empty invoice/receipt)
       const mpesaTransactions = await prisma.mpesaTransaction.findMany({
         where: {
           organizationId: input.organizationId,
+          invoiceNumber: { not: null },
+          NOT: [{ invoiceNumber: "" }],
           ...(input.period !== "all" && {
             transactionDateTime: {
               gte: startDate,
@@ -531,31 +590,23 @@ export const analyticsRouter = createTRPCRouter({
         },
       });
 
-      // Get payment links (assuming these are other payment methods)
-      const paymentLinks = await prisma.mpesaPaymentLink.findMany({
-        where: {
-          organizationId: input.organizationId,
-          ...(input.period !== "all" && {
-            createdAt: {
-              gte: startDate,
-            },
-          }),
-        },
-      });
+      // Split by payment rails: PAYBILL (Safaricom STK/paybill) vs BUYGOODS (KopoKopo till)
+      const mpesaPaybill = mpesaTransactions.filter(tx => tx.transactionType === 'PAYBILL');
+      const mpesaBuygoods = mpesaTransactions.filter(tx => tx.transactionType === 'BUYGOODS');
 
-      const mpesaTotal = mpesaTransactions.reduce((sum, tx) => sum + tx.amount, 0);
-      const paymentLinkTotal = paymentLinks.reduce((sum, link) => sum + link.amount, 0);
+      const mpesaPaybillTotal = mpesaPaybill.reduce((sum, tx) => sum + tx.amount, 0);
+      const mpesaBuygoodsTotal = mpesaBuygoods.reduce((sum, tx) => sum + tx.amount, 0);
 
       return {
-        mpesa: {
-          count: mpesaTransactions.length,
-          amount: mpesaTotal,
+        mpesaPaybill: {
+          count: mpesaPaybill.length,
+          amount: mpesaPaybillTotal,
         },
-        paymentLinks: {
-          count: paymentLinks.length,
-          amount: paymentLinkTotal,
+        mpesaBuygoods: {
+          count: mpesaBuygoods.length,
+          amount: mpesaBuygoodsTotal,
         },
-        total: mpesaTotal + paymentLinkTotal,
+        total: mpesaPaybillTotal + mpesaBuygoodsTotal,
       };
     }),
 });

@@ -41,7 +41,7 @@ export const analyticsRouter = createTRPCRouter({
           startDate = new Date(0); // All time
       }
 
-      // Get revenue data (customer payments)
+      // Get PPPoE revenue data (customer payments)
       const revenueData = await prisma.organizationCustomerPayment.findMany({
         where: {
           organizationId: input.organizationId,
@@ -93,8 +93,30 @@ export const analyticsRouter = createTRPCRouter({
         },
       });
 
-      // Calculate totals
-      const totalRevenue = revenueData.reduce((sum, payment) => sum + payment.amount, 0);
+      // Calculate hotspot revenue from successful voucher-related transactions
+      const voucherCodes = await prisma.hotspotVoucher.findMany({
+        where: { organizationId: input.organizationId },
+        select: { voucherCode: true },
+      });
+      const voucherCodeList = voucherCodes.map(v => v.voucherCode);
+
+      let hotspotRevenue = 0;
+      if (voucherCodeList.length > 0) {
+        const hotspotTx = await prisma.transaction.findMany({
+          where: {
+            organizationId: input.organizationId,
+            billReferenceNumber: { in: voucherCodeList },
+            invoiceNumber: { not: null },
+            NOT: [{ invoiceNumber: "" }],
+            ...(input.period !== 'all' && { transactionDateTime: { gte: startDate } }),
+          },
+          select: { amount: true },
+        });
+        hotspotRevenue = hotspotTx.reduce((s, t) => s + (t.amount || 0), 0);
+      }
+
+      // Calculate totals (PPPoE + Hotspot)
+      const totalRevenue = revenueData.reduce((sum, payment) => sum + payment.amount, 0) + hotspotRevenue;
       const totalExpenses = expenseData.reduce((sum, expense) => sum + expense.amount, 0);
       const totalTransactions = transactions.reduce((sum, tx) => sum + tx.amount, 0);
       const netProfit = totalRevenue - totalExpenses;
@@ -103,6 +125,7 @@ export const analyticsRouter = createTRPCRouter({
       const previousPeriodStart = new Date(startDate.getTime() - (now.getTime() - startDate.getTime()));
       const previousPeriodEnd = startDate;
 
+      // Previous period PPPoE revenue
       const previousRevenue = await prisma.organizationCustomerPayment.aggregate({
         where: {
           organizationId: input.organizationId,
@@ -113,6 +136,25 @@ export const analyticsRouter = createTRPCRouter({
         },
         _sum: { amount: true },
       });
+
+      // Previous period Hotspot revenue
+      let previousHotspotRevenue = 0;
+      if (voucherCodeList.length > 0) {
+        const prevHotspotAgg = await prisma.transaction.findMany({
+          where: {
+            organizationId: input.organizationId,
+            billReferenceNumber: { in: voucherCodeList },
+            invoiceNumber: { not: null },
+            NOT: [{ invoiceNumber: "" }],
+            transactionDateTime: {
+              gte: previousPeriodStart,
+              lt: previousPeriodEnd,
+            },
+          },
+          select: { amount: true },
+        });
+        previousHotspotRevenue = prevHotspotAgg.reduce((s, t) => s + (t.amount || 0), 0);
+      }
 
       const previousExpenses = await prisma.organizationExpense.aggregate({
         where: {
@@ -125,8 +167,9 @@ export const analyticsRouter = createTRPCRouter({
         _sum: { amount: true },
       });
 
-      const revenueGrowth = previousRevenue._sum.amount 
-        ? ((totalRevenue - previousRevenue._sum.amount) / previousRevenue._sum.amount) * 100 
+      const prevTotalRevenue = (previousRevenue._sum.amount || 0) + previousHotspotRevenue;
+      const revenueGrowth = prevTotalRevenue
+        ? ((totalRevenue - prevTotalRevenue) / prevTotalRevenue) * 100 
         : 0;
       
       const expenseGrowth = previousExpenses._sum.amount 
@@ -205,7 +248,29 @@ export const analyticsRouter = createTRPCRouter({
         },
       });
 
-      console.log(`Revenue trends query - Period: ${input.period}, Payments found: ${payments.length}`);
+      // Include hotspot voucher-based transactions to reflect actual revenue
+      const voucherCodes = await prisma.hotspotVoucher.findMany({
+        where: { organizationId: input.organizationId },
+        select: { voucherCode: true },
+      });
+      const voucherCodeList = voucherCodes.map(v => v.voucherCode);
+
+      let hotspotTx: { transactionDateTime: Date; amount: number | null }[] = [];
+      if (voucherCodeList.length > 0) {
+        hotspotTx = await prisma.transaction.findMany({
+          where: {
+            organizationId: input.organizationId,
+            billReferenceNumber: { in: voucherCodeList },
+            invoiceNumber: { not: null },
+            NOT: [{ invoiceNumber: "" }],
+            ...(input.period !== 'all' && { transactionDateTime: { gte: startDate } }),
+          },
+          select: { transactionDateTime: true, amount: true },
+          orderBy: { transactionDateTime: 'asc' },
+        });
+      }
+
+      console.log(`Revenue trends query - Period: ${input.period}, PPPoE payments: ${payments.length}, Hotspot tx: ${hotspotTx.length}`);
 
       // Group data by time period
       const groupedData = new Map<string, number>();
@@ -213,7 +278,7 @@ export const analyticsRouter = createTRPCRouter({
       payments.forEach(payment => {
         const date = new Date(payment.createdAt);
         let key: string;
-        
+
         if (groupBy === "day") {
           key = date.toISOString().split('T')[0];
         } else if (groupBy === "week") {
@@ -223,8 +288,26 @@ export const analyticsRouter = createTRPCRouter({
         } else { // month
           key = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-01`;
         }
-        
+
         groupedData.set(key, (groupedData.get(key) || 0) + payment.amount);
+      });
+
+      // Merge hotspot revenue into grouped data
+      hotspotTx.forEach(tx => {
+        const date = new Date(tx.transactionDateTime);
+        let key: string;
+
+        if (groupBy === 'day') {
+          key = date.toISOString().split('T')[0];
+        } else if (groupBy === 'week') {
+          const weekStart = new Date(date);
+          weekStart.setDate(date.getDate() - date.getDay());
+          key = weekStart.toISOString().split('T')[0];
+        } else {
+          key = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-01`;
+        }
+
+        groupedData.set(key, (groupedData.get(key) || 0) + (tx.amount || 0));
       });
 
       console.log(`Grouped data entries: ${groupedData.size}`);

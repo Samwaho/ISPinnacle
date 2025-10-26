@@ -269,7 +269,8 @@ const AnalyticsPage = () => {
       </div>
 
       {/* Key Metrics */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="rounded-xl border bg-gradient-to-br from-muted/30 to-transparent p-3 md:p-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
         {overviewLoading ? (
           Array.from({ length: 4 }).map((_, i) => (
             <Skeleton key={i} className="h-32" />
@@ -308,8 +309,9 @@ const AnalyticsPage = () => {
               color={financialOverview?.netProfit && financialOverview.netProfit >= 0 ? "green" : "red"}
               isClickable={false}
             />
-          </>
+           </>
         )}
+        </div>
       </div>
 
       {/* Charts and Detailed Analytics */}
@@ -343,28 +345,7 @@ const AnalyticsPage = () => {
               </CardContent>
             </Card>
 
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <PieChart className="h-5 w-5" />
-                  Payment Method
-                </CardTitle>
-                <CardDescription>
-                  {organization?.paymentGateway === 'KOPOKOPO' ? 'KopoKopo' : organization?.paymentGateway === 'MPESA' ? 'M-Pesa' : 'Not configured'}
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="overflow-x-auto">
-                {paymentLoading ? (
-                  <Skeleton className="h-64 w-full" />
-                ) : organization?.paymentGateway === 'KOPOKOPO' ? (
-                  <PieChartComponent data={[{ name: 'KopoKopo', amount: paymentMethods?.kopokopo.amount || 0 }]} title="" />
-                ) : organization?.paymentGateway === 'MPESA' ? (
-                  <PieChartComponent data={[{ name: 'M-Pesa', amount: paymentMethods?.mpesa.amount || 0 }]} title="" />
-                ) : (
-                  <div className="text-sm text-muted-foreground">No payment gateway configured</div>
-                )}
-              </CardContent>
-            </Card>
+            {/* Payment Method overview removed per request */}
           </div>
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             <Card>

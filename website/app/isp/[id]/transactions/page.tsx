@@ -26,6 +26,9 @@ const TransactionsPage = () => {
   const { data: userPermissions, isLoading: permissionsLoading } = useQuery(
     t.organization.getUserPermissions.queryOptions({ id: id as string })
   );
+  const { data: organization } = useQuery(
+    t.organization.getOrganizationById.queryOptions({ id: id as string })
+  );
 
   // Check if user has permission to view transactions
   const canViewTransactions = userPermissions?.canViewCustomers || false;
@@ -34,10 +37,10 @@ const TransactionsPage = () => {
   console.log("Permissions:", { canViewTransactions, canManageTransactions, userPermissions });
 
   // Local filters for gateway and source (must be declared before any return)
-  const [gatewayFilter, setGatewayFilter] = React.useState<'ALL' | 'MPESA' | 'KOPOKOPO' | 'OTHER'>("ALL");
   const [sourceFilter, setSourceFilter] = React.useState<'ALL' | 'PPPOE' | 'HOTSPOT' | 'OTHER'>("ALL");
 
   const filtered = React.useMemo(() => {
+    const targetGateway = (organization?.paymentGateway as 'MPESA' | 'KOPOKOPO' | 'OTHER' | null | undefined) ?? null;
     const rows = (transactions || []).map((t) => ({
       id: t.id,
       organizationId: t.organizationId,
@@ -63,11 +66,11 @@ const TransactionsPage = () => {
       updatedAt: t.updatedAt instanceof Date ? t.updatedAt : new Date(t.updatedAt),
     }));
     return rows.filter(r => {
-      const gwOk = gatewayFilter === 'ALL' || r.paymentGateway === gatewayFilter;
+      const gwOk = !targetGateway || r.paymentGateway === targetGateway;
       const srcOk = sourceFilter === 'ALL' || r.source === sourceFilter;
       return gwOk && srcOk;
     });
-  }, [transactions, gatewayFilter, sourceFilter]);
+  }, [transactions, organization?.paymentGateway, sourceFilter]);
 
   // Show loading state while checking permissions
   if (permissionsLoading) {
@@ -237,15 +240,6 @@ const TransactionsPage = () => {
             </h3>
             <div className="flex items-center gap-2">
               <Filter className="h-4 w-4 text-muted-foreground" />
-              <Select value={gatewayFilter} onValueChange={(v) => setGatewayFilter(v as typeof gatewayFilter)}>
-                <SelectTrigger className="w-36"><SelectValue placeholder="Gateway" /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="ALL">All Gateways</SelectItem>
-                  <SelectItem value="MPESA">M-Pesa</SelectItem>
-                  <SelectItem value="KOPOKOPO">KopoKopo</SelectItem>
-                  <SelectItem value="OTHER">Other</SelectItem>
-                </SelectContent>
-              </Select>
               <Select value={sourceFilter} onValueChange={(v) => setSourceFilter(v as typeof sourceFilter)}>
                 <SelectTrigger className="w-36"><SelectValue placeholder="Source" /></SelectTrigger>
                 <SelectContent>

@@ -55,7 +55,9 @@ export const VoucherForm = () => {
     })
   );
 
-  const form = useForm({
+  type VoucherFormData = z.infer<typeof voucherFormSchema>;
+
+  const form = useForm<VoucherFormData>({
     resolver: zodResolver(voucherFormSchema),
     defaultValues: {
       packageId: "",
@@ -64,7 +66,7 @@ export const VoucherForm = () => {
     },
   });
 
-  type VoucherFormData = z.infer<typeof voucherFormSchema>;
+  
 
   useEffect(() => {
     // Prefill amount from selected package
@@ -147,7 +149,12 @@ export const VoucherForm = () => {
                 <FormItem>
                   <FormLabel>Amount (KES)</FormLabel>
                   <FormControl>
-                    <Input type="number" step="0.01" {...field} />
+                    <Input
+                      type="number"
+                      step="0.01"
+                      value={field.value ?? 0}
+                      onChange={(e) => field.onChange((e.target as HTMLInputElement).valueAsNumber)}
+                    />
                   </FormControl>
                   <FormMessage />
                 </FormItem>

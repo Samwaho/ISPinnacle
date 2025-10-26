@@ -164,6 +164,11 @@ const AnalyticsPage = () => {
     })
   );
 
+  // Organization config (to know selected gateway)
+  const { data: organization } = useQuery(
+    t.organization.getOrganizationById.queryOptions({ id: organizationId })
+  );
+
   // Revenue sources (PPPoE vs Hotspot)
   const { data: revenueSources, isPending: sourcesLoading } = useQuery(
     t.analytics.getRevenueSources.queryOptions({
@@ -303,13 +308,6 @@ const AnalyticsPage = () => {
               color={financialOverview?.netProfit && financialOverview.netProfit >= 0 ? "green" : "red"}
               isClickable={false}
             />
-            <StatCard
-              title="Transactions"
-              value={`KES ${(financialOverview?.totalTransactions || 0).toLocaleString()}`}
-              icon={<Activity className="h-5 w-5" />}
-              color="blue"
-              isClickable={false}
-            />
           </>
         )}
       </div>
@@ -349,21 +347,21 @@ const AnalyticsPage = () => {
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
                   <PieChart className="h-5 w-5" />
-                  Payment Methods
+                  Payment Method
                 </CardTitle>
-                <CardDescription>By gateway (M-Pesa vs KopoKopo)</CardDescription>
+                <CardDescription>
+                  {organization?.paymentGateway === 'KOPOKOPO' ? 'KopoKopo' : organization?.paymentGateway === 'MPESA' ? 'M-Pesa' : 'Not configured'}
+                </CardDescription>
               </CardHeader>
               <CardContent className="overflow-x-auto">
                 {paymentLoading ? (
                   <Skeleton className="h-64 w-full" />
+                ) : organization?.paymentGateway === 'KOPOKOPO' ? (
+                  <PieChartComponent data={[{ name: 'KopoKopo', amount: paymentMethods?.kopokopo.amount || 0 }]} title="" />
+                ) : organization?.paymentGateway === 'MPESA' ? (
+                  <PieChartComponent data={[{ name: 'M-Pesa', amount: paymentMethods?.mpesa.amount || 0 }]} title="" />
                 ) : (
-                  <PieChartComponent 
-                    data={[
-                      { name: "M-Pesa", amount: paymentMethods?.mpesa.amount || 0 },
-                      { name: "KopoKopo", amount: paymentMethods?.kopokopo.amount || 0 },
-                    ]} 
-                    title="" 
-                  />
+                  <div className="text-sm text-muted-foreground">No payment gateway configured</div>
                 )}
               </CardContent>
             </Card>

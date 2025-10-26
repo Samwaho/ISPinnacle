@@ -15,8 +15,7 @@ import {
   DollarSign, 
   CreditCard, 
   BarChart3,
-  PieChart,
-  Activity,
+  
   Calendar,
   Clock,
   CalendarDays
@@ -156,18 +155,7 @@ const AnalyticsPage = () => {
     t.analytics.getCustomerAnalytics.queryOptions({ organizationId })
   );
 
-  // Payment Methods
-  const { data: paymentMethods, isPending: paymentLoading } = useQuery(
-    t.analytics.getPaymentMethods.queryOptions({ 
-      organizationId, 
-      period: selectedPeriod 
-    })
-  );
-
-  // Organization config (to know selected gateway)
-  const { data: organization } = useQuery(
-    t.organization.getOrganizationById.queryOptions({ id: organizationId })
-  );
+  // Removed payment method overview and organization gateway awareness from this view
 
   // Revenue sources (PPPoE vs Hotspot)
   const { data: revenueSources, isPending: sourcesLoading } = useQuery(

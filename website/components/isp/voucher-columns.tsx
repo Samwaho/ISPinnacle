@@ -3,7 +3,8 @@
 import type { ColumnDef } from "@tanstack/react-table";
 import { DataTableColumnHeader } from "@/components/table/DataTableColumnHeader";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
+import { Badge, badgeVariants } from "@/components/ui/badge";
+import type { VariantProps } from "class-variance-authority";
 import { Copy, MoreHorizontal, CheckCircle2, XCircle, Clock, CalendarClock } from "lucide-react";
 import {
   DropdownMenu,
@@ -25,11 +26,13 @@ export type VoucherTableRow = {
   createdAt: Date;
 };
 
+type AllowedStatus = "PENDING" | "ACTIVE" | "EXPIRED" | "CANCELLED";
+
 export const voucherColumns = ({
   onUpdateStatus,
   canManage,
 }: {
-  onUpdateStatus?: (voucher: VoucherTableRow, status: VoucherTableRow["status"]) => void;
+  onUpdateStatus?: (voucher: VoucherTableRow, status: AllowedStatus) => void;
   canManage: boolean;
 }): ColumnDef<VoucherTableRow>[] => [
   {
@@ -84,17 +87,12 @@ export const voucherColumns = ({
     ),
     cell: ({ row }) => {
       const status = row.original.status;
-      const variant =
-        status === "ACTIVE" ? "default" :
-        status === "PENDING" ? "secondary" :
-        status === "USED" ? "outline" :
-        status === "EXPIRED" ? "secondary" :
-        "secondary";
-      return (
-        <Badge variant={variant as any}>
-          {status}
-        </Badge>
-      );
+      let variant: VariantProps<typeof badgeVariants>["variant"] = "secondary";
+      if (status === "ACTIVE") variant = "default";
+      else if (status === "USED") variant = "outline";
+      else if (status === "EXPIRED" || status === "PENDING") variant = "secondary";
+      else if (status === "CANCELLED") variant = "destructive";
+      return <Badge variant={variant}>{status}</Badge>;
     },
   },
   {
@@ -161,4 +159,3 @@ export const voucherColumns = ({
     },
   },
 ];
-

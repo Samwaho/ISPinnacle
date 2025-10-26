@@ -5,8 +5,8 @@ import { useTRPC } from "@/trpc/client";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { StatCard } from "@/components/StatCard";
 import { DataTable } from "@/components/table/DataTable";
-import { voucherColumns, type VoucherTableRow } from "@/components/isp/voucher-columns";
-import { Ticket, Plus, CheckCircle2, Clock3, Ban } from "lucide-react";
+import { voucherColumns } from "@/components/isp/voucher-columns";
+import { Ticket, Plus, CheckCircle2, Clock3 } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
@@ -37,7 +37,7 @@ const VouchersPage = () => {
   const canView = userPermissions?.canViewPackages || false; // reuse package permission
   const canManage = userPermissions?.canManagePackages || false;
 
-  const { mutate: updateStatus, isPending: isUpdating } = useMutation(
+  const { mutate: updateStatus } = useMutation(
     t.hotspot.updateVoucherStatus.mutationOptions({
       onSuccess: () => {
         toast.success('Voucher status updated');
@@ -208,4 +208,3 @@ const VouchersPage = () => {
 };
 
 export default VouchersPage;
-

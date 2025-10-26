@@ -28,6 +28,7 @@ import {
   CartesianGrid,
   XAxis,
   YAxis,
+  Legend,
 } from "recharts";
 
 // Generic Trend Bar Chart using Recharts
@@ -150,10 +151,7 @@ const AnalyticsPage = () => {
     })
   );
 
-  // Customer Analytics
-  const { data: customerAnalytics, isPending: customerLoading } = useQuery(
-    t.analytics.getCustomerAnalytics.queryOptions({ organizationId })
-  );
+  // Removed Customer Analytics (Recent Payments) from this view
 
   // Removed payment method overview and organization gateway awareness from this view
 
@@ -164,6 +162,34 @@ const AnalyticsPage = () => {
       period: selectedPeriod,
     })
   );
+
+  // Build combined series for Revenue vs Expenses vs Profit
+  const combinedTrendData = React.useMemo(() => {
+    const revMap = new Map<string, number>();
+    const expMap = new Map<string, number>();
+
+    (revenueTrends || []).forEach((d) => {
+      revMap.set(d.date, (revMap.get(d.date) || 0) + d.amount);
+    });
+    (expenseTrends || []).forEach((d) => {
+      expMap.set(d.date, (expMap.get(d.date) || 0) + d.amount);
+    });
+
+    const allDates = Array.from(new Set([...(revMap.keys()), ...(expMap.keys())]));
+    allDates.sort((a, b) => new Date(a).getTime() - new Date(b).getTime());
+
+    return allDates.map((date) => {
+      const revenue = revMap.get(date) || 0;
+      const expense = expMap.get(date) || 0;
+      const profit = revenue - expense;
+      return {
+        label: formatTrendLabel(date),
+        revenue,
+        expense,
+        profit,
+      };
+    });
+  }, [revenueTrends, expenseTrends, formatTrendLabel]);
 
   const canViewAnalytics = userPermissions?.canView || false;
 
@@ -354,28 +380,32 @@ const AnalyticsPage = () => {
             </Card>
             <Card>
               <CardHeader>
-                <CardTitle>Recent Payments</CardTitle>
-                <CardDescription>Latest customer payments</CardDescription>
+                <CardTitle className="flex items-center gap-2">
+                  <BarChart3 className="h-5 w-5" />
+                  Revenue vs Expenses vs Profit
+                </CardTitle>
+                <CardDescription>Comparison over the selected period</CardDescription>
               </CardHeader>
-              <CardContent>
-                {customerLoading ? (
-                  <Skeleton className="h-64 w-full" />
+              <CardContent className="overflow-x-auto">
+                {trendsLoading || expenseTrendsLoading ? (
+                  <Skeleton className="h-80 w-full" />
                 ) : (
-                  <div className="space-y-3">
-                    {customerAnalytics?.recentPayments?.slice(0, 5).map((payment, index) => (
-                      <div key={index} className="flex items-center justify-between p-3 bg-muted/50 rounded-lg">
-                        <div>
-                          <div className="font-medium">{payment.customer.name}</div>
-                          <div className="text-sm text-muted-foreground">{payment.package?.name}</div>
-                        </div>
-                        <div className="text-right">
-                          <div className="font-semibold">KES {payment.amount.toLocaleString()}</div>
-                          <div className="text-xs text-muted-foreground">
-                            {new Date(payment.createdAt).toLocaleDateString()}
-                          </div>
-                        </div>
-                      </div>
-                    ))}
+                  <ChartContainer className="h-[220px] sm:h-72 md:h-80 w-full" config={{}}>
+                    <ReBarChart data={combinedTrendData} margin={{ left: 8, right: 8, top: 8, bottom: 0 }}>
+                      <CartesianGrid vertical={false} strokeDasharray="3 3" />
+                      <XAxis dataKey="label" tickLine={false} axisLine={false} tickMargin={8} interval="preserveStartEnd" />
+                      <YAxis tickLine={false} axisLine={false} width={64} tickFormatter={(v) => `KES ${Number(v).toLocaleString()}`} />
+                      <ChartTooltip cursor={{ fill: "hsl(var(--muted))" }} content={<ChartTooltipContent labelFormatter={(v) => String(v)} />} />
+                      <Legend />
+                      <Bar dataKey="revenue" name="Revenue" fill="var(--color-revenue, #3B82F6)" radius={[6, 6, 0, 0]} />
+                      <Bar dataKey="expense" name="Expenses" fill="var(--color-expense, #EF4444)" radius={[6, 6, 0, 0]} />
+                      <Bar dataKey="profit" name="Profit" fill="var(--color-profit, #10B981)" radius={[6, 6, 0, 0]} />
+                    </ReBarChart>
+                  </ChartContainer>
+                )}
+                {expenseTrendsError && (
+                  <div className="text-center text-red-500 py-4">
+                    Error loading expense trends: {expenseTrendsError.message}
                   </div>
                 )}
               </CardContent>

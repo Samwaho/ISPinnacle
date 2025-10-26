@@ -32,7 +32,7 @@ import {
 } from "recharts";
 
 // Generic Trend Bar Chart using Recharts
-const TrendBarChart = ({ data, valueKey = "amount" }: { data: Array<{ label: string } & Record<string, number>>; valueKey?: string }) => {
+const TrendBarChart = ({ data, valueKey = "amount" }: { data: Array<{ label: string } & Record<string, number | string>>; valueKey?: string }) => {
   if (!data.length) return <div className="text-center text-muted-foreground py-8">No data available</div>;
 
   return (

@@ -190,35 +190,40 @@ export class SmsService {
         };
       }
 
-      // Prepare request body
-      const requestBody = new URLSearchParams({
-        sendMethod: "quick",
-        mobile: phoneNumber,
-        msg: message,
-        senderid: configuration.senderId || "SENDER",
-        msgType: "text",
-        duplicatecheck: "true",
-        output: "json",
-        userid: configuration.userId!,
-        password: configuration.password!,
-      });
+      // Decide msgType based on message characters; retry with unicode on mismatch
+      const needsUnicode = /[^\x00-\x7F]/.test(message);
 
-      // Prepare headers
-      const headers: Record<string, string> = {
-        "Content-Type": "application/x-www-form-urlencoded",
-        "cache-control": "no-cache",
+      const doSend = async (msgType: 'text' | 'unicode') => {
+        const body = new URLSearchParams({
+          sendMethod: "quick",
+          mobile: phoneNumber,
+          msg: message,
+          senderid: configuration.senderId || "SENDER",
+          msgType,
+          duplicatecheck: "true",
+          output: "json",
+          userid: configuration.userId!,
+          password: configuration.password!,
+        });
+
+        const headers: Record<string, string> = {
+          "Content-Type": "application/x-www-form-urlencoded",
+          "cache-control": "no-cache",
+        };
+        if (configuration.apiKey && configuration.apiKey.trim() !== "") {
+          headers["apikey"] = configuration.apiKey;
+        }
+
+        const resp = await fetch("https://portal.zettatel.com/SMSApi/send", {
+          method: "POST",
+          headers,
+          body,
+        });
+        return resp;
       };
 
-      // Add API key as header if provided
-      if (configuration.apiKey && configuration.apiKey.trim() !== "") {
-        headers["apikey"] = configuration.apiKey;
-      }
-
-      const response = await fetch("https://portal.zettatel.com/SMSApi/send", {
-        method: "POST",
-        headers,
-        body: requestBody,
-      });
+      // First attempt with chosen type
+      let response = await doSend(needsUnicode ? 'unicode' : 'text');
 
       if (!response.ok) {
         return {
@@ -228,24 +233,36 @@ export class SmsService {
         };
       }
 
-      const result = await response.json();
+      let result = await response.json();
 
-      // Check if the response indicates success
+      // If mismatch error occurs and we tried 'text', retry with 'unicode'
+      if ((result?.status === 'error' && (result?.statusCode === '171' || /Msg Text and MsgType Mismatch/i.test(result?.reason || ''))) && !needsUnicode) {
+        response = await doSend('unicode');
+        if (!response.ok) {
+          return {
+            success: false,
+            message: `ZetaTel API request failed (retry unicode) with status ${response.status}`,
+            error: "API_REQUEST_FAILED",
+          };
+        }
+        result = await response.json();
+      }
+
       if (result.status === "success" && result.statusCode === "200") {
         return {
           success: true,
           message: "SMS sent successfully via ZetaTel",
           response: result,
         };
-      } else {
-        const errorMessage = result.reason || "Failed to send SMS";
-        return {
-          success: false,
-          message: `ZetaTel error: ${errorMessage}`,
-          error: "SMS_SEND_FAILED",
-          response: result,
-        };
       }
+
+      const errorMessage = result.reason || "Failed to send SMS";
+      return {
+        success: false,
+        message: `ZetaTel error: ${errorMessage}`,
+        error: "SMS_SEND_FAILED",
+        response: result,
+      };
     } catch (error) {
       return {
         success: false,

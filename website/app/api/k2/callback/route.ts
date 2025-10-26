@@ -106,10 +106,8 @@ export async function POST(request: NextRequest) {
       try {
         const org = await prisma.organization.findUnique({ where: { id: updated.organizationId }, select: { name: true } });
         const pkg = updated.package;
-        const usageExpiry = updated.lastUsedAt ? 
-          new Date(updated.lastUsedAt.getTime() + /* default hours */ 60 * 60 * 1000) :
-          new Date(updated.expiresAt || new Date());
-        const expiry = usageExpiry.toLocaleString('en-KE', { timeZone: 'Africa/Nairobi', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false });
+        const expiryDate = updated.expiresAt ? new Date(updated.expiresAt) : new Date();
+        const expiry = expiryDate.toLocaleString('en-KE', { timeZone: 'Africa/Nairobi', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false });
         await SmsService.sendTemplateSms({
           organizationId: updated.organizationId,
           templateName: 'hotspot_voucher',

@@ -138,9 +138,9 @@ export const hotspotRouter = createTRPCRouter({
       // Generate unique voucher code
       const voucherCode = Math.random().toString(36).substring(2, 10).toUpperCase();
       
-      // Calculate expiry date (30 days from now)
-      const expiresAt = new Date();
-      expiresAt.setDate(expiresAt.getDate() + 30);
+      // Calculate expiry based on package duration
+      const baseMs = getDurationInMs(packageData.durationType);
+      const expiresAt = new Date(Date.now() + baseMs * packageData.duration);
 
       // Create voucher
       const voucher = await prisma.hotspotVoucher.create({
@@ -328,14 +328,16 @@ export const hotspotRouter = createTRPCRouter({
         });
       }
 
-      // Calculate remaining duration if voucher has been used
-      let remainingDuration = null;
-      if (voucher.lastUsedAt && voucher.package) {
-        const durationMs = getDurationInMs(voucher.package.durationType);
-        const totalDurationMs = durationMs * voucher.package.duration;
-        const timeSinceFirstUse = new Date().getTime() - voucher.lastUsedAt.getTime();
-        const remainingMs = Math.max(0, totalDurationMs - timeSinceFirstUse);
-        
+      // Remaining time is derived from expiresAt
+      let remainingDuration = null as null | {
+        milliseconds: number;
+        hours: number;
+        minutes: number;
+        seconds: number;
+      };
+
+      if (voucher.expiresAt) {
+        const remainingMs = voucher.expiresAt.getTime() - Date.now();
         if (remainingMs > 0) {
           remainingDuration = {
             milliseconds: remainingMs,
@@ -344,15 +346,13 @@ export const hotspotRouter = createTRPCRouter({
             seconds: Math.floor((remainingMs % (60 * 1000)) / 1000),
           };
         } else {
-          // Duration has expired
           await prisma.hotspotVoucher.update({
             where: { id: voucher.id },
-            data: { status: 'EXPIRED' }
+            data: { status: 'EXPIRED' },
           });
-          
           throw new TRPCError({
-            code: "BAD_REQUEST",
-            message: "Voucher duration has expired"
+            code: 'BAD_REQUEST',
+            message: 'Voucher duration has expired',
           });
         }
       }
@@ -362,6 +362,7 @@ export const hotspotRouter = createTRPCRouter({
           id: voucher.id,
           voucherCode: voucher.voucherCode,
           status: voucher.status,
+          expiresAt: voucher.expiresAt,
           remainingDuration,
           package: voucher.package,
           organization: voucher.organization,
@@ -404,9 +405,14 @@ export const hotspotRouter = createTRPCRouter({
       // Generate unique voucher code
       const voucherCode = Math.random().toString(36).substring(2, 10).toUpperCase();
       
-      // Calculate expiry date (30 days from now)
-      const expiresAt = new Date();
-      expiresAt.setDate(expiresAt.getDate() + 30);
+      // Calculate expiry based on package duration
+      // Admin-created vouchers follow the same rule as purchased vouchers
+      const pkg = await prisma.organizationPackage.findUnique({
+        where: { id: packageId },
+        select: { duration: true, durationType: true }
+      });
+      const baseMs2 = getDurationInMs(pkg?.durationType || 'HOUR');
+      const expiresAt = new Date(Date.now() + baseMs2 * (pkg?.duration || 1));
 
       const voucher = await prisma.hotspotVoucher.create({
         data: {

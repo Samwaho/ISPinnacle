@@ -10,6 +10,7 @@ interface VoucherInfo {
   remainingDuration?: {
     milliseconds: number;
   };
+  expiresAt?: Date | string | null;
 }
 
 interface VoucherStatusProps {
@@ -89,10 +90,16 @@ export function VoucherStatus({ voucherInfo, onConnect }: VoucherStatusProps) {
           {voucherInfo.remainingDuration && (
             <div className="flex items-center justify-center text-sm text-gray-600 dark:text-gray-400 mb-4">
               <Clock className="h-4 w-4 mr-2" />
-              <span className="font-medium">Remaining Time:</span>
+              <span className="font-medium">Time Remaining (until expiry):</span>
               <span className="ml-2 font-bold text-blue-600 dark:text-blue-400">
                 {formatRemainingDuration(voucherInfo.remainingDuration.milliseconds)}
               </span>
+            </div>
+          )}
+
+          {voucherInfo.expiresAt && (
+            <div className="text-sm text-gray-600 dark:text-gray-400">
+              Expires At: {new Date(voucherInfo.expiresAt).toLocaleString('en-KE', { timeZone: 'Africa/Nairobi' })}
             </div>
           )}
         </div>

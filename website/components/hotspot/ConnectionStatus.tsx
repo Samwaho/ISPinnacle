@@ -18,6 +18,7 @@ interface VoucherInfo {
   remainingDuration?: {
     milliseconds: number;
   };
+  expiresAt?: Date | string | null;
 }
 
 interface ConnectionStatusProps {
@@ -161,11 +162,19 @@ export function ConnectionStatus({
               {voucherInfo.remainingDuration && (
                 <div className="space-y-4">
                   <div className="flex justify-between items-center">
-                    <span className="text-sm font-medium text-gray-600 dark:text-gray-400">Remaining Time</span>
+                    <span className="text-sm font-medium text-gray-600 dark:text-gray-400">Time Remaining (until expiry)</span>
                     <span className="text-sm font-bold text-blue-600 dark:text-blue-400">
                       {formatRemainingDuration(voucherInfo.remainingDuration.milliseconds)}
                     </span>
                   </div>
+                  {voucherInfo.expiresAt && (
+                    <div className="flex justify-between items-center">
+                      <span className="text-sm font-medium text-gray-600 dark:text-gray-400">Expires At</span>
+                      <span className="text-sm text-gray-900 dark:text-white">
+                        {new Date(voucherInfo.expiresAt).toLocaleString('en-KE', { timeZone: 'Africa/Nairobi' })}
+                      </span>
+                    </div>
+                  )}
                 </div>
               )}
             </div>

@@ -7,26 +7,6 @@ import {
 import { MpesaTransactionType, PaymentGateway, TransactionSource } from "@/lib/generated/prisma";
 import { SmsService } from '@/lib/sms';
 
-// Helper function to convert duration to milliseconds
-function getDurationInMs(durationType: string): number {
-  switch (durationType) {
-    case 'MINUTE':
-      return 60 * 1000;
-    case 'HOUR':
-      return 60 * 60 * 1000;
-    case 'DAY':
-      return 24 * 60 * 60 * 1000;
-    case 'WEEK':
-      return 7 * 24 * 60 * 60 * 1000;
-    case 'MONTH':
-      return 30 * 24 * 60 * 60 * 1000;
-    case 'YEAR':
-      return 365 * 24 * 60 * 60 * 1000;
-    default:
-      return 60 * 60 * 1000; // Default to 1 hour
-  }
-}
-
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
@@ -196,13 +176,10 @@ export async function POST(request: NextRequest) {
             select: { name: true, price: true, duration: true, durationType: true }
           });
 
-          // Calculate actual usage expiry (when voucher duration expires after first use)
-          const usageExpiry = updated.lastUsedAt ? 
-            new Date(updated.lastUsedAt.getTime() + (getDurationInMs(pkg?.durationType || 'HOUR') * (pkg?.duration || 1))) :
-            new Date(updated.expiresAt || new Date());
-          
+          // Use stored voucher expiry for messaging
+          const expiryDate = updated.expiresAt ? new Date(updated.expiresAt) : new Date();
           // Format expiry time in East Africa Time (UTC+3) for Kenya
-          const expiry = usageExpiry.toLocaleString('en-KE', {
+          const expiry = expiryDate.toLocaleString('en-KE', {
             timeZone: 'Africa/Nairobi',
             year: 'numeric',
             month: '2-digit',
@@ -212,14 +189,14 @@ export async function POST(request: NextRequest) {
             second: '2-digit',
             hour12: false
           });
-          console.log('Hotspot: attempting to send voucher SMS', {
+    console.log('Hotspot: attempting to send voucher SMS', {
             organizationId: updated.organizationId,
             phoneNumber: updated.phoneNumber,
             voucherCode: updated.voucherCode,
             packageName: pkg?.name,
             amount: pkg?.price,
             expiryDate: expiry,
-            usageExpiry: usageExpiry.toISOString()
+            expiryDateISO: expiryDate.toISOString()
           });
 
           const smsResult = await SmsService.sendTemplateSms({

@@ -232,6 +232,10 @@ export const storeMpesaTransaction = async (
     console.log("Found organization:", organization.id);
     console.log("Found M-Pesa configuration:", mpesaConfig.id);
 
+    // Coerce potentially numeric values from upstream into strings for Prisma
+    const safeName = typeof name === 'string' ? name : (name != null ? String(name) : null);
+    const safePhone = typeof phoneNumber === 'string' ? phoneNumber : (phoneNumber != null ? String(phoneNumber) : '');
+
     const newTransaction = await prisma.mpesaTransaction.create({
       data: {
         organizationId: organization.id,
@@ -239,8 +243,8 @@ export const storeMpesaTransaction = async (
         amount: amount,
         transactionType: transactionType,
         transactionDateTime: transactionDateTime,
-        name: name,
-        phoneNumber: phoneNumber,
+        name: safeName,
+        phoneNumber: safePhone,
         billReferenceNumber: billReferenceNumber,
         invoiceNumber: invoiceNumber,
         orgAccountBalance: orgAccountBalance,
@@ -288,6 +292,9 @@ export const storeKopoKopoTransaction = async (
       throw new Error(`Organization not found for organizationId: ${k2Config.organizationId}`);
     }
 
+    const safeName = typeof name === 'string' ? name : (name != null ? String(name) : null);
+    const safePhone = typeof phoneNumber === 'string' ? phoneNumber : (phoneNumber != null ? String(phoneNumber) : '');
+
     const newTransaction = await prisma.mpesaTransaction.create({
       data: {
         organizationId: organization.id,
@@ -295,8 +302,8 @@ export const storeKopoKopoTransaction = async (
         amount,
         transactionType: MpesaTransactionType.BUYGOODS,
         transactionDateTime,
-        name,
-        phoneNumber,
+        name: safeName,
+        phoneNumber: safePhone,
         billReferenceNumber,
         invoiceNumber,
         orgAccountBalance,

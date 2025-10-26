@@ -360,7 +360,7 @@ export async function POST(request: NextRequest) {
           transactionDateTime,
           businessShortCode,
           String(phoneNumber),
-          phoneNumber,
+          String(phoneNumber),
           AccountReference,
           mpesaReceiptNumber,
           0

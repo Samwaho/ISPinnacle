@@ -299,19 +299,20 @@ const OrganizationDetailPage = () => {
       </div>
       
       <div className="flex flex-col gap-4">
-        <Tabs defaultValue="members">
-          <div className="w-full overflow-x-auto">
-          <TabsList className="p-1 mb-4 w-full flex-wrap sm:flex-nowrap gap-2">
-            <TabsTrigger value="members">Members</TabsTrigger>
-            <TabsTrigger value="invitations">Invitations</TabsTrigger>
-            <TabsTrigger value="roles">Roles</TabsTrigger>
-            <TabsTrigger value="activities">Activities</TabsTrigger>
-            <TabsTrigger value="details">Details</TabsTrigger>
-            <TabsTrigger value="payment-gateway">Payment Gateway</TabsTrigger>
-            <TabsTrigger value="sms">SMS Provider</TabsTrigger>
-            <TabsTrigger value="sms-templates">SMS Templates</TabsTrigger>
-          </TabsList>
-          </div>
+        <Tabs defaultValue="members" orientation="vertical">
+          <div className="flex flex-col md:flex-row gap-4">
+            <TabsList className="p-1 mb-2 md:mb-0 w-full md:w-60 h-auto max-h-64 md:max-h-[70vh] overflow-y-auto flex-col gap-2 [&_[data-slot=tabs-trigger]]:h-9 [&_[data-slot=tabs-trigger]]:w-full [&_[data-slot=tabs-trigger]]:justify-start">
+              <TabsTrigger value="members">Members</TabsTrigger>
+              <TabsTrigger value="invitations">Invitations</TabsTrigger>
+              <TabsTrigger value="roles">Roles</TabsTrigger>
+              <TabsTrigger value="activities">Activities</TabsTrigger>
+              <TabsTrigger value="details">Details</TabsTrigger>
+              <TabsTrigger value="payment-gateway">Payment Gateway</TabsTrigger>
+              <TabsTrigger value="sms">SMS Provider</TabsTrigger>
+              <TabsTrigger value="sms-templates">SMS Templates</TabsTrigger>
+            </TabsList>
+
+            <div className="flex-1">
           
           <TabsContent value="members">
             {editingMember ? (
@@ -594,6 +595,8 @@ const OrganizationDetailPage = () => {
               </div>
             )}
           </TabsContent>
+            </div>
+          </div>
         </Tabs>
       </div>
       

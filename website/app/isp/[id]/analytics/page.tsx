@@ -320,7 +320,7 @@ const AnalyticsPage = () => {
         </TabsList>
 
         <TabsContent value="overview" className="space-y-6">
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
             <Card>
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
@@ -342,10 +342,6 @@ const AnalyticsPage = () => {
                 )}
               </CardContent>
             </Card>
-
-            {/* Payment Method overview removed per request */}
-          </div>
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             <Card>
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
@@ -368,8 +364,6 @@ const AnalyticsPage = () => {
                 )}
               </CardContent>
             </Card>
-          </div>
-          <div className="grid grid-cols-1 gap-6">
             <Card>
               <CardHeader>
                 <CardTitle>Recent Payments</CardTitle>

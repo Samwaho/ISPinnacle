@@ -160,11 +160,11 @@ const VouchersPage = () => {
           <Ticket className="h-5 w-5" /> Vouchers
         </h3>
         {canManage && (
-          <Link href={`/isp/${organizationId}/vouchers/new`}>
-            <Button variant="gradient">
+          <Button asChild variant="gradient">
+            <Link href={`/isp/${organizationId}/vouchers/new`}>
               <Plus className="h-5 w-5" /> Create Voucher
-            </Button>
-          </Link>
+            </Link>
+          </Button>
         )}
       </div>
 
@@ -201,6 +201,7 @@ const VouchersPage = () => {
             createdAt: v.createdAt instanceof Date ? v.createdAt : new Date(v.createdAt),
           }))}
           filterPlaceholder="Search vouchers..."
+          enableRowSelection={false}
         />
       )}
     </div>

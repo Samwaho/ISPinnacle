@@ -136,19 +136,19 @@ export const voucherColumns = ({
               Created {v.createdAt.toLocaleDateString()}
             </DropdownMenuItem>
             {onUpdateStatus && (
-              <DropdownMenuItem disabled={!canActivate} onClick={() => onUpdateStatus(v, "ACTIVE")}>
+              <DropdownMenuItem disabled={!canActivate} onSelect={() => onUpdateStatus(v, "ACTIVE")}>
                 <CheckCircle2 className="mr-2 h-4 w-4" />
                 Activate
               </DropdownMenuItem>
             )}
             {onUpdateStatus && (
-              <DropdownMenuItem disabled={!canCancel} onClick={() => onUpdateStatus(v, "CANCELLED")}>
+              <DropdownMenuItem disabled={!canCancel} onSelect={() => onUpdateStatus(v, "CANCELLED")}>
                 <XCircle className="mr-2 h-4 w-4" />
                 Cancel
               </DropdownMenuItem>
             )}
             {onUpdateStatus && (
-              <DropdownMenuItem disabled={!canExpire} onClick={() => onUpdateStatus(v, "EXPIRED")}>
+              <DropdownMenuItem disabled={!canExpire} onSelect={() => onUpdateStatus(v, "EXPIRED")}>
                 <Clock className="mr-2 h-4 w-4" />
                 Mark Expired
               </DropdownMenuItem>

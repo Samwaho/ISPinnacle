@@ -57,7 +57,7 @@ export const VoucherForm = () => {
 
   type VoucherFormData = z.infer<typeof voucherFormSchema>;
 
-  const form = useForm<VoucherFormData>({
+  const form = useForm({
     resolver: zodResolver(voucherFormSchema),
     defaultValues: {
       packageId: "",
@@ -178,3 +178,4 @@ export const VoucherForm = () => {
 };
 
 export default VoucherForm;
+

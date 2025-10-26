@@ -31,40 +31,21 @@ import {
   YAxis,
 } from "recharts";
 
-// Monthly Bar Chart using shadcn charts (Recharts)
-const MonthlyRevenueChart = ({ data }: { data: Array<{ month: string; amount: number }> }) => {
+// Generic Trend Bar Chart using Recharts
+const TrendBarChart = ({ data, valueKey = "amount" }: { data: Array<{ label: string; [key: string]: any }>; valueKey?: string }) => {
   if (!data.length) return <div className="text-center text-muted-foreground py-8">No data available</div>;
 
   return (
     <ChartContainer
       className="h-[220px] sm:h-72 md:h-80 w-full"
-      config={{
-        revenue: {
-          label: "Revenue",
-          color: "#3B82F6", // brighter blue
-        },
-      }}
+      config={{}}
     >
       <ReBarChart data={data} margin={{ left: 8, right: 8, top: 8, bottom: 0 }}>
         <CartesianGrid vertical={false} strokeDasharray="3 3" />
-        <XAxis
-          dataKey="month"
-          tickLine={false}
-          axisLine={false}
-          tickMargin={8}
-          interval="preserveStartEnd"
-        />
-        <YAxis
-          tickLine={false}
-          axisLine={false}
-          width={64}
-          tickFormatter={(v) => `KES ${Number(v).toLocaleString()}`}
-        />
-        <ChartTooltip
-          cursor={{ fill: "hsl(var(--muted))" }}
-          content={<ChartTooltipContent labelFormatter={(v) => String(v)} />}
-        />
-        <Bar dataKey="amount" fill="var(--color-revenue)" radius={[6, 6, 0, 0]} />
+        <XAxis dataKey="label" tickLine={false} axisLine={false} tickMargin={8} interval="preserveStartEnd" />
+        <YAxis tickLine={false} axisLine={false} width={64} tickFormatter={(v) => `KES ${Number(v).toLocaleString()}`} />
+        <ChartTooltip cursor={{ fill: "hsl(var(--muted))" }} content={<ChartTooltipContent labelFormatter={(v) => String(v)} />} />
+        <Bar dataKey={valueKey} fill="var(--color-revenue, #3B82F6)" radius={[6, 6, 0, 0]} />
       </ReBarChart>
     </ChartContainer>
   );
@@ -122,47 +103,15 @@ const AnalyticsPage = () => {
   
   const [selectedPeriod, setSelectedPeriod] = React.useState<"7d" | "30d" | "90d" | "1y" | "all">("30d");
 
-  const buildMonthlySeries = React.useCallback((raw: Array<{ date: string; amount: number }>) => {
-    const now = new Date();
-    let start = new Date();
-    switch (selectedPeriod) {
-      case "7d":
-        start = new Date(now.getFullYear(), now.getMonth() - 1, 1); // include previous month for nicer x-axis
-        break;
-      case "30d":
-        start = new Date(now.getFullYear(), now.getMonth() - 2, 1);
-        break;
-      case "90d":
-        start = new Date(now.getFullYear(), now.getMonth() - 3, 1);
-        break;
-      case "1y":
-        start = new Date(now.getFullYear(), now.getMonth() - 11, 1);
-        break;
-      case "all":
-        start = new Date(now.getFullYear(), now.getMonth() - 11, 1); // last 12 months for aesthetics
-        break;
+  const formatTrendLabel = React.useCallback((isoDate: string) => {
+    const d = new Date(isoDate);
+    if (selectedPeriod === "7d" || selectedPeriod === "30d") {
+      return d.toLocaleDateString("en-US", { month: "short", day: "numeric" });
     }
-    const end = new Date(now.getFullYear(), now.getMonth(), 1);
-
-    // Map raw to month key -> amount
-    const map = new Map<string, number>();
-    raw.forEach((d) => {
-      const dt = new Date(d.date);
-      const key = `${dt.getFullYear()}-${String(dt.getMonth() + 1).padStart(2, "0")}`;
-      map.set(key, (map.get(key) || 0) + d.amount);
-    });
-
-    const result: Array<{ month: string; amount: number }> = [];
-    const cursor = new Date(start);
-    while (cursor <= end) {
-      const key = `${cursor.getFullYear()}-${String(cursor.getMonth() + 1).padStart(2, "0")}`;
-      result.push({
-        month: cursor.toLocaleDateString("en-US", { month: "short", year: "2-digit" }),
-        amount: map.get(key) || 0,
-      });
-      cursor.setMonth(cursor.getMonth() + 1);
+    if (selectedPeriod === "90d") {
+      return d.toLocaleDateString("en-US", { month: "short", day: "numeric" });
     }
-    return result;
+    return d.toLocaleDateString("en-US", { month: "short", year: "2-digit" });
   }, [selectedPeriod]);
 
   // Permissions
@@ -183,6 +132,12 @@ const AnalyticsPage = () => {
     t.analytics.getRevenueTrends.queryOptions({ 
       organizationId, 
       period: selectedPeriod 
+    })
+  );
+  const { data: expenseTrends, isPending: expenseTrendsLoading, error: expenseTrendsError } = useQuery(
+    t.analytics.getExpenseTrends.queryOptions({
+      organizationId,
+      period: selectedPeriod,
     })
   );
 
@@ -373,9 +328,7 @@ const AnalyticsPage = () => {
                 {trendsLoading ? (
                   <Skeleton className="h-80 w-full" />
                 ) : (
-                  <MonthlyRevenueChart 
-                    data={buildMonthlySeries(revenueTrends || [])}
-                  />
+                  <TrendBarChart data={(revenueTrends || []).map(d => ({ label: formatTrendLabel(d.date), amount: d.amount }))} />
                 )}
                 {trendsError && (
                   <div className="text-center text-red-500 py-4">
@@ -421,9 +374,7 @@ const AnalyticsPage = () => {
                 {trendsLoading ? (
                   <Skeleton className="h-80 w-full" />
                 ) : (
-                  <MonthlyRevenueChart 
-                    data={buildMonthlySeries(revenueTrends || [])}
-                  />
+                  <TrendBarChart data={(revenueTrends || []).map(d => ({ label: formatTrendLabel(d.date), amount: d.amount }))} />
                 )}
                 {trendsError && (
                   <div className="text-center text-red-500 py-4">
@@ -482,20 +433,19 @@ const AnalyticsPage = () => {
 
             <Card>
               <CardHeader>
-                <CardTitle>Payment Status</CardTitle>
-                <CardDescription>Paid vs unpaid expenses</CardDescription>
+                <CardTitle>Expense Trends</CardTitle>
+                <CardDescription>Expenses over the selected period</CardDescription>
               </CardHeader>
               <CardContent>
-                {expenseLoading ? (
+                {expenseTrendsLoading ? (
                   <Skeleton className="h-64 w-full" />
                 ) : (
-                  <PieChartComponent 
-                    data={[
-                      { name: "Paid", amount: expenseBreakdown?.paid.reduce((sum, item) => sum + item.amount, 0) || 0 },
-                      { name: "Unpaid", amount: expenseBreakdown?.unpaid.reduce((sum, item) => sum + item.amount, 0) || 0 },
-                    ]} 
-                    title="" 
-                  />
+                  <TrendBarChart data={(expenseTrends || []).map(d => ({ label: formatTrendLabel(d.date), amount: d.amount }))} />
+                )}
+                {expenseTrendsError && (
+                  <div className="text-center text-red-500 py-4">
+                    Error loading expense trends: {expenseTrendsError.message}
+                  </div>
                 )}
               </CardContent>
             </Card>

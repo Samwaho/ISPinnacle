@@ -300,7 +300,8 @@ const OrganizationDetailPage = () => {
       
       <div className="flex flex-col gap-4">
         <Tabs defaultValue="members">
-          <TabsList className="p-1 mb-4">
+          <div className="w-full overflow-x-auto">
+          <TabsList className="p-1 mb-4 w-full flex-wrap sm:flex-nowrap gap-2">
             <TabsTrigger value="members">Members</TabsTrigger>
             <TabsTrigger value="invitations">Invitations</TabsTrigger>
             <TabsTrigger value="roles">Roles</TabsTrigger>
@@ -310,6 +311,7 @@ const OrganizationDetailPage = () => {
             <TabsTrigger value="sms">SMS Provider</TabsTrigger>
             <TabsTrigger value="sms-templates">SMS Templates</TabsTrigger>
           </TabsList>
+          </div>
           
           <TabsContent value="members">
             {editingMember ? (

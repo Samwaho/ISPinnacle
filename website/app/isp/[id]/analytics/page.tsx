@@ -353,11 +353,10 @@ const AnalyticsPage = () => {
 
       {/* Charts and Detailed Analytics */}
       <Tabs defaultValue="overview" className="w-full">
-        <TabsList className="w-full overflow-x-auto sm:grid sm:grid-cols-4 gap-2">
+        <TabsList className="w-full overflow-x-auto sm:grid sm:grid-cols-3 gap-2">
           <TabsTrigger value="overview">Overview</TabsTrigger>
           <TabsTrigger value="revenue">Revenue</TabsTrigger>
           <TabsTrigger value="expenses">Expenses</TabsTrigger>
-          <TabsTrigger value="customers">Customers</TabsTrigger>
         </TabsList>
 
         <TabsContent value="overview" className="space-y-6">
@@ -503,50 +502,7 @@ const AnalyticsPage = () => {
           </div>
         </TabsContent>
 
-        <TabsContent value="customers" className="space-y-6">
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            <Card>
-              <CardHeader>
-                <CardTitle>Customer Status</CardTitle>
-                <CardDescription>Customer distribution by status</CardDescription>
-              </CardHeader>
-              <CardContent>
-                {customerLoading ? (
-                  <Skeleton className="h-64 w-full" />
-                ) : (
-                  <PieChartComponent 
-                    data={[
-                      { name: "Active", amount: customerAnalytics?.activeCustomers || 0 },
-                      { name: "Inactive", amount: customerAnalytics?.inactiveCustomers || 0 },
-                      { name: "Expired", amount: customerAnalytics?.expiredCustomers || 0 },
-                    ]} 
-                    title="" 
-                  />
-                )}
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader>
-                <CardTitle>Package Distribution</CardTitle>
-                <CardDescription>Customers by package</CardDescription>
-              </CardHeader>
-              <CardContent>
-                {customerLoading ? (
-                  <Skeleton className="h-64 w-full" />
-                ) : (
-                  <PieChartComponent 
-                    data={customerAnalytics?.packageDistribution.map(p => ({
-                      name: p.packageName,
-                      amount: p.customerCount
-                    })) || []} 
-                    title="" 
-                  />
-                )}
-              </CardContent>
-            </Card>
-          </div>
-        </TabsContent>
+        
       </Tabs>
     </div>
   );

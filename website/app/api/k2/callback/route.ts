@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
 import { storeKopoKopoTransaction, processCustomerPayment } from '@/lib/server-hooks';
-import { MpesaTransactionType } from '@/lib/generated/prisma';
 import { SmsService } from '@/lib/sms';
 
 // Kopo Kopo webhook for Incoming Payments
@@ -57,7 +56,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Attempt to resolve voucher by reference first (we pre-store voucher.id in reference)
-    let voucher = null as null | (await prisma.hotspotVoucher.findFirst({
+    const voucher = await prisma.hotspotVoucher.findFirst({
       where: {
         OR: [
           { id: reference },
@@ -65,7 +64,7 @@ export async function POST(request: NextRequest) {
           { voucherCode: reference },
         ],
       },
-    }));
+    });
 
     try {
       await storeKopoKopoTransaction(
@@ -147,4 +146,3 @@ export async function POST(request: NextRequest) {
 export async function GET() {
   return NextResponse.json({ message: 'K2 callback endpoint active', timestamp: new Date().toISOString() });
 }
-

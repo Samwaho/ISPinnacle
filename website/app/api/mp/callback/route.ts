@@ -4,7 +4,7 @@ import {
   processCustomerPayment,
   storeMpesaTransaction,
 } from "@/lib/server-hooks";
-import { MpesaTransactionType } from "@/lib/generated/prisma";
+import { MpesaTransactionType, PaymentGateway, TransactionSource } from "@/lib/generated/prisma";
 import { SmsService } from '@/lib/sms';
 
 // Helper function to convert duration to milliseconds
@@ -163,7 +163,9 @@ export async function POST(request: NextRequest) {
             String(phoneNumber),
             hotspotVoucher.voucherCode, // Use voucher code as account reference
             mpesaReceiptNumber || CheckoutRequestID,
-            0 // No org account balance for STK push
+            0, // No org account balance for STK push
+            PaymentGateway.MPESA,
+            TransactionSource.HOTSPOT
           );
           console.log("Hotspot voucher M-Pesa transaction stored successfully");
         } catch (error) {
@@ -319,7 +321,9 @@ export async function POST(request: NextRequest) {
           String(phoneNumber),
           AccountReference, // Use CheckoutRequestID as bill reference
           mpesaReceiptNumber,
-          0 // No org account balance for STK push
+          0, // No org account balance for STK push
+          PaymentGateway.MPESA,
+          TransactionSource.PPPOE
         );
         console.log("M-Pesa STK transaction stored successfully");
       } catch (error) {
@@ -363,7 +367,9 @@ export async function POST(request: NextRequest) {
           String(phoneNumber),
           AccountReference,
           mpesaReceiptNumber,
-          0
+          0,
+          PaymentGateway.MPESA,
+          TransactionSource.PPPOE
         );
         console.log("Failed STK transaction stored for audit");
       } catch (error) {

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
 import { storeKopoKopoTransaction, processCustomerPayment } from '@/lib/server-hooks';
+import { TransactionSource } from '@/lib/generated/prisma';
 import { SmsService } from '@/lib/sms';
 
 // Kopo Kopo webhook for Incoming Payments
@@ -47,7 +48,8 @@ export async function POST(request: NextRequest) {
           phoneNumber,
           reference || '',
           transactionId || '',
-          0
+          0,
+          TransactionSource.OTHER
         );
       } catch (e) {
         console.error('Failed to store failed K2 transaction:', e);
@@ -76,7 +78,8 @@ export async function POST(request: NextRequest) {
         phoneNumber,
         voucher?.voucherCode || reference || '',
         transactionId || '',
-        0
+        0,
+        voucher ? TransactionSource.HOTSPOT : TransactionSource.PPPOE
       );
       console.log('K2 transaction stored');
     } catch (e) {

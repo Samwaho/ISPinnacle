@@ -21,7 +21,7 @@ export const transactionsRouter = createTRPCRouter({
         });
       }
 
-      const transactions = await prisma.mpesaTransaction.findMany({
+      const transactionsRaw = await prisma.transaction.findMany({
         where: {
           organizationId: input.organizationId,
         },
@@ -29,6 +29,13 @@ export const transactionsRouter = createTRPCRouter({
           createdAt: "desc",
         },
       });
+
+      // Derive payment gateway from stored data without schema changes
+      // Heuristic: invoiceNumber starting with 'K2-' => KopoKopo; otherwise M-Pesa
+      const transactions = transactionsRaw.map(t => ({
+        ...t,
+        paymentGateway: t.invoiceNumber?.startsWith('K2-') ? 'KOPOKOPO' : 'MPESA',
+      }));
 
       return transactions;
     }),
@@ -57,16 +64,16 @@ export const transactionsRouter = createTRPCRouter({
          lastMonthAmount,
        ] = await Promise.all([
          // Total transactions
-         prisma.mpesaTransaction.count({
+         prisma.transaction.count({
            where: { organizationId: input.organizationId },
          }),
          // Total amount
-         prisma.mpesaTransaction.aggregate({
+         prisma.transaction.aggregate({
            where: { organizationId: input.organizationId },
            _sum: { amount: true },
          }),
          // This month transactions
-         prisma.mpesaTransaction.count({
+         prisma.transaction.count({
            where: {
              organizationId: input.organizationId,
              createdAt: {
@@ -75,7 +82,7 @@ export const transactionsRouter = createTRPCRouter({
            },
          }),
          // This month amount
-         prisma.mpesaTransaction.aggregate({
+         prisma.transaction.aggregate({
            where: {
              organizationId: input.organizationId,
              createdAt: {
@@ -85,7 +92,7 @@ export const transactionsRouter = createTRPCRouter({
            _sum: { amount: true },
          }),
          // Last month transactions
-         prisma.mpesaTransaction.count({
+         prisma.transaction.count({
            where: {
              organizationId: input.organizationId,
              createdAt: {
@@ -95,7 +102,7 @@ export const transactionsRouter = createTRPCRouter({
            },
          }),
          // Last month amount
-         prisma.mpesaTransaction.aggregate({
+         prisma.transaction.aggregate({
            where: {
              organizationId: input.organizationId,
              createdAt: {

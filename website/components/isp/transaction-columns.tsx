@@ -24,6 +24,8 @@ export type TransactionTableRow = {
   transactionDateTime: Date
   orgAccountBalance?: number | null
   invoiceNumber?: string | null
+  paymentGateway?: "MPESA" | "KOPOKOPO" | "OTHER" | null
+  source?: "PPPOE" | "HOTSPOT" | "OTHER" | null
   createdAt: Date
   updatedAt: Date
 }
@@ -67,6 +69,32 @@ export const transactionColumns = ({
       <div className="flex items-center gap-2">
         <Badge variant={row.original.transactionType === "PAYBILL" ? "default" : "secondary"}>
           {row.original.transactionType}
+        </Badge>
+      </div>
+    ),
+  },
+  {
+    accessorKey: "paymentGateway",
+    header: ({ column }) => (
+      <DataTableColumnHeader column={column} title="Gateway" />
+    ),
+    cell: ({ row }) => (
+      <div className="flex items-center gap-2">
+        <Badge variant={row.original.paymentGateway === "KOPOKOPO" ? "secondary" : "default"}>
+          {row.original.paymentGateway || "MPESA"}
+        </Badge>
+      </div>
+    ),
+  },
+  {
+    accessorKey: "source",
+    header: ({ column }) => (
+      <DataTableColumnHeader column={column} title="Source" />
+    ),
+    cell: ({ row }) => (
+      <div className="flex items-center gap-2">
+        <Badge variant={row.original.source === "HOTSPOT" ? "secondary" : "default"}>
+          {row.original.source || "OTHER"}
         </Badge>
       </div>
     ),

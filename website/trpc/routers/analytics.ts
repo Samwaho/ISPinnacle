@@ -75,9 +75,8 @@ export const analyticsRouter = createTRPCRouter({
         },
       });
 
-      // Get M-Pesa transactions
-      // Only include successful transactions (heuristic: have a non-empty invoiceNumber/receipt)
-      const mpesaTransactions = await prisma.mpesaTransaction.findMany({
+      // Get transactions (successful receipts only)
+      const transactions = await prisma.transaction.findMany({
         where: {
           organizationId: input.organizationId,
           invoiceNumber: { not: null },
@@ -97,7 +96,7 @@ export const analyticsRouter = createTRPCRouter({
       // Calculate totals
       const totalRevenue = revenueData.reduce((sum, payment) => sum + payment.amount, 0);
       const totalExpenses = expenseData.reduce((sum, expense) => sum + expense.amount, 0);
-      const totalMpesaTransactions = mpesaTransactions.reduce((sum, tx) => sum + tx.amount, 0);
+      const totalTransactions = transactions.reduce((sum, tx) => sum + tx.amount, 0);
       const netProfit = totalRevenue - totalExpenses;
 
       // Calculate growth rates (compare with previous period)
@@ -138,13 +137,13 @@ export const analyticsRouter = createTRPCRouter({
         period: input.period,
         totalRevenue,
         totalExpenses,
-        totalMpesaTransactions,
+        totalTransactions,
         netProfit,
         revenueGrowth,
         expenseGrowth,
         revenueData,
         expenseData,
-        mpesaTransactions,
+        transactions,
       };
     }),
 
@@ -365,16 +364,28 @@ export const analyticsRouter = createTRPCRouter({
       });
       const pppoeRevenue = pppoeAgg._sum.amount || 0;
 
-      // Hotspot revenue from vouchers that were activated/used in the period (paid vouchers)
-      const hotspotVouchers = await prisma.hotspotVoucher.findMany({
-        where: {
-          organizationId: input.organizationId,
-          status: { in: [VoucherStatus.ACTIVE, VoucherStatus.USED] },
-          ...(input.period !== 'all' && { updatedAt: { gte: startDate } }),
-        },
-        select: { amount: true },
+      // Hotspot revenue from successful transactions that reference hotspot vouchers
+      // We use MpesaTransaction.billReferenceNumber set to voucherCode in callbacks
+      const voucherCodes = await prisma.hotspotVoucher.findMany({
+        where: { organizationId: input.organizationId },
+        select: { voucherCode: true },
       });
-      const hotspotRevenue = hotspotVouchers.reduce((s, v) => s + (v.amount || 0), 0);
+      const voucherCodeList = voucherCodes.map(v => v.voucherCode);
+
+      let hotspotRevenue = 0;
+      if (voucherCodeList.length > 0) {
+        const hotspotTx = await prisma.transaction.findMany({
+          where: {
+            organizationId: input.organizationId,
+            billReferenceNumber: { in: voucherCodeList },
+            invoiceNumber: { not: null },
+            NOT: [{ invoiceNumber: "" }],
+            ...(input.period !== 'all' && { transactionDateTime: { gte: startDate } }),
+          },
+          select: { amount: true },
+        });
+        hotspotRevenue = hotspotTx.reduce((s, t) => s + (t.amount || 0), 0);
+      }
 
       return {
         pppoe: pppoeRevenue,
@@ -577,7 +588,7 @@ export const analyticsRouter = createTRPCRouter({
       }
 
       // Get successful transactions only (non-empty invoice/receipt)
-      const mpesaTransactions = await prisma.mpesaTransaction.findMany({
+      const transactions = await prisma.transaction.findMany({
         where: {
           organizationId: input.organizationId,
           invoiceNumber: { not: null },
@@ -590,23 +601,23 @@ export const analyticsRouter = createTRPCRouter({
         },
       });
 
-      // Split by payment rails: PAYBILL (Safaricom STK/paybill) vs BUYGOODS (KopoKopo till)
-      const mpesaPaybill = mpesaTransactions.filter(tx => tx.transactionType === 'PAYBILL');
-      const mpesaBuygoods = mpesaTransactions.filter(tx => tx.transactionType === 'BUYGOODS');
+      // Classify by gateway preferring explicit field, fallback to invoice prefix
+      const k2 = transactions.filter(tx => tx.paymentGateway === 'KOPOKOPO' || tx.invoiceNumber?.startsWith('K2-'));
+      const mpesa = transactions.filter(tx => tx.paymentGateway === 'MPESA' || !tx.invoiceNumber?.startsWith('K2-'));
 
-      const mpesaPaybillTotal = mpesaPaybill.reduce((sum, tx) => sum + tx.amount, 0);
-      const mpesaBuygoodsTotal = mpesaBuygoods.reduce((sum, tx) => sum + tx.amount, 0);
+      const mpesaTotal = mpesa.reduce((sum, tx) => sum + (tx.amount || 0), 0);
+      const k2Total = k2.reduce((sum, tx) => sum + (tx.amount || 0), 0);
 
       return {
-        mpesaPaybill: {
-          count: mpesaPaybill.length,
-          amount: mpesaPaybillTotal,
+        mpesa: {
+          count: mpesa.length,
+          amount: mpesaTotal,
         },
-        mpesaBuygoods: {
-          count: mpesaBuygoods.length,
-          amount: mpesaBuygoodsTotal,
+        kopokopo: {
+          count: k2.length,
+          amount: k2Total,
         },
-        total: mpesaPaybillTotal + mpesaBuygoodsTotal,
+        total: mpesaTotal + k2Total,
       };
     }),
 });

@@ -46,6 +46,7 @@ enum OrganizationInvitationStatus {
 enum PaymentGateway {
   MPESA
   KOPOKOPO
+  OTHER
 }
 
 enum OrganizationCustomerStatus {
@@ -188,7 +189,7 @@ model Organization {
   expenses OrganizationExpense[]
   customerPayments OrganizationCustomerPayment[]
   mpesaConfiguration MpesaConfiguration?
-  mpesaTransactions MpesaTransaction[]
+  transactions Transaction[]
   mpesaPaymentLinks MpesaPaymentLink[]
   kopokopoConfiguration KopokopoConfiguration?
   smsConfiguration SMSConfiguration?
@@ -430,6 +431,13 @@ enum MpesaTransactionStatus {
   FAILED
 }
 
+// High-level source of the transaction revenue
+enum TransactionSource {
+  PPPOE
+  HOTSPOT
+  OTHER
+}
+
 model MpesaConfiguration {
   id String @id @default(cuid())
   organizationId String
@@ -446,7 +454,7 @@ model MpesaConfiguration {
   @@index([organizationId])
 }
 
-model MpesaTransaction {
+model Transaction {
   id String @id @default(cuid())
   organizationId String
   organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
@@ -459,6 +467,10 @@ model MpesaTransaction {
   transactionDateTime DateTime
   orgAccountBalance Float?
   invoiceNumber String?
+
+  // New, generic metadata for classification and analytics
+  paymentGateway PaymentGateway? // e.g. MPESA (Paybill/Buygoods), KOPOKOPO
+  source TransactionSource?      // e.g. PPPOE vs HOTSPOT
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -564,6 +576,3 @@ model HotspotVoucher {
   @@index([status])
   @@index([expiresAt])
 }
-
-
-

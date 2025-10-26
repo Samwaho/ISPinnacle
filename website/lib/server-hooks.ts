@@ -6,6 +6,8 @@ import {
   OrganizationCustomerStatus,
   OrganizationPackageDurationType,
   OrganizationPermission,
+  PaymentGateway,
+  TransactionSource,
 } from "@/lib/generated/prisma";
 import { SmsService } from "./sms";
 
@@ -200,7 +202,9 @@ export const storeMpesaTransaction = async (
   phoneNumber: string,
   billReferenceNumber: string,
   invoiceNumber: string,
-  orgAccountBalance: number
+  orgAccountBalance: number,
+  paymentGateway: PaymentGateway = PaymentGateway.MPESA,
+  source: TransactionSource = TransactionSource.OTHER,
 ) => {
   try {
     console.log("Looking for organization with shortCode:", shortCode);
@@ -236,7 +240,7 @@ export const storeMpesaTransaction = async (
     const safeName = typeof name === 'string' ? name : (name != null ? String(name) : null);
     const safePhone = typeof phoneNumber === 'string' ? phoneNumber : (phoneNumber != null ? String(phoneNumber) : '');
 
-    const newTransaction = await prisma.mpesaTransaction.create({
+    const newTransaction = await prisma.transaction.create({
       data: {
         organizationId: organization.id,
         transactionId: transactionId,
@@ -248,6 +252,8 @@ export const storeMpesaTransaction = async (
         billReferenceNumber: billReferenceNumber,
         invoiceNumber: invoiceNumber,
         orgAccountBalance: orgAccountBalance,
+        paymentGateway,
+        source,
       },
     });
 
@@ -269,7 +275,8 @@ export const storeKopoKopoTransaction = async (
   phoneNumber: string,
   billReferenceNumber: string,
   invoiceNumber: string,
-  orgAccountBalance: number = 0
+  orgAccountBalance: number = 0,
+  source: TransactionSource = TransactionSource.OTHER,
 ) => {
   try {
     console.log("Looking for organization with Kopo Kopo tillNumber:", tillNumber);
@@ -295,7 +302,7 @@ export const storeKopoKopoTransaction = async (
     const safeName = typeof name === 'string' ? name : (name != null ? String(name) : null);
     const safePhone = typeof phoneNumber === 'string' ? phoneNumber : (phoneNumber != null ? String(phoneNumber) : '');
 
-    const newTransaction = await prisma.mpesaTransaction.create({
+    const newTransaction = await prisma.transaction.create({
       data: {
         organizationId: organization.id,
         transactionId,
@@ -305,8 +312,10 @@ export const storeKopoKopoTransaction = async (
         name: safeName,
         phoneNumber: safePhone,
         billReferenceNumber,
-        invoiceNumber,
+        invoiceNumber: `K2-${invoiceNumber || transactionId}`,
         orgAccountBalance,
+        paymentGateway: PaymentGateway.KOPOKOPO,
+        source,
       },
     });
 

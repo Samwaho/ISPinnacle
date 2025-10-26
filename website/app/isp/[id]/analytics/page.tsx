@@ -304,8 +304,8 @@ const AnalyticsPage = () => {
               isClickable={false}
             />
             <StatCard
-              title="M-Pesa Transactions"
-              value={`KES ${(financialOverview?.totalMpesaTransactions || 0).toLocaleString()}`}
+              title="Transactions"
+              value={`KES ${(financialOverview?.totalTransactions || 0).toLocaleString()}`}
               icon={<Activity className="h-5 w-5" />}
               color="blue"
               isClickable={false}
@@ -351,7 +351,7 @@ const AnalyticsPage = () => {
                   <PieChart className="h-5 w-5" />
                   Payment Methods
                 </CardTitle>
-                <CardDescription>By rails (M-Pesa Paybill vs M-Pesa Buygoods)</CardDescription>
+                <CardDescription>By gateway (M-Pesa vs KopoKopo)</CardDescription>
               </CardHeader>
               <CardContent className="overflow-x-auto">
                 {paymentLoading ? (
@@ -359,8 +359,8 @@ const AnalyticsPage = () => {
                 ) : (
                   <PieChartComponent 
                     data={[
-                      { name: "M-Pesa (Paybill)", amount: paymentMethods?.mpesaPaybill.amount || 0 },
-                      { name: "M-Pesa (Buygoods)", amount: paymentMethods?.mpesaBuygoods.amount || 0 },
+                      { name: "M-Pesa", amount: paymentMethods?.mpesa.amount || 0 },
+                      { name: "KopoKopo", amount: paymentMethods?.kopokopo.amount || 0 },
                     ]} 
                     title="" 
                   />

@@ -6,9 +6,10 @@ import { useQuery } from "@tanstack/react-query";
 import { StatCard } from "@/components/StatCard";
 import { DataTable } from "@/components/table/DataTable";
 import { transactionColumns } from "@/components/isp/transaction-columns";
-import { CreditCard, DollarSign, TrendingUp, Calendar } from "lucide-react";
+import { CreditCard, DollarSign, TrendingUp, Calendar, Filter } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { AccessDenied } from "@/components/ui/access-denied";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 const TransactionsPage = () => {
   const { id } = useParams();
@@ -31,6 +32,42 @@ const TransactionsPage = () => {
   const canManageTransactions = userPermissions?.canManageCustomers || false;
 
   console.log("Permissions:", { canViewTransactions, canManageTransactions, userPermissions });
+
+  // Local filters for gateway and source (must be declared before any return)
+  const [gatewayFilter, setGatewayFilter] = React.useState<'ALL' | 'MPESA' | 'KOPOKOPO' | 'OTHER'>("ALL");
+  const [sourceFilter, setSourceFilter] = React.useState<'ALL' | 'PPPOE' | 'HOTSPOT' | 'OTHER'>("ALL");
+
+  const filtered = React.useMemo(() => {
+    const rows = (transactions || []).map((t) => ({
+      id: t.id,
+      organizationId: t.organizationId,
+      transactionType: t.transactionType,
+      transactionId: t.transactionId,
+      billReferenceNumber: t.billReferenceNumber,
+      phoneNumber: t.phoneNumber,
+      amount: t.amount,
+      name: t.name,
+      transactionDateTime: t.transactionDateTime instanceof Date ? t.transactionDateTime : new Date(t.transactionDateTime),
+      orgAccountBalance: t.orgAccountBalance,
+      invoiceNumber: t.invoiceNumber,
+      paymentGateway: ((): 'MPESA' | 'KOPOKOPO' | 'OTHER' => {
+        const gw = (t as { paymentGateway?: 'MPESA' | 'KOPOKOPO' | 'OTHER' | null }).paymentGateway;
+        if (gw) return gw;
+        return t.invoiceNumber?.startsWith('K2-') ? 'KOPOKOPO' : 'MPESA';
+      })(),
+      source: ((): 'PPPOE' | 'HOTSPOT' | 'OTHER' | null => {
+        const s = (t as { source?: 'PPPOE' | 'HOTSPOT' | 'OTHER' | null }).source;
+        return s ?? null;
+      })(),
+      createdAt: t.createdAt instanceof Date ? t.createdAt : new Date(t.createdAt),
+      updatedAt: t.updatedAt instanceof Date ? t.updatedAt : new Date(t.updatedAt),
+    }));
+    return rows.filter(r => {
+      const gwOk = gatewayFilter === 'ALL' || r.paymentGateway === gatewayFilter;
+      const srcOk = sourceFilter === 'ALL' || r.source === sourceFilter;
+      return gwOk && srcOk;
+    });
+  }, [transactions, gatewayFilter, sourceFilter]);
 
   // Show loading state while checking permissions
   if (permissionsLoading) {
@@ -194,10 +231,31 @@ const TransactionsPage = () => {
             )}
           </div>
 
-          <div className="flex items-center justify-between">
+          <div className="flex items-center justify-between gap-4">
             <h3 className="text-lg font-bold flex items-center gap-2">
               <CreditCard className="h-5 w-5" /> Transactions
             </h3>
+            <div className="flex items-center gap-2">
+              <Filter className="h-4 w-4 text-muted-foreground" />
+              <Select value={gatewayFilter} onValueChange={(v) => setGatewayFilter(v as typeof gatewayFilter)}>
+                <SelectTrigger className="w-36"><SelectValue placeholder="Gateway" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="ALL">All Gateways</SelectItem>
+                  <SelectItem value="MPESA">M-Pesa</SelectItem>
+                  <SelectItem value="KOPOKOPO">KopoKopo</SelectItem>
+                  <SelectItem value="OTHER">Other</SelectItem>
+                </SelectContent>
+              </Select>
+              <Select value={sourceFilter} onValueChange={(v) => setSourceFilter(v as typeof sourceFilter)}>
+                <SelectTrigger className="w-36"><SelectValue placeholder="Source" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="ALL">All Sources</SelectItem>
+                  <SelectItem value="PPPOE">PPPoE</SelectItem>
+                  <SelectItem value="HOTSPOT">Hotspot</SelectItem>
+                  <SelectItem value="OTHER">Other</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
           </div>
 
           {isPending ? (
@@ -225,21 +283,7 @@ const TransactionsPage = () => {
           ) : (
             <DataTable
               columns={transactionColumns({ canManageTransactions })}
-              data={transactions?.map((t) => ({
-                id: t.id,
-                organizationId: t.organizationId,
-                transactionType: t.transactionType,
-                transactionId: t.transactionId,
-                billReferenceNumber: t.billReferenceNumber,
-                phoneNumber: t.phoneNumber,
-                amount: t.amount,
-                name: t.name,
-                transactionDateTime: t.transactionDateTime instanceof Date ? t.transactionDateTime : new Date(t.transactionDateTime),
-                orgAccountBalance: t.orgAccountBalance,
-                invoiceNumber: t.invoiceNumber,
-                createdAt: t.createdAt instanceof Date ? t.createdAt : new Date(t.createdAt),
-                updatedAt: t.updatedAt instanceof Date ? t.updatedAt : new Date(t.updatedAt),
-              })) ?? []}
+              data={filtered}
               filterPlaceholder="Search transactions..."
             />
           )}

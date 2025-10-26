@@ -4,10 +4,10 @@ import {
   DEFAULT_REDIRECT_URL,
   publicRoutes,
 } from "./routes";
-import authConfig from "./auth.config";
+import edgeAuthConfig from "./auth.edge.config";
 import NextAuth from "next-auth";
 
-export const { auth } = NextAuth(authConfig);
+export const { auth } = NextAuth(edgeAuthConfig);
 export default auth(async (req) => {
   const { pathname } = req.nextUrl;
   const isLoggedIn = !!req.auth;

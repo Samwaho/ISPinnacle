@@ -51,6 +51,9 @@ const createSmsConfigSchema = (provider: SMSProvider | null) => {
       apiKey: z.string().optional(), // API key is optional for Zettatel
       userId: z.string().min(1, "User ID is required for ZetaTel"),
       password: z.string().min(1, "Password is required for ZetaTel"),
+      // Sender ID is supported by ZetaTel; keep optional to avoid breaking existing setups
+      // Validation for required-ness can be enforced later server-side if needed
+      senderId: z.string().optional(),
     });
   }
 
@@ -235,7 +238,7 @@ export const SMSConfiguration: React.FC<SMSConfigurationProps> = ({ organization
           description: "Enterprise SMS solutions with advanced features. Supports API Key or User ID + Password authentication",
           website: "https://zetatel.com",
           requiredFields: ["User ID", "Password"],
-          optionalFields: ["API Key"],
+          optionalFields: ["API Key", "Sender ID"],
         };
       default:
         return null;
@@ -423,6 +426,22 @@ export const SMSConfiguration: React.FC<SMSConfigurationProps> = ({ organization
 
                         {selectedProvider === SMSProvider.ZETATEL && (
                           <>
+                            <FormField
+                              control={smsConfigForm.control}
+                              name="senderId"
+                              render={({ field }) => (
+                                <FormItem>
+                                  <FormLabel>Sender ID</FormLabel>
+                                  <FormControl>
+                                    <Input
+                                      placeholder="Enter your Sender ID (e.g. up to 11 chars)"
+                                      {...field}
+                                    />
+                                  </FormControl>
+                                  <FormMessage />
+                                </FormItem>
+                              )}
+                            />
                             <FormField
                               control={smsConfigForm.control}
                               name="userId"

@@ -17,7 +17,7 @@ import { Skeleton } from "../ui/skeleton";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useRouter, useParams } from "next/navigation";
 import { useTRPC } from "@/trpc/client";
-import { createVoucherSchema } from "@/schemas";
+import { voucherFormSchema } from "@/schemas";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -56,7 +56,7 @@ export const VoucherForm = () => {
   );
 
   const form = useForm({
-    resolver: zodResolver(createVoucherSchema),
+    resolver: zodResolver(voucherFormSchema),
     defaultValues: {
       packageId: "",
       phoneNumber: "",
@@ -64,7 +64,7 @@ export const VoucherForm = () => {
     },
   });
 
-  type VoucherFormData = z.infer<typeof createVoucherSchema>;
+  type VoucherFormData = z.infer<typeof voucherFormSchema>;
 
   useEffect(() => {
     // Prefill amount from selected package
@@ -79,7 +79,7 @@ export const VoucherForm = () => {
     return () => subscription.unsubscribe();
   }, [form, hotspotPackages]);
 
-  const onSubmit = (data: Omit<VoucherFormData, "organizationId">) => {
+  const onSubmit = (data: VoucherFormData) => {
     createVoucher({
       organizationId,
       ...data,
@@ -171,4 +171,3 @@ export const VoucherForm = () => {
 };
 
 export default VoucherForm;
-

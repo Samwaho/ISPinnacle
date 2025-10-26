@@ -353,3 +353,10 @@ export const createVoucherSchema = z.object({
   phoneNumber: z.string().min(1, "Phone number is required"),
   amount: z.number().positive("Amount must be positive"),
 });
+
+// UI form-only schema (organizationId injected separately)
+export const voucherFormSchema = z.object({
+  packageId: z.string().min(1, "Package is required"),
+  phoneNumber: z.string().min(1, "Phone number is required"),
+  amount: z.coerce.number().positive("Amount must be positive"),
+});

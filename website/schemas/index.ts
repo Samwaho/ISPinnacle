@@ -345,3 +345,11 @@ export const deleteExpenseSchema = z.object({
     id: z.string().min(1, "Expense ID is required"),
     organizationId: z.string().min(1, "Organization ID is required"),
 });
+
+// Hotspot voucher schemas (admin-managed)
+export const createVoucherSchema = z.object({
+  organizationId: z.string().min(1, "Organization ID is required"),
+  packageId: z.string().min(1, "Package is required"),
+  phoneNumber: z.string().min(1, "Phone number is required"),
+  amount: z.number().positive("Amount must be positive"),
+});

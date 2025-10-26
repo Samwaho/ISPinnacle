@@ -41,6 +41,11 @@ export const sidebarData: SidebarItem[] = [
     icon: Package,
   },
   {
+    title: "Vouchers",
+    path: (id) => `/isp/${id}/vouchers`,
+    icon: Ticket,
+  },
+  {
     title: "Stations",
     path: (id) => `/isp/${id}/stations`,
     icon: Building,

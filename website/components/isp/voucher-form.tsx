@@ -18,7 +18,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useRouter, useParams } from "next/navigation";
 import { useTRPC } from "@/trpc/client";
 import { voucherFormSchema } from "@/schemas";
-import { useForm } from "react-hook-form";
+import { useForm, type Resolver } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import {
@@ -57,8 +57,8 @@ export const VoucherForm = () => {
 
   type VoucherFormData = z.infer<typeof voucherFormSchema>;
 
-  const form = useForm({
-    resolver: zodResolver(voucherFormSchema),
+  const form = useForm<VoucherFormData>({
+    resolver: zodResolver(voucherFormSchema) as unknown as Resolver<VoucherFormData>,
     defaultValues: {
       packageId: "",
       phoneNumber: "",
@@ -152,7 +152,7 @@ export const VoucherForm = () => {
                     <Input
                       type="number"
                       step="0.01"
-                      value={field.value ?? 0}
+                      value={Number(field.value ?? 0)}
                       onChange={(e) => field.onChange((e.target as HTMLInputElement).valueAsNumber)}
                     />
                   </FormControl>

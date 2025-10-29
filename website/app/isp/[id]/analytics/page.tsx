@@ -18,9 +18,11 @@ import {
   
   Calendar,
   Clock,
-  CalendarDays
+  CalendarDays,
+  Download
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { toast } from "sonner";
 import { ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/ui/chart";
 import {
   BarChart as ReBarChart,
@@ -51,6 +53,17 @@ const TrendBarChart = ({ data, valueKey = "amount" }: { data: Array<{ label: str
   );
 };
 
+const PERIOD_LABELS: Record<"7d" | "30d" | "90d" | "1y" | "all", string> = {
+  "7d": "Last 7 days",
+  "30d": "Last 30 days",
+  "90d": "Last 90 days",
+  "1y": "Last 12 months",
+  "all": "All time",
+};
+
+type ExcelJSPackage = typeof import("exceljs") & {
+  default?: typeof import("exceljs");
+};
 const PieChartComponent = ({ data, title }: { data: Array<{ name: string; amount: number }>, title: string }) => {
   if (!data.length) return <div className="text-center text-muted-foreground py-8">No data available</div>;
   
@@ -102,6 +115,7 @@ const AnalyticsPage = () => {
   const t = useTRPC();
   
   const [selectedPeriod, setSelectedPeriod] = React.useState<"7d" | "30d" | "90d" | "1y" | "all">("30d");
+  const [isExporting, setIsExporting] = React.useState(false);
 
   const formatTrendLabel = React.useCallback((isoDate: string) => {
     const d = new Date(isoDate);
@@ -191,6 +205,102 @@ const AnalyticsPage = () => {
     });
   }, [revenueTrends, expenseTrends, formatTrendLabel]);
 
+  const handleExport = React.useCallback(async () => {
+    if (isExporting) return;
+    if (!financialOverview && combinedTrendData.length === 0) {
+      toast.error("Analytics data is not ready to export yet.");
+      return;
+    }
+
+    try {
+      setIsExporting(true);
+      const excelModule = await import("exceljs");
+      const exceljsPackage = excelModule as ExcelJSPackage;
+      const WorkbookCtor = exceljsPackage.Workbook ?? exceljsPackage.default?.Workbook;
+      if (!WorkbookCtor) {
+        throw new Error("ExcelJS failed to load");
+      }
+      const workbook = new WorkbookCtor();
+      const periodLabel = PERIOD_LABELS[selectedPeriod];
+
+      const overviewSheet = workbook.addWorksheet("Overview");
+      overviewSheet.columns = [
+        { header: "Metric", key: "metric", width: 32 },
+        { header: "Value", key: "value", width: 24 },
+      ];
+      overviewSheet.addRows([
+        { metric: "Period", value: periodLabel },
+        { metric: "Total Revenue (KES)", value: Number(financialOverview?.totalRevenue ?? 0) },
+        { metric: "Total Expenses (KES)", value: Number(financialOverview?.totalExpenses ?? 0) },
+        { metric: "Net Profit (KES)", value: Number(financialOverview?.netProfit ?? 0) },
+      ]);
+
+      const detailSheet = workbook.addWorksheet("Revenue vs Expenses");
+      detailSheet.columns = [
+        { header: "Period", key: "period", width: 20 },
+        { header: "Revenue (KES)", key: "revenue", width: 18 },
+        { header: "Expenses (KES)", key: "expenses", width: 18 },
+        { header: "Profit (KES)", key: "profit", width: 16 },
+      ];
+
+      const detailRows = combinedTrendData.map((row) => ({
+        period: row.label,
+        revenue: Number(row.revenue || 0),
+        expenses: Number(row.expense || 0),
+        profit: Number(row.profit || 0),
+      }));
+
+      if (detailRows.length) {
+        detailSheet.addRows(detailRows);
+        const totals = detailRows.reduce(
+          (acc, row) => ({
+            revenue: acc.revenue + row.revenue,
+            expenses: acc.expenses + row.expenses,
+            profit: acc.profit + row.profit,
+          }),
+          { revenue: 0, expenses: 0, profit: 0 }
+        );
+        detailSheet.addRow({
+          period: "Totals",
+          revenue: totals.revenue,
+          expenses: totals.expenses,
+          profit: totals.profit,
+        });
+      } else {
+        const emptyRow = detailSheet.addRow({
+          period: "No revenue or expense data available for the selected period.",
+          revenue: "",
+          expenses: "",
+          profit: "",
+        });
+        detailSheet.mergeCells(`A${emptyRow.number}:D${emptyRow.number}`);
+      }
+
+      const timestamp = new Date().toISOString().split("T")[0];
+      const fileName = `financial-analytics-${organizationId}-${selectedPeriod}-${timestamp}.xlsx`;
+
+      const buffer = await workbook.xlsx.writeBuffer();
+      const blob = new Blob([buffer], {
+        type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+      });
+      const url = URL.createObjectURL(blob);
+      const anchor = document.createElement("a");
+      anchor.href = url;
+      anchor.download = fileName;
+      document.body.appendChild(anchor);
+      anchor.click();
+      document.body.removeChild(anchor);
+      setTimeout(() => URL.revokeObjectURL(url), 1000);
+
+      toast.success("Excel export ready.");
+    } catch (error) {
+      console.error("Failed to export analytics", error);
+      toast.error("Could not export analytics. Please try again.");
+    } finally {
+      setIsExporting(false);
+    }
+  }, [combinedTrendData, financialOverview, isExporting, organizationId, selectedPeriod]);
+
   const canViewAnalytics = userPermissions?.canView || false;
 
   // Loading state
@@ -267,18 +377,29 @@ const AnalyticsPage = () => {
             ))}
           </div>
           
-          <Select value={selectedPeriod} onValueChange={(value) => setSelectedPeriod(value as typeof selectedPeriod)}>
-            <SelectTrigger className="w-40">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="7d">Last 7 days</SelectItem>
-              <SelectItem value="30d">Last 30 days</SelectItem>
-              <SelectItem value="90d">Last 90 days</SelectItem>
-              <SelectItem value="1y">Last year</SelectItem>
-              <SelectItem value="all">All time</SelectItem>
-            </SelectContent>
-          </Select>
+          <div className="flex flex-col sm:flex-row gap-2 sm:gap-3 items-stretch sm:items-center">
+            <Select value={selectedPeriod} onValueChange={(value) => setSelectedPeriod(value as typeof selectedPeriod)}>
+              <SelectTrigger className="w-40">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="7d">Last 7 days</SelectItem>
+                <SelectItem value="30d">Last 30 days</SelectItem>
+                <SelectItem value="90d">Last 90 days</SelectItem>
+                <SelectItem value="1y">Last year</SelectItem>
+                <SelectItem value="all">All time</SelectItem>
+              </SelectContent>
+            </Select>
+            <Button
+              variant="secondary"
+              className="flex items-center gap-2"
+              onClick={handleExport}
+              disabled={isExporting || overviewLoading || trendsLoading || expenseTrendsLoading}
+            >
+              <Download className="h-4 w-4" />
+              {isExporting ? "Preparing..." : "Export to Excel"}
+            </Button>
+          </div>
         </div>
       </div>
 

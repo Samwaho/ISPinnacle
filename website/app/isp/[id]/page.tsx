@@ -122,7 +122,7 @@ const DashboardPage = () => {
     return (
       <div className="flex flex-col gap-6 my-8">
         <Skeleton className="h-8 w-48" />
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+        <div className="grid grid-cols-2 gap-4 md:grid-cols-2 lg:grid-cols-4">
           {Array.from({ length: 4 }).map((_, i) => (
             <Skeleton key={i} className="h-28" />
           ))}
@@ -149,7 +149,7 @@ const DashboardPage = () => {
   return (
     <div className="flex flex-col gap-6 my-8">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="text-2xl font-bold flex items-center gap-2">
             <BarChart3 className="h-6 w-6" />
@@ -157,7 +157,7 @@ const DashboardPage = () => {
           </h1>
           <p className="text-muted-foreground">Key metrics and recent activity</p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2 sm:flex-nowrap">
           {(["7d","30d","90d","1y","all"] as const).map(p => (
             <Button key={p} size="sm" variant={selectedPeriod===p?"default":"outline"} onClick={() => setSelectedPeriod(p)}>
               {p === "7d" ? "7D" : p === "30d" ? "30D" : p.toUpperCase()}
@@ -167,7 +167,7 @@ const DashboardPage = () => {
       </div>
 
       {/* Summary cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 gap-4 md:grid-cols-2 xl:grid-cols-4">
         <StatCard
           title="Total Revenue"
           value={`KES ${(financialOverview?.totalRevenue || 0).toLocaleString()}`}

@@ -363,7 +363,7 @@ const ExpensesPage = () => {
   if (permissionsLoading) {
     return (
       <div className="flex flex-col gap-6 my-8">
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
+        <div className="grid grid-cols-2 gap-4 sm:grid-cols-2 lg:grid-cols-5">
           {Array.from({ length: 5 }).map((_, index) => (
             <div key={index} className="bg-card rounded-lg p-6 border">
               <div className="flex items-center gap-3">
@@ -415,7 +415,7 @@ const ExpensesPage = () => {
 
   return (
     <div className="flex flex-col gap-6 my-8">
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
+      <div className="grid grid-cols-2 gap-4 sm:grid-cols-2 lg:grid-cols-5">
         {statsLoading ? (
           Array.from({ length: 5 }).map((_, index) => (
             <div key={index} className="bg-card rounded-lg p-6 border">
@@ -469,7 +469,7 @@ const ExpensesPage = () => {
         )}
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+      <div className="grid grid-cols-2 gap-4 md:grid-cols-3">
         {statsLoading ? (
           Array.from({ length: 3 }).map((_, index) => (
             <div key={index} className="bg-card rounded-lg p-6 border">

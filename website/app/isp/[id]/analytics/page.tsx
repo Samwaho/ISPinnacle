@@ -165,6 +165,13 @@ const AnalyticsPage = () => {
     })
   );
 
+  const { data: expenseDetails, isPending: expenseDetailsLoading } = useQuery(
+    t.analytics.getExpenseDetails.queryOptions({
+      organizationId,
+      period: selectedPeriod,
+    })
+  );
+
   // Removed Customer Analytics (Recent Payments) from this view
 
   // Removed payment method overview and organization gateway awareness from this view
@@ -207,7 +214,7 @@ const AnalyticsPage = () => {
 
   const handleExport = React.useCallback(async () => {
     if (isExporting) return;
-    if (!financialOverview && combinedTrendData.length === 0) {
+    if (!financialOverview && combinedTrendData.length === 0 && !(expenseDetails?.length)) {
       toast.error("Analytics data is not ready to export yet.");
       return;
     }
@@ -222,6 +229,29 @@ const AnalyticsPage = () => {
       }
       const workbook = new WorkbookCtor();
       const periodLabel = PERIOD_LABELS[selectedPeriod];
+      const formatDate = (value?: Date | string | null) =>
+        value ? new Date(value).toLocaleDateString("en-US", { year: "numeric", month: "short", day: "numeric" }) : "";
+      const formatDateTime = (value?: Date | string | null) =>
+        value
+          ? new Date(value).toLocaleString("en-US", {
+              year: "numeric",
+              month: "short",
+              day: "numeric",
+              hour: "2-digit",
+              minute: "2-digit",
+            })
+          : "";
+      const formatRecurringLabel = (detail: NonNullable<typeof expenseDetails>[number]) => {
+        if (!detail.isRecurring) return "No";
+        if (detail.recurringInterval && detail.recurringIntervalType) {
+          const intervalType = detail.recurringIntervalType
+            .toLowerCase()
+            .replace(/_/g, " ")
+            .replace(/\b\w/g, (char) => char.toUpperCase());
+          return `Yes (${detail.recurringInterval} ${intervalType})`;
+        }
+        return "Yes";
+      };
 
       const overviewSheet = workbook.addWorksheet("Overview");
       overviewSheet.columns = [
@@ -276,6 +306,53 @@ const AnalyticsPage = () => {
         detailSheet.mergeCells(`A${emptyRow.number}:D${emptyRow.number}`);
       }
 
+      const expensesSheet = workbook.addWorksheet("Expense Details");
+      expensesSheet.columns = [
+        { header: "Date", key: "date", width: 18 },
+        { header: "Name", key: "name", width: 28 },
+        { header: "Description", key: "description", width: 40 },
+        { header: "Amount (KES)", key: "amount", width: 18 },
+        { header: "Status", key: "status", width: 14 },
+        { header: "Paid At", key: "paidAt", width: 24 },
+        { header: "Recurring", key: "recurring", width: 22 },
+      ];
+
+      if (expenseDetails?.length) {
+        expenseDetails.forEach((detail) => {
+          expensesSheet.addRow({
+            date: formatDate(detail.date),
+            name: detail.name,
+            description: detail.description ?? "",
+            amount: Number(detail.amount ?? 0),
+            status: detail.isPaid ? "Paid" : "Unpaid",
+            paidAt: formatDateTime(detail.paidAt),
+            recurring: formatRecurringLabel(detail),
+          });
+        });
+        const totalExpensesValue = expenseDetails.reduce((sum, detail) => sum + Number(detail.amount ?? 0), 0);
+        const totalsRow = expensesSheet.addRow({
+          date: "Totals",
+          name: "",
+          description: "",
+          amount: totalExpensesValue,
+          status: "",
+          paidAt: "",
+          recurring: "",
+        });
+        expensesSheet.mergeCells(`A${totalsRow.number}:C${totalsRow.number}`);
+      } else {
+        const emptyExpensesRow = expensesSheet.addRow({
+          date: "No expenses recorded for the selected period.",
+          name: "",
+          description: "",
+          amount: "",
+          status: "",
+          paidAt: "",
+          recurring: "",
+        });
+        expensesSheet.mergeCells(`A${emptyExpensesRow.number}:G${emptyExpensesRow.number}`);
+      }
+
       const timestamp = new Date().toISOString().split("T")[0];
       const fileName = `financial-analytics-${organizationId}-${selectedPeriod}-${timestamp}.xlsx`;
 
@@ -299,7 +376,7 @@ const AnalyticsPage = () => {
     } finally {
       setIsExporting(false);
     }
-  }, [combinedTrendData, financialOverview, isExporting, organizationId, selectedPeriod]);
+  }, [combinedTrendData, expenseDetails, financialOverview, isExporting, organizationId, selectedPeriod]);
 
   const canViewAnalytics = userPermissions?.canView || false;
 
@@ -394,7 +471,7 @@ const AnalyticsPage = () => {
               variant="secondary"
               className="flex items-center gap-2"
               onClick={handleExport}
-              disabled={isExporting || overviewLoading || trendsLoading || expenseTrendsLoading}
+              disabled={isExporting || overviewLoading || trendsLoading || expenseTrendsLoading || expenseDetailsLoading}
             >
               <Download className="h-4 w-4" />
               {isExporting ? "Preparing..." : "Export to Excel"}

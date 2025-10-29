@@ -172,6 +172,12 @@ const AnalyticsPage = () => {
     })
   );
 
+  const { data: recurringTemplates, isPending: recurringTemplatesLoading } = useQuery(
+    t.expenses.getRecurringExpenseTemplates.queryOptions({
+      organizationId,
+    })
+  );
+
   // Removed Customer Analytics (Recent Payments) from this view
 
   // Removed payment method overview and organization gateway awareness from this view
@@ -251,6 +257,14 @@ const AnalyticsPage = () => {
           return `Yes (${detail.recurringInterval} ${intervalType})`;
         }
         return "Yes";
+      };
+
+      const formatTemplateInterval = (interval: number, type: string) => {
+        const normalized = type.toLowerCase().replace(/_/g, " ");
+        if (interval === 1) {
+          return `Every ${normalized.replace(/ly$/, "") || normalized}`;
+        }
+        return `Every ${interval} ${normalized}`;
       };
 
       const overviewSheet = workbook.addWorksheet("Overview");
@@ -353,6 +367,56 @@ const AnalyticsPage = () => {
         expensesSheet.mergeCells(`A${emptyExpensesRow.number}:G${emptyExpensesRow.number}`);
       }
 
+      const templatesSheet = workbook.addWorksheet("Recurring Templates");
+      templatesSheet.columns = [
+        { header: "Template", key: "name", width: 28 },
+        { header: "Amount (KES)", key: "amount", width: 18 },
+        { header: "Schedule", key: "schedule", width: 22 },
+        { header: "Start Date", key: "startDate", width: 18 },
+        { header: "Next Run", key: "nextRun", width: 18 },
+        { header: "End Date", key: "endDate", width: 18 },
+        { header: "Auto Mark Paid", key: "autoMark", width: 18 },
+        { header: "Status", key: "status", width: 14 },
+        { header: "Generated", key: "generated", width: 14 },
+        { header: "Outstanding (KES)", key: "outstanding", width: 22 },
+      ];
+
+      if (recurringTemplates?.length) {
+        const templateRows = recurringTemplates.map((template) => ({
+          name: template.name,
+          amount: Number(template.amount ?? 0),
+          schedule: formatTemplateInterval(template.interval, template.intervalType),
+          startDate: formatDate(template.startDate),
+          nextRun: formatDate(template.nextRunDate),
+          endDate: formatDate(template.endDate ?? null),
+          autoMark: template.autoMarkAsPaid ? "Yes" : "No",
+          status: template.isActive ? "Active" : "Paused",
+          generated: template.stats?.totalCount ?? 0,
+          outstanding: Number(template.stats?.unpaidAmount ?? 0),
+        }));
+
+        templatesSheet.addRows(templateRows);
+
+        const totalsRow = templatesSheet.addRow({
+          name: "Totals",
+          amount: templateRows.reduce((sum, row) => sum + (row.amount ?? 0), 0),
+          generated: templateRows.reduce(
+            (sum, row) => sum + (row.generated ?? 0),
+            0
+          ),
+          outstanding: templateRows.reduce(
+            (sum, row) => sum + (row.outstanding ?? 0),
+            0
+          ),
+        });
+        templatesSheet.mergeCells(`A${totalsRow.number}:F${totalsRow.number}`);
+      } else {
+        const emptyTemplateRow = templatesSheet.addRow({
+          name: "No recurring templates configured for this organization.",
+        });
+        templatesSheet.mergeCells(`A${emptyTemplateRow.number}:J${emptyTemplateRow.number}`);
+      }
+
       const timestamp = new Date().toISOString().split("T")[0];
       const fileName = `financial-analytics-${organizationId}-${selectedPeriod}-${timestamp}.xlsx`;
 
@@ -376,7 +440,7 @@ const AnalyticsPage = () => {
     } finally {
       setIsExporting(false);
     }
-  }, [combinedTrendData, expenseDetails, financialOverview, isExporting, organizationId, selectedPeriod]);
+  }, [combinedTrendData, expenseDetails, financialOverview, isExporting, organizationId, recurringTemplates, selectedPeriod]);
 
   const canViewAnalytics = userPermissions?.canView || false;
 
@@ -471,7 +535,7 @@ const AnalyticsPage = () => {
               variant="secondary"
               className="flex items-center gap-2"
               onClick={handleExport}
-              disabled={isExporting || overviewLoading || trendsLoading || expenseTrendsLoading || expenseDetailsLoading}
+              disabled={isExporting || overviewLoading || trendsLoading || expenseTrendsLoading || expenseDetailsLoading || recurringTemplatesLoading}
             >
               <Download className="h-4 w-4" />
               {isExporting ? "Preparing..." : "Export to Excel"}

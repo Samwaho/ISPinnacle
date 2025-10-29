@@ -27,6 +27,8 @@ export type ExpenseTableRow = {
   paidAt?: Date | null
   createdAt: Date
   updatedAt: Date
+  templateId?: string | null
+  templateName?: string | null
 }
 
 export const expenseColumns = ({
@@ -99,21 +101,29 @@ export const expenseColumns = ({
     cell: ({ row }) => {
       const isRecurring = row.getValue("isRecurring") as boolean
       const expense = row.original
+      const templateName = expense.templateName
       
       if (isRecurring) {
         const interval = expense.recurringInterval
         const type = expense.recurringIntervalType
         return (
-          <div className="flex items-center gap-2">
-            <RotateCcw className="h-4 w-4 text-blue-500" />
-            <Badge variant="secondary" className="bg-blue-50 text-blue-700 border-blue-200">
-              Recurring
-            </Badge>
-            {interval && type && (
-              <span className="text-xs text-muted-foreground">
-                Every {interval} {type.toLowerCase()}
-              </span>
-            )}
+          <div className="flex items-start gap-2">
+            <RotateCcw className="mt-1 h-4 w-4 text-blue-500" />
+            <div className="flex flex-col gap-1">
+              <Badge variant="secondary" className="w-fit bg-blue-50 text-blue-700 border-blue-200">
+                Recurring
+              </Badge>
+              {interval && type && (
+                <span className="text-xs text-muted-foreground">
+                  Every {interval} {type.toLowerCase()}
+                </span>
+              )}
+              {templateName && (
+                <span className="text-xs text-muted-foreground">
+                  Template: {templateName}
+                </span>
+              )}
+            </div>
           </div>
         )
       }

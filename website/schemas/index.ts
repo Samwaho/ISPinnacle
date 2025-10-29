@@ -346,6 +346,44 @@ export const deleteExpenseSchema = z.object({
     organizationId: z.string().min(1, "Organization ID is required"),
 });
 
+const recurringExpenseTemplateBaseSchema = z.object({
+    name: z.string().min(1, "Name is required"),
+    description: z.string().optional(),
+    amount: z.number().positive("Amount must be positive"),
+    interval: z.number().int().positive("Interval must be at least 1"),
+    intervalType: z.enum(["DAILY", "WEEKLY", "MONTHLY", "YEARLY"]),
+    startDate: z.date(),
+    nextRunDate: z.date().optional(),
+    endDate: z.date().optional(),
+    autoMarkAsPaid: z.boolean().default(false),
+    isActive: z.boolean().optional(),
+});
+
+export const createRecurringExpenseTemplateSchema = recurringExpenseTemplateBaseSchema.extend({
+    organizationId: z.string().min(1, "Organization ID is required"),
+});
+
+export const updateRecurringExpenseTemplateSchema = recurringExpenseTemplateBaseSchema.extend({
+    id: z.string().min(1, "Recurring template ID is required"),
+    organizationId: z.string().min(1, "Organization ID is required"),
+});
+
+export const toggleRecurringExpenseTemplateSchema = z.object({
+    id: z.string().min(1, "Recurring template ID is required"),
+    organizationId: z.string().min(1, "Organization ID is required"),
+    isActive: z.boolean(),
+});
+
+export const deleteRecurringExpenseTemplateSchema = z.object({
+    id: z.string().min(1, "Recurring template ID is required"),
+    organizationId: z.string().min(1, "Organization ID is required"),
+});
+
+export const processRecurringExpenseTemplatesSchema = z.object({
+    organizationId: z.string().min(1, "Organization ID is required"),
+    templateIds: z.array(z.string()).optional(),
+});
+
 // Hotspot voucher schemas (admin-managed)
 export const createVoucherSchema = z.object({
   organizationId: z.string().min(1, "Organization ID is required"),

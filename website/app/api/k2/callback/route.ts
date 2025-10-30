@@ -10,27 +10,108 @@ export async function POST(request: NextRequest) {
     const body = await request.json().catch(() => ({}));
     console.log('K2 Callback received:', JSON.stringify(body, null, 2));
 
-    // KopoKopo may send different structures; normalize common fields
-    const eventType: string | undefined = body.event_type || body.eventType || body.type;
-    const resource = body.resource || body.data || {};
-    const metadata = body.metadata || resource.metadata || {};
-    const embedded = body._embedded || {};
+    // Normalize common sections from Kopo Kopo payload
+    const data = body.data ?? {};
+    const attributes = data.attributes ?? body.attributes ?? {};
+    const event = attributes.event ?? body.event ?? {};
+    const resource =
+      event.resource ??
+      attributes.resource ??
+      body.resource ??
+      {};
+    const metadata =
+      attributes.metadata ??
+      event.metadata ??
+      resource.metadata ??
+      body.metadata ??
+      {};
+    const embedded = body._embedded ?? {};
+
+    const eventType: string | undefined =
+      body.event_type ||
+      body.eventType ||
+      body.type ||
+      event.type;
 
     // Success indicator and core fields
-    const status: string = (resource.status || body.status || '').toString().toUpperCase();
-    const amountRaw = resource.amount || resource.value || body.amount || 0;
-    const amount = typeof amountRaw === 'string' ? parseFloat(amountRaw) : Number(amountRaw || 0);
-    const tillNumber: string = resource.till_number || resource.tillNumber || metadata.till_number || '';
-    const transactionId: string = resource.id || resource.transaction_id || metadata.transaction_id || metadata.reference || '';
-    const phoneRaw = embedded.customer?.phone_number || resource.phone_number || resource.msisdn || metadata.msisdn || '';
+    const statusString =
+      attributes.status ||
+      resource.status ||
+      body.status ||
+      '';
+    const status = statusString.toString().toUpperCase();
+
+    const extractAmount = (value: unknown): number => {
+      if (value == null) return 0;
+      if (typeof value === 'number') return value;
+      if (typeof value === 'string') return parseFloat(value);
+      if (typeof value === 'object' && 'value' in (value as Record<string, unknown>)) {
+        return extractAmount((value as Record<string, unknown>).value);
+      }
+      return 0;
+    };
+
+    const amount = (() => {
+      const primary = extractAmount(resource.amount);
+      if (primary) return primary;
+      const secondary = extractAmount(attributes.amount ?? body.amount);
+      return secondary;
+    })();
+
+    const tillNumber: string =
+      resource.till_number ||
+      resource.tillNumber ||
+      metadata.till_number ||
+      metadata.tillNumber ||
+      '';
+
+    const transactionId: string =
+      data.id ||
+      resource.id ||
+      metadata.transaction_id ||
+      metadata.reference ||
+      '';
+
+    const phoneRaw =
+      resource.sender_phone_number ||
+      resource.phone_number ||
+      metadata.phone_number ||
+      metadata.msisdn ||
+      embedded.customer?.phone_number ||
+      '';
     const phoneNumber = String(phoneRaw || '');
-    const reference: string = metadata.reference || metadata.account_reference || metadata.ref || '';
+
+    const referenceRaw: string =
+      metadata.reference ||
+      resource.reference ||
+      metadata.account_reference ||
+      metadata.ref ||
+      '';
+    const reference = typeof referenceRaw === 'string' ? referenceRaw.trim() : '';
+
+    const transactionTime =
+      attributes.initiation_time ||
+      resource.transaction_time ||
+      resource.origination_time ||
+      body.timestamp ||
+      new Date().toISOString();
+    const transactionDateTime = isNaN(Date.parse(transactionTime))
+      ? new Date()
+      : new Date(transactionTime);
+
+    const payerName =
+      [resource.sender_first_name, resource.sender_middle_name, resource.sender_last_name]
+        .filter(Boolean)
+        .join(' ')
+        .trim() || phoneNumber;
 
     if (!tillNumber) {
+      console.error('K2 Callback missing till number', { transactionId, metadata, resource });
       return NextResponse.json({ success: false, message: 'Missing till number' }, { status: 400 });
     }
 
     if (!amount || Number.isNaN(amount)) {
+      console.error('K2 Callback invalid amount', { transactionId, amount, resource });
       return NextResponse.json({ success: false, message: 'Invalid amount' }, { status: 400 });
     }
 
@@ -42,11 +123,11 @@ export async function POST(request: NextRequest) {
         await storeKopoKopoTransaction(
           transactionId || `K2-${Date.now()}`,
           amount,
-          new Date(),
+          transactionDateTime,
           tillNumber,
+          payerName,
           phoneNumber,
-          phoneNumber,
-          reference || '',
+          reference || transactionId || '',
           transactionId || '',
           0,
           TransactionSource.OTHER
@@ -72,11 +153,11 @@ export async function POST(request: NextRequest) {
       await storeKopoKopoTransaction(
         transactionId || `K2-${Date.now()}`,
         amount,
-        new Date(),
+        transactionDateTime,
         tillNumber,
+        payerName,
         phoneNumber,
-        phoneNumber,
-        voucher?.voucherCode || reference || '',
+        voucher?.voucherCode || reference || transactionId || '',
         transactionId || '',
         0,
         voucher ? TransactionSource.HOTSPOT : TransactionSource.PPPOE
@@ -131,13 +212,18 @@ export async function POST(request: NextRequest) {
     if (reference) {
       try {
         await processCustomerPayment(reference, amount);
+        console.log('Processed PPPoE payment via K2', { reference, amount, transactionId });
       } catch (err) {
         console.error('Failed to process PPPoE payment via K2:', err);
         // continue
       }
     }
 
-    return NextResponse.json({ success: true, message: 'K2 callback processed' });
+    return NextResponse.json({
+      success: true,
+      message: 'K2 callback processed',
+      transactionId: transactionId || null,
+    });
   } catch (error) {
     console.error('Error processing K2 callback:', error);
     return NextResponse.json({ success: false, message: 'Internal server error' }, { status: 500 });

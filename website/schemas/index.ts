@@ -1,4 +1,5 @@
 import { OrganizationPermission } from "@/lib/generated/prisma";
+import { hotspotUtils } from "@/lib/hotspot-config";
 import { z } from "zod";
 
 export const loginSchema = z.object({
@@ -270,7 +271,17 @@ export const getPaymentLinkSchema = z.object({
 
 export const processPaymentLinkSchema = z.object({
     token: z.string().min(1, "Token is required"),
-    phoneNumber: z.string().regex(/^254\d{9}$/, "Phone number must be in format 254XXXXXXXXX"),
+    phoneNumber: z.string().min(1, "Phone number is required").transform((value, ctx) => {
+        const normalized = hotspotUtils.normalizePhoneNumber(value);
+        if (!normalized) {
+            ctx.addIssue({
+                code: z.ZodIssueCode.custom,
+                message: "Invalid phone number. Use 07XXXXXXXX, 01XXXXXXXX, or +2547XXXXXXXX",
+            });
+            return z.NEVER;
+        }
+        return normalized;
+    }),
 });
 
 // SMS Provider Configuration Schemas

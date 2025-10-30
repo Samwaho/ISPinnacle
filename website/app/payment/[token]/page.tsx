@@ -14,9 +14,23 @@ import { CheckCircle, XCircle, Loader2, CreditCard, Phone, AlertCircle } from "l
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
+import { hotspotUtils } from "@/lib/hotspot-config";
 
 const phoneSchema = z.object({
-  phoneNumber: z.string().regex(/^254\d{9}$/, "Phone number must be in format 254XXXXXXXXX"),
+  phoneNumber: z
+    .string()
+    .min(1, "Phone number is required")
+    .transform((value, ctx) => {
+      const normalized = hotspotUtils.normalizePhoneNumber(value);
+      if (!normalized) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: "Invalid phone number. Use 07XXXXXXXX, 01XXXXXXXX, or +2547XXXXXXXX",
+        });
+        return z.NEVER;
+      }
+      return normalized;
+    }),
 });
 
 type PhoneFormData = z.infer<typeof phoneSchema>;
@@ -262,7 +276,7 @@ const PaymentLinkPage = () => {
                 <Input
                   id="phoneNumber"
                   type="tel"
-                  placeholder="254XXXXXXXXX"
+                  placeholder="e.g. 07XXXXXXXX or +2547XXXXXXXX"
                   {...form.register("phoneNumber")}
                   className={form.formState.errors.phoneNumber ? "border-red-500" : ""}
                 />
@@ -276,7 +290,7 @@ const PaymentLinkPage = () => {
 
               <div className="bg-blue-50 dark:bg-blue-950 p-3 rounded-md">
                 <p className="text-sm text-blue-700 dark:text-blue-300">
-                  <strong>Note:</strong> Enter your phone number in the format 254XXXXXXXXX (e.g., 254712345678)
+                  <strong>Note:</strong> Enter your M-Pesa phone number in any common format (07XXXXXXXX, 01XXXXXXXX, 7XXXXXXXX, +2547XXXXXXXX). We&apos;ll normalize it automatically.
                 </p>
               </div>
 

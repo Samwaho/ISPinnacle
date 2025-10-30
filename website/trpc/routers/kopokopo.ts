@@ -24,11 +24,24 @@ export class KopoKopoAPI {
         : "https://sandbox.kopokopo.com";
   }
 
+  private mask(value: string) {
+    if (!value) return "";
+    if (value.length <= 4) return "*".repeat(value.length);
+    return `${value.slice(0, 3)}***${value.slice(-2)}`;
+  }
+
   private async getAccessToken(): Promise<string> {
     const body = new URLSearchParams({
       client_id: this.clientId,
       client_secret: this.clientSecret,
       grant_type: "client_credentials",
+    });
+
+    console.debug("[K2] Requesting access token", {
+      baseUrl: this.baseUrl,
+      clientIdMasked: this.mask(this.clientId),
+      clientIdLength: this.clientId.length,
+      clientSecretPresent: Boolean(this.clientSecret),
     });
 
     const res = await fetch(`${this.baseUrl}/oauth/token`, {
@@ -43,10 +56,22 @@ export class KopoKopoAPI {
 
     if (!res.ok) {
       const text = await res.text();
+      console.error("[K2] Token request failed", {
+        status: res.status,
+        statusText: res.statusText,
+        baseUrl: res.url,
+        clientIdMasked: this.mask(this.clientId),
+        responseSnippet: text.slice(0, 500),
+      });
       throw new Error(`K2 token error: ${res.status} ${text}`);
     }
 
     const data = await res.json();
+    console.debug("[K2] Token request succeeded", {
+      expiresIn: data.expires_in,
+      tokenType: data.token_type,
+      baseUrl: this.baseUrl,
+    });
     return data.access_token as string;
   }
 

@@ -1,7 +1,7 @@
 'use client';
 
-import { useState } from 'react';
-import { useSearchParams } from 'next/navigation';
+import { useState, useEffect } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -26,6 +26,7 @@ interface Package {
 
 export default function HotspotLoginPage() {
   const searchParams = useSearchParams();
+  const router = useRouter();
   const orgId = searchParams.get('org') || 'cmfc3c2fa0001kwyk82la4cw7';
   const linkLoginOnly = searchParams.get('link-login-only') || '';
   const linkOrig = searchParams.get('link-orig') || '';
@@ -630,3 +631,49 @@ export default function HotspotLoginPage() {
     </div>
   );
 }
+  // Immediately redirect connected users to status page
+  useEffect(() => {
+    let isMounted = true;
+
+    const checkStatus = async () => {
+      // Look for voucher identifier supplied by MikroTik (username usually matches voucher code)
+      const existingVoucher =
+        searchParams.get('voucher') ||
+        searchParams.get('username') ||
+        undefined;
+
+      if (!existingVoucher) return;
+
+      try {
+        const response = await fetch(`/api/hotspot/voucher-status/${encodeURIComponent(existingVoucher)}?mode=code`);
+        if (!response.ok) return;
+        const data = await response.json();
+        const voucher = data?.voucher;
+
+        if (
+          isMounted &&
+          voucher &&
+          voucher.status === 'ACTIVE' &&
+          voucher.remainingDuration &&
+          voucher.remainingDuration.milliseconds > 0
+        ) {
+          const url = new URL(`/hotspot/status`, window.location.origin);
+          url.searchParams.set('org', orgId);
+          url.searchParams.set('voucher', voucher.voucherCode);
+          if (linkLoginOnly) url.searchParams.set('link-login-only', linkLoginOnly);
+          if (linkOrig) url.searchParams.set('link-orig', linkOrig);
+          if (chapId) url.searchParams.set('chap-id', chapId);
+          if (chapChallenge) url.searchParams.set('chap-challenge', chapChallenge);
+          router.replace(url.pathname + url.search);
+        }
+      } catch (error) {
+        console.log('Hotspot redirect check skipped:', error);
+      }
+    };
+
+    checkStatus();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [chapChallenge, chapId, linkLoginOnly, linkOrig, orgId, router, searchParams]);

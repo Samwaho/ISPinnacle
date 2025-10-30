@@ -186,15 +186,12 @@ export const ProfileDetailsForm = ({ profile }: ProfileDetailsFormProps) => {
                         sourceList="local, camera, facebook, gdrive"
                         classNameUploader={theme === "dark" ? "uc-dark" : "uc-light"}
                         pubkey={process.env.NEXT_PUBLIC_UPLOADCARE_PUBLIC_KEY || ""}
-                        fileTypes="image/*"
                         onCommonUploadSuccess={(result) => {
                           if (result.successEntries?.length) {
                             const uploadedUrl = result.successEntries[0].cdnUrl;
                             field.onChange(uploadedUrl);
+                            toast.success("Avatar uploaded");
                           }
-                        }}
-                        onCommonUploadError={() => {
-                          toast.error("We couldn't upload that image. Please try again.");
                         }}
                       />
                     </div>

@@ -14,10 +14,10 @@ export class KopoKopoAPI {
   private baseUrl: string;
 
   constructor(config: { clientId: string; clientSecret: string; apiKey: string; tillNumber: string }) {
-    this.clientId = config.clientId;
-    this.clientSecret = config.clientSecret;
-    this.apiKey = config.apiKey;
-    this.tillNumber = config.tillNumber;
+    this.clientId = config.clientId.trim();
+    this.clientSecret = config.clientSecret.trim();
+    this.apiKey = config.apiKey.trim();
+    this.tillNumber = config.tillNumber.trim();
     this.baseUrl =
       process.env.NODE_ENV === "production"
         ? "https://api.kopokopo.com"
@@ -26,17 +26,16 @@ export class KopoKopoAPI {
 
   private async getAccessToken(): Promise<string> {
     const body = new URLSearchParams({
+      client_id: this.clientId,
+      client_secret: this.clientSecret,
       grant_type: "client_credentials",
     });
-
-    const basicAuth = Buffer.from(`${this.clientId}:${this.clientSecret}`).toString("base64");
 
     const res = await fetch(`${this.baseUrl}/oauth/token`, {
       method: "POST",
       headers: {
         "Content-Type": "application/x-www-form-urlencoded",
         Accept: "application/json",
-        Authorization: `Basic ${basicAuth}`,
         "User-Agent": "ispinnacle/1.0",
       },
       body,
@@ -58,30 +57,34 @@ export class KopoKopoAPI {
 
     const payload: {
       payment_channel: string;
-      amount: string;
-      currency: string;
       till_number: string;
-      customer: {
+      subscriber: {
         phone_number: string;
+      };
+      amount: {
+        currency: string;
+        value: string;
       };
       metadata: {
         reference: string;
-        description: string;
+        notes?: string;
       };
       _links: {
         callback_url: string;
       };
     } = {
       payment_channel: "M-PESA STK Push",
-      amount: Number(params.amount).toFixed(2),
-      currency: "KES",
       till_number: this.tillNumber,
-      customer: {
+      subscriber: {
         phone_number: customerPhone,
       },
       metadata: {
         reference: params.reference,
-        description: params.description || "Payment",
+        ...(params.description ? { notes: params.description } : {}),
+      },
+      amount: {
+        currency: "KES",
+        value: Number(params.amount).toFixed(2),
       },
       _links: {
         callback_url: `${process.env.CALLBACK_URL}/api/k2/callback`,
@@ -108,7 +111,10 @@ export class KopoKopoAPI {
         url: res.url,
         headers: Object.fromEntries(res.headers.entries()),
         body: text?.slice(0, 2000),
-        payload: { ...payload, customer: { phone_number: "***masked***" } },
+        payload: {
+          ...payload,
+          subscriber: { phone_number: "***masked***" },
+        },
       });
       throw new Error(`Incoming payment failed: ${res.status} ${text}`);
     }

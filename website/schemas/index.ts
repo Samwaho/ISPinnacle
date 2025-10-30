@@ -32,6 +32,35 @@ export const newPasswordSchema = z.object({
     path: ["confirmPassword"],
 });
 
+export const updateProfileSchema = z.object({
+    name: z.string().trim().min(2, "Name must be at least 2 characters").max(100, "Name must be at most 100 characters"),
+    image: z.union([
+        z.string().trim().url("Please provide a valid image URL"),
+        z.literal(""),
+    ]).nullish(),
+});
+
+export const changePasswordSchema = z.object({
+    currentPassword: z.string().min(1, "Current password is required"),
+    newPassword: z.string().min(6, "Password must be at least 6 characters"),
+    confirmPassword: z.string().min(6, "Confirm password must be at least 6 characters"),
+}).refine((data) => data.newPassword === data.confirmPassword, {
+    message: "Passwords do not match",
+    path: ["confirmPassword"],
+}).refine((data) => data.newPassword !== data.currentPassword, {
+    message: "New password must be different from the current password",
+    path: ["newPassword"],
+});
+
+export const requestTwoFactorSchema = z.object({
+    enable: z.boolean(),
+});
+
+export const verifyTwoFactorSchema = z.object({
+    enable: z.boolean(),
+    code: z.string().trim().regex(/^\d{6}$/, "Enter the 6-digit code sent to your email"),
+});
+
 export const organizationSchema = z.object({
     name: z.string().min(1, "Name is required"),
     email: z.string().email("Invalid email address"),

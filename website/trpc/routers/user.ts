@@ -1,4 +1,4 @@
-import { baseProcedure, createTRPCRouter } from "../init";
+import { baseProcedure, createTRPCRouter, protectedProcedure } from "../init";
 import {
   loginSchema,
   newPasswordSchema,
@@ -6,6 +6,10 @@ import {
   resetSchema,
   acceptInvitationSchema,
   rejectInvitationSchema,
+  updateProfileSchema,
+  changePasswordSchema,
+  requestTwoFactorSchema,
+  verifyTwoFactorSchema,
 } from "@/schemas";
 import bcrypt from "bcryptjs";
 import { prisma } from "@/lib/db";
@@ -276,6 +280,236 @@ export const userRouter = createTRPCRouter({
     });
     return { success: true, message: "Password updated successfully" };
   }),
+  getProfile: protectedProcedure.query(async ({ ctx }) => {
+    const user = await prisma.user.findUnique({
+      where: { id: ctx.session.user.id },
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        image: true,
+        isTwoFactorEnabled: true,
+        role: true,
+        createdAt: true,
+        updatedAt: true,
+        password: true,
+      },
+    });
+
+    if (!user) {
+      throw new TRPCError({ code: "NOT_FOUND", message: "User not found" });
+    }
+
+    const { password, ...profile } = user;
+
+    return {
+      ...profile,
+      hasPassword: Boolean(password),
+    };
+  }),
+  updateProfile: protectedProcedure
+    .input(updateProfileSchema)
+    .mutation(async ({ ctx, input }) => {
+      const userId = ctx.session.user.id;
+      const trimmedName = input.name.trim();
+      const normalizedImage =
+        input.image === undefined || input.image === null
+          ? undefined
+          : input.image.trim() === ""
+            ? null
+            : input.image.trim();
+
+      const updatedUser = await prisma.user.update({
+        where: { id: userId },
+        data: {
+          name: trimmedName,
+          ...(normalizedImage !== undefined ? { image: normalizedImage } : {}),
+        },
+        select: {
+          id: true,
+          name: true,
+          email: true,
+          image: true,
+          isTwoFactorEnabled: true,
+          role: true,
+          updatedAt: true,
+        },
+      });
+
+      return updatedUser;
+    }),
+  changePassword: protectedProcedure
+    .input(changePasswordSchema)
+    .mutation(async ({ ctx, input }) => {
+      const { currentPassword, newPassword } = input;
+      const user = await prisma.user.findUnique({
+        where: { id: ctx.session.user.id },
+        select: {
+          password: true,
+        },
+      });
+
+      if (!user?.password) {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: "Password authentication is not configured for this account",
+        });
+      }
+
+      const isValid = await bcrypt.compare(currentPassword, user.password);
+      if (!isValid) {
+        throw new TRPCError({
+          code: "UNAUTHORIZED",
+          message: "Current password is incorrect",
+        });
+      }
+
+      const hashedPassword = await bcrypt.hash(newPassword, 10);
+
+      await prisma.user.update({
+        where: { id: ctx.session.user.id },
+        data: { password: hashedPassword },
+      });
+
+      return { success: true, message: "Password updated successfully" };
+    }),
+  requestTwoFactor: protectedProcedure
+    .input(requestTwoFactorSchema)
+    .mutation(async ({ ctx, input }) => {
+      const user = await prisma.user.findUnique({
+        where: { id: ctx.session.user.id },
+        select: {
+          email: true,
+          name: true,
+          isTwoFactorEnabled: true,
+        },
+      });
+
+      if (!user?.email) {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: "A valid email address is required to manage two-factor authentication",
+        });
+      }
+
+      if (input.enable && user.isTwoFactorEnabled) {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: "Two-factor authentication is already enabled",
+        });
+      }
+
+      if (!input.enable && !user.isTwoFactorEnabled) {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: "Two-factor authentication is not enabled",
+        });
+      }
+
+      const twoFactorToken = await generateTwoFactorToken(user.email);
+      const { success } = await sendTwoFactorEmail(
+        user.email,
+        twoFactorToken.token,
+        user.name ?? undefined
+      );
+
+      if (!success) {
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message: "Failed to send verification code. Please try again later.",
+        });
+      }
+
+      return {
+        success: true,
+        message: "Verification code sent to your email address",
+      };
+    }),
+  verifyTwoFactor: protectedProcedure
+    .input(verifyTwoFactorSchema)
+    .mutation(async ({ ctx, input }) => {
+      const userId = ctx.session.user.id;
+      const user = await prisma.user.findUnique({
+        where: { id: userId },
+        select: {
+          email: true,
+          isTwoFactorEnabled: true,
+        },
+      });
+
+      if (!user?.email) {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: "A valid email address is required to manage two-factor authentication",
+        });
+      }
+
+      if (input.enable && user.isTwoFactorEnabled) {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: "Two-factor authentication is already enabled",
+        });
+      }
+
+      if (!input.enable && !user.isTwoFactorEnabled) {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: "Two-factor authentication is already disabled",
+        });
+      }
+
+      const existingToken = await prisma.twoFactorToken.findFirst({
+        where: { email: user.email },
+      });
+
+      if (!existingToken) {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: "No verification code found. Please request a new code.",
+        });
+      }
+
+      if (existingToken.token !== input.code) {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: "Invalid verification code",
+        });
+      }
+
+      if (existingToken.expires < new Date()) {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: "Verification code has expired",
+        });
+      }
+
+      await prisma.twoFactorToken.delete({
+        where: { id: existingToken.id },
+      });
+
+      await prisma.twoFactorConfirmation.deleteMany({
+        where: { userId },
+      });
+
+      const updatedUser = await prisma.user.update({
+        where: { id: userId },
+        data: {
+          isTwoFactorEnabled: input.enable,
+        },
+        select: {
+          id: true,
+          isTwoFactorEnabled: true,
+        },
+      });
+
+      return {
+        success: true,
+        isTwoFactorEnabled: updatedUser.isTwoFactorEnabled,
+        message: input.enable
+          ? "Two-factor authentication has been enabled"
+          : "Two-factor authentication has been disabled",
+      };
+    }),
   acceptInvitation: baseProcedure.input(acceptInvitationSchema).mutation(async ({ input }) => {
     const { token, email } = input;
 

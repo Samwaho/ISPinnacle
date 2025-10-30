@@ -18,8 +18,11 @@ export class KopoKopoAPI {
     this.clientSecret = config.clientSecret.trim();
     this.apiKey = config.apiKey.trim();
     this.tillNumber = config.tillNumber.trim();
+    const configuredBaseUrl = process.env.KOPOKOPO_BASE_URL?.trim();
     this.baseUrl =
-      process.env.NODE_ENV === "production"
+      configuredBaseUrl && configuredBaseUrl.length > 0
+        ? configuredBaseUrl
+        : process.env.NODE_ENV === "production"
         ? "https://api.kopokopo.com"
         : "https://sandbox.kopokopo.com";
   }

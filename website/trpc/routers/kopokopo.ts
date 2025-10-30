@@ -18,22 +18,25 @@ export class KopoKopoAPI {
     this.clientSecret = config.clientSecret;
     this.apiKey = config.apiKey;
     this.tillNumber = config.tillNumber;
-    this.baseUrl = process.env.NODE_ENV === "production"
-      ? "https://api.kopokopo.com"
-      : "https://sandbox.kopokopo.com";
+    this.baseUrl =
+      process.env.NODE_ENV === "production"
+        ? "https://api.kopokopo.com"
+        : "https://sandbox.kopokopo.com";
   }
 
   private async getAccessToken(): Promise<string> {
     const body = new URLSearchParams({
-      client_id: this.clientId,
-      client_secret: this.clientSecret,
       grant_type: "client_credentials",
     });
+
+    const basicAuth = Buffer.from(`${this.clientId}:${this.clientSecret}`).toString("base64");
 
     const res = await fetch(`${this.baseUrl}/oauth/token`, {
       method: "POST",
       headers: {
         "Content-Type": "application/x-www-form-urlencoded",
+        Accept: "application/json",
+        Authorization: `Basic ${basicAuth}`,
         "User-Agent": "ispinnacle/1.0",
       },
       body,
@@ -234,4 +237,3 @@ export const kopokopoRouter = createTRPCRouter({
       }
     }),
 });
-

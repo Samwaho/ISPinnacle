@@ -1,12 +1,12 @@
 "use client";
 
-import { useEffect, useMemo } from "react";
+import { useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { Loader2 } from "lucide-react";
+import { Loader2, Trash2 } from "lucide-react";
 import { useTRPC } from "@/trpc/client";
 import type { inferRouterOutputs } from "@trpc/server";
 import type { AppRouter } from "@/trpc/routers/_app";
@@ -34,6 +34,9 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import { FileUploaderMinimal } from "@uploadcare/react-uploader/next";
+import "@uploadcare/react-uploader/core.css";
+import { useTheme } from "next-themes";
 
 type UserProfile = inferRouterOutputs<AppRouter>["user"]["getProfile"];
 
@@ -44,6 +47,7 @@ interface ProfileDetailsFormProps {
 export const ProfileDetailsForm = ({ profile }: ProfileDetailsFormProps) => {
   const t = useTRPC();
   const queryClient = useQueryClient();
+  const { theme } = useTheme();
 
   const form = useForm<z.infer<typeof updateProfileSchema>>({
     resolver: zodResolver(updateProfileSchema),
@@ -85,17 +89,16 @@ export const ProfileDetailsForm = ({ profile }: ProfileDetailsFormProps) => {
     });
   };
 
-  const fallbackInitial = useMemo(() => {
-    const base = (profile?.name ?? profile?.email ?? "?").trim();
-    return (base.charAt(0) || "?").toUpperCase();
-  }, [profile?.name, profile?.email]);
+  const nameValue = form.watch("name");
+  const fallbackInitial = ((nameValue ?? profile?.email ?? "?").trim().charAt(0) || "?").toUpperCase();
+  const watchedImage = form.watch("image");
 
   return (
     <Card>
       <CardHeader className="flex flex-col gap-4">
         <div className="flex items-center gap-4">
           <Avatar className="size-16">
-            <AvatarImage src={profile?.image ?? ""} alt={profile?.name ?? "Profile photo"} />
+            <AvatarImage src={watchedImage || profile?.image || ""} alt={profile?.name ?? "Profile photo"} />
             <AvatarFallback className="bg-gradient-custom text-white font-semibold">
               {fallbackInitial}
             </AvatarFallback>
@@ -147,16 +150,54 @@ export const ProfileDetailsForm = ({ profile }: ProfileDetailsFormProps) => {
               name="image"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Avatar URL</FormLabel>
+                  <FormLabel>Avatar</FormLabel>
                   <FormControl>
-                    <Input
-                      {...field}
-                      value={field.value ?? ""}
-                      onChange={(event) => field.onChange(event.target.value)}
-                      placeholder="https://example.com/avatar.png"
-                      type="url"
-                      disabled={isPending}
-                    />
+                    <div className="space-y-4">
+                      {(field.value || profile?.image) && (
+                        <div className="flex items-center justify-between gap-4 rounded-md border border-dashed border-muted p-3">
+                          <div className="flex items-center gap-3">
+                            <Avatar className="size-12">
+                              <AvatarImage src={field.value || profile?.image || ""} alt="Avatar preview" />
+                              <AvatarFallback className="bg-gradient-custom text-white font-semibold">
+                                {fallbackInitial}
+                              </AvatarFallback>
+                            </Avatar>
+                            <div>
+                              <p className="text-sm font-medium">Preview</p>
+                              <p className="text-xs text-muted-foreground">
+                                This is how your profile photo will appear.
+                              </p>
+                            </div>
+                          </div>
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            onClick={() => field.onChange("")}
+                            disabled={isPending}
+                            className="gap-1"
+                          >
+                            <Trash2 className="size-3.5" />
+                            Remove
+                          </Button>
+                        </div>
+                      )}
+                      <FileUploaderMinimal
+                        sourceList="local, camera, facebook, gdrive"
+                        classNameUploader={theme === "dark" ? "uc-dark" : "uc-light"}
+                        pubkey={process.env.NEXT_PUBLIC_UPLOADCARE_PUBLIC_KEY || ""}
+                        fileTypes="image/*"
+                        onCommonUploadSuccess={(result) => {
+                          if (result.successEntries?.length) {
+                            const uploadedUrl = result.successEntries[0].cdnUrl;
+                            field.onChange(uploadedUrl);
+                          }
+                        }}
+                        onCommonUploadError={() => {
+                          toast.error("We couldn't upload that image. Please try again.");
+                        }}
+                      />
+                    </div>
                   </FormControl>
                   <FormMessage />
                 </FormItem>

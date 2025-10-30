@@ -2,7 +2,7 @@ import { createTRPCRouter, baseProcedure, protectedProcedure } from "../init";
 import { prisma } from "@/lib/db";
 import { z } from "zod";
 import { TRPCError } from "@trpc/server";
-import { OrganizationPackageType, PaymentGateway } from "@/lib/generated/prisma";
+import { OrganizationPackageType, PaymentGateway, VoucherStatus } from "@/lib/generated/prisma";
 import { MpesaAPI } from "./mpesa";
 import { KopoKopoAPI } from "./kopokopo";
 
@@ -412,6 +412,21 @@ export const hotspotRouter = createTRPCRouter({
   getVouchers: protectedProcedure
     .input(z.object({ organizationId: z.string() }))
     .query(async ({ input }) => {
+      const now = new Date();
+
+      await prisma.hotspotVoucher.updateMany({
+        where: {
+          organizationId: input.organizationId,
+          status: {
+            in: [VoucherStatus.PENDING, VoucherStatus.ACTIVE],
+          },
+          expiresAt: {
+            lt: now,
+          },
+        },
+        data: { status: VoucherStatus.EXPIRED },
+      });
+
       const vouchers = await prisma.hotspotVoucher.findMany({
         where: { organizationId: input.organizationId },
         include: {

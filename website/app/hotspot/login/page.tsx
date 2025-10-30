@@ -32,6 +32,10 @@ export default function HotspotLoginPage() {
   const linkOrig = searchParams.get('link-orig') || '';
   const chapId = searchParams.get('chap-id') || '';
   const chapChallenge = searchParams.get('chap-challenge') || '';
+  const existingVoucherParam =
+    searchParams.get('voucher') ||
+    searchParams.get('username') ||
+    undefined;
   
   const [selectedPackageId, setSelectedPackageId] = useState<string | null>(null);
   const [phoneNumber, setPhoneNumber] = useState('');
@@ -75,6 +79,49 @@ export default function HotspotLoginPage() {
   const { data: packagesData, isLoading: isLoadingPackages } = useQuery(
     trpc.hotspot.getPackages.queryOptions({ organizationId: orgId })
   );
+
+  // Immediately redirect connected users to status page
+  useEffect(() => {
+    if (!existingVoucherParam) return;
+
+    let isMounted = true;
+
+    const checkStatus = async () => {
+      try {
+        const response = await fetch(
+          `/api/hotspot/voucher-status/${encodeURIComponent(existingVoucherParam)}?mode=code`
+        );
+        if (!response.ok) return;
+        const data = await response.json();
+        const voucher = data?.voucher;
+
+        if (
+          isMounted &&
+          voucher &&
+          voucher.status === 'ACTIVE' &&
+          voucher.remainingDuration &&
+          voucher.remainingDuration.milliseconds > 0
+        ) {
+          const url = new URL(`/hotspot/status`, window.location.origin);
+          url.searchParams.set('org', orgId);
+          url.searchParams.set('voucher', voucher.voucherCode);
+          if (linkLoginOnly) url.searchParams.set('link-login-only', linkLoginOnly);
+          if (linkOrig) url.searchParams.set('link-orig', linkOrig);
+          if (chapId) url.searchParams.set('chap-id', chapId);
+          if (chapChallenge) url.searchParams.set('chap-challenge', chapChallenge);
+          router.replace(url.pathname + url.search);
+        }
+      } catch (error) {
+        console.log('Hotspot redirect check skipped:', error);
+      }
+    };
+
+    checkStatus();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [existingVoucherParam, orgId, linkLoginOnly, linkOrig, chapId, chapChallenge, router]);
 
   // Purchase voucher mutation
   const { mutate: purchaseVoucher, isPending: isPurchasing } = useMutation(
@@ -631,49 +678,3 @@ export default function HotspotLoginPage() {
     </div>
   );
 }
-  // Immediately redirect connected users to status page
-  useEffect(() => {
-    let isMounted = true;
-
-    const checkStatus = async () => {
-      // Look for voucher identifier supplied by MikroTik (username usually matches voucher code)
-      const existingVoucher =
-        searchParams.get('voucher') ||
-        searchParams.get('username') ||
-        undefined;
-
-      if (!existingVoucher) return;
-
-      try {
-        const response = await fetch(`/api/hotspot/voucher-status/${encodeURIComponent(existingVoucher)}?mode=code`);
-        if (!response.ok) return;
-        const data = await response.json();
-        const voucher = data?.voucher;
-
-        if (
-          isMounted &&
-          voucher &&
-          voucher.status === 'ACTIVE' &&
-          voucher.remainingDuration &&
-          voucher.remainingDuration.milliseconds > 0
-        ) {
-          const url = new URL(`/hotspot/status`, window.location.origin);
-          url.searchParams.set('org', orgId);
-          url.searchParams.set('voucher', voucher.voucherCode);
-          if (linkLoginOnly) url.searchParams.set('link-login-only', linkLoginOnly);
-          if (linkOrig) url.searchParams.set('link-orig', linkOrig);
-          if (chapId) url.searchParams.set('chap-id', chapId);
-          if (chapChallenge) url.searchParams.set('chap-challenge', chapChallenge);
-          router.replace(url.pathname + url.search);
-        }
-      } catch (error) {
-        console.log('Hotspot redirect check skipped:', error);
-      }
-    };
-
-    checkStatus();
-
-    return () => {
-      isMounted = false;
-    };
-  }, [chapChallenge, chapId, linkLoginOnly, linkOrig, orgId, router, searchParams]);

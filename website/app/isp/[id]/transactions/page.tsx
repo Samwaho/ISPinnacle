@@ -26,10 +26,6 @@ const TransactionsPage = () => {
   const { data: userPermissions, isLoading: permissionsLoading } = useQuery(
     t.organization.getUserPermissions.queryOptions({ id: id as string })
   );
-  const { data: organization } = useQuery(
-    t.organization.getOrganizationById.queryOptions({ id: id as string })
-  );
-
   // Check if user has permission to view transactions
   const canViewTransactions = userPermissions?.canViewCustomers || false;
   const canManageTransactions = userPermissions?.canManageCustomers || false;

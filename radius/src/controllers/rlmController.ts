@@ -301,14 +301,8 @@ export const rlmController = {
       let customer = await prisma.organizationCustomer.findFirst({
         where: {
           OR: [
-            { 
-              pppoeUsername: username,
-              pppoePassword: password
-            },
-            {
-              hotspotUsername: username,
-              hotspotPassword: password
-            }
+            { pppoeUsername: username },
+            { hotspotUsername: username }
           ]
         },
         include: {
@@ -318,6 +312,7 @@ export const rlmController = {
 
       let isHotspotVoucher = false;
       let hotspotVoucher = null;
+      const passwordProvided = typeof password === 'string' && password.length > 0;
 
       // If no regular customer found, check for hotspot voucher
       if (!customer) {
@@ -331,20 +326,19 @@ export const rlmController = {
         });
 
         if (hotspotVoucher) {
-          // For hotspot vouchers, the voucher code should match both username and password
-          if (hotspotVoucher.voucherCode === password) {
-            isHotspotVoucher = true;
-            // Check if voucher is active and not expired
-            if (hotspotVoucher.status !== 'ACTIVE') {
-              return res.json(buildReject('Voucher not active'));
-            }
-
-            if (hotspotVoucher.expiresAt && new Date() > hotspotVoucher.expiresAt) {
-              return res.json(buildReject('Voucher expired'));
-            }
-          } else {
-            // Voucher exists but password doesn't match
+          if (passwordProvided && hotspotVoucher.voucherCode !== password) {
             return res.json(buildReject('Invalid voucher code'));
+          }
+
+          isHotspotVoucher = true;
+
+          // Check if voucher is active and not expired
+          if (hotspotVoucher.status !== 'ACTIVE') {
+            return res.json(buildReject('Voucher not active'));
+          }
+
+          if (hotspotVoucher.expiresAt && new Date() > hotspotVoucher.expiresAt) {
+            return res.json(buildReject('Voucher expired'));
           }
         }
       }
@@ -355,6 +349,15 @@ export const rlmController = {
 
       // For regular customers, check if they are active and not expired
       if (!isHotspotVoucher && customer) {
+        const customerIsPppoe = customer.pppoeUsername === username;
+        const expectedPassword = customerIsPppoe ? customer.pppoePassword : customer.hotspotPassword;
+
+        if (passwordProvided) {
+          if (!expectedPassword || expectedPassword !== password) {
+            return res.json(buildReject('Invalid credentials'));
+          }
+        }
+
         if (customer.status !== 'ACTIVE') {
           return res.json(buildReject('Account inactive'));
         }

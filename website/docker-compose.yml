@@ -1,0 +1,12 @@
+services:
+  web:
+    build:
+      context: .
+    env_file:
+      - .env
+    environment:
+      # Ensure Next.js listens on the same port we expose
+      - PORT=3000
+    ports:
+      - "3000:3000"
+    restart: unless-stopped

@@ -34,3 +34,12 @@ You can check out [the Next.js GitHub repository](https://github.com/vercel/next
 The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
 
 Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+
+## Run with Docker
+
+1. Copy `env.example` to `.env` and fill in the required values (at minimum the database connection and Auth secrets).
+2. Build and start the container with `docker compose up --build`.
+
+The image performs a production build (`next build`) and serves the site with `next start` on port `3000`. Adjust the published port in `docker-compose.yml` if you need a different host port.
+
+If you manage migrations with Prisma, run them against your database before starting the app (e.g. `docker compose run --rm web npx prisma migrate deploy`).

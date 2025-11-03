@@ -3,6 +3,28 @@ import { PrismaClient } from '@prisma/client';
 
 const prisma = new PrismaClient();
 
+const buildReject = (message?: string) => {
+  const payload: Record<string, string> = {
+    'control:Auth-Type': 'Reject'
+  };
+
+  if (message) {
+    payload['reply:Reply-Message'] = message;
+  }
+
+  return payload;
+};
+
+const buildAccept = (message?: string) => {
+  const payload: Record<string, string> = {};
+
+  if (message) {
+    payload['reply:Reply-Message'] = message;
+  }
+
+  return payload;
+};
+
 export const rlmController = {
   // Authorization endpoint
   async authorize(req: Request, res: Response) {
@@ -58,17 +80,11 @@ export const rlmController = {
           
           // Check if voucher is active and not expired
           if (hotspotVoucher.status !== 'ACTIVE') {
-            return res.json({
-              result: 'reject',
-              message: 'Voucher not active'
-            });
+            return res.json(buildReject('Voucher not active'));
           }
 
           if (hotspotVoucher.expiresAt && new Date() > hotspotVoucher.expiresAt) {
-            return res.json({
-              result: 'reject',
-              message: 'Voucher expired'
-            });
+            return res.json(buildReject('Voucher expired'));
           }
 
           // Check if voucher duration has been exceeded
@@ -96,45 +112,30 @@ export const rlmController = {
                 data: { status: 'EXPIRED' }
               });
               
-              return res.json({
-                result: 'reject',
-                message: 'Voucher duration expired'
-              });
+              return res.json(buildReject('Voucher duration expired'));
             }
           }
         }
       }
 
       if (!customer && !hotspotVoucher) {
-        return res.json({
-          'control:Auth-Type': 'Reject',
-          'reply:Reply-Message': 'User not found'
-        });
+        return res.json(buildReject('User not found'));
       }
 
       // For regular customers, check if they are active and not expired
       if (!isHotspotVoucher && customer) {
         if (customer.status !== 'ACTIVE') {
-          return res.json({
-            'control:Auth-Type': 'Reject',
-            'reply:Reply-Message': 'Account inactive'
-          });
+          return res.json(buildReject('Account inactive'));
         }
 
         if (customer.expiryDate && new Date() > customer.expiryDate) {
-          return res.json({
-            'control:Auth-Type': 'Reject',
-            'reply:Reply-Message': 'Account expired'
-          });
+          return res.json(buildReject('Account expired'));
         }
       }
 
       // Ensure we have either a customer or voucher
       if (!customer && !hotspotVoucher) {
-        return res.json({
-          'control:Auth-Type': 'Reject',
-          'reply:Reply-Message': 'Authentication failed'
-        });
+        return res.json(buildReject('Authentication failed'));
       }
 
       // Get package data from either customer or voucher
@@ -142,10 +143,7 @@ export const rlmController = {
       const organization = customer?.organization || hotspotVoucher?.organization;
 
       if (!packageData) {
-        return res.json({
-          result: 'reject',
-          message: 'Package not found'
-        });
+        return res.json(buildReject('Package not found'));
       }
 
       // Determine connection type and build attributes
@@ -226,10 +224,7 @@ export const rlmController = {
           } else {
             // Duration has expired, reject the connection
             console.log(`Voucher ${username} duration expired, rejecting connection`);
-            return res.json({
-              result: 'reject',
-              message: 'Voucher duration expired'
-            });
+            return res.json(buildReject('Voucher duration expired'));
           }
         }
 
@@ -287,10 +282,7 @@ export const rlmController = {
 
     } catch (error) {
       console.error('Authorization error:', error);
-      return res.status(500).json({
-        result: 'reject',
-        message: 'Internal server error'
-      });
+      return res.status(500).json(buildReject('Internal server error'));
     }
   },
 
@@ -344,49 +336,31 @@ export const rlmController = {
             isHotspotVoucher = true;
             // Check if voucher is active and not expired
             if (hotspotVoucher.status !== 'ACTIVE') {
-              return res.json({
-                result: 'reject',
-                message: 'Voucher not active'
-              });
+              return res.json(buildReject('Voucher not active'));
             }
 
             if (hotspotVoucher.expiresAt && new Date() > hotspotVoucher.expiresAt) {
-              return res.json({
-                result: 'reject',
-                message: 'Voucher expired'
-              });
+              return res.json(buildReject('Voucher expired'));
             }
           } else {
             // Voucher exists but password doesn't match
-            return res.json({
-              result: 'reject',
-              message: 'Invalid voucher code'
-            });
+            return res.json(buildReject('Invalid voucher code'));
           }
         }
       }
 
       if (!customer && !hotspotVoucher) {
-        return res.json({
-          result: 'reject',
-          message: 'Invalid credentials'
-        });
+        return res.json(buildReject('Invalid credentials'));
       }
 
       // For regular customers, check if they are active and not expired
       if (!isHotspotVoucher && customer) {
         if (customer.status !== 'ACTIVE') {
-          return res.json({
-            result: 'reject',
-            message: 'Account inactive'
-          });
+          return res.json(buildReject('Account inactive'));
         }
 
         if (customer.expiryDate && new Date() > customer.expiryDate) {
-          return res.json({
-            result: 'reject',
-            message: 'Account expired'
-          });
+          return res.json(buildReject('Account expired'));
         }
       }
 
@@ -396,16 +370,11 @@ export const rlmController = {
         timestamp: new Date().toISOString()
       });
       
-      return res.json({
-        result: 'accept'
-      });
+      return res.json(buildAccept());
 
     } catch (error) {
       console.error('Authentication error:', error);
-      return res.status(500).json({
-        result: 'reject',
-        message: 'Internal server error'
-      });
+      return res.status(500).json(buildReject('Internal server error'));
     }
   },
 
@@ -425,20 +394,13 @@ export const rlmController = {
       });
 
       if (!customer || customer.status !== 'ACTIVE') {
-        return res.json({
-          result: 'reject',
-          message: 'User not found or inactive'
-        });
+        return res.json(buildReject('User not found or inactive'));
       }
 
-      return res.json({
-        result: 'accept'
-      });
+      return res.json(buildAccept());
     } catch (error) {
       console.error('Pre-accounting error:', error);
-      return res.status(500).json({
-        result: 'reject'
-      });
+      return res.status(500).json(buildReject());
     }
   },
 
@@ -502,9 +464,7 @@ export const rlmController = {
 
       if (!customer && !hotspotVoucher) {
         console.log(`Accounting: User ${username} not found`);
-        return res.json({
-          result: 'accept'
-        });
+        return res.json(buildAccept());
       }
 
       // Determine connection type
@@ -680,15 +640,11 @@ export const rlmController = {
           break;
       }
 
-      return res.json({
-        result: 'accept'
-      });
+      return res.json(buildAccept());
 
     } catch (error) {
       console.error('Accounting error:', error);
-      return res.status(500).json({
-        result: 'accept'
-      });
+      return res.status(500).json(buildAccept());
     }
   },
 
@@ -724,55 +680,37 @@ export const rlmController = {
       }
 
       if (!customer && !hotspotVoucher) {
-        return res.json({
-          result: 'reject',
-          message: 'User not found'
-        });
+        return res.json(buildReject('User not found'));
       }
 
       // For hotspot vouchers, only one session allowed (vouchers are single-use)
       if (hotspotVoucher) {
         if (hotspotVoucher.status === 'USED') {
-          return res.json({
-            result: 'reject',
-            message: 'Voucher already used'
-          });
+          return res.json(buildReject('Voucher already used'));
         }
-        return res.json({
-          result: 'accept'
-        });
+        return res.json(buildAccept());
       }
 
       // Check if customer already has an active session
       if (customer && customer.connection?.sessionStatus === 'ONLINE') {
         // For PPPoE, typically only one session allowed
         if (customer.pppoeUsername === username) {
-          return res.json({
-            result: 'reject',
-            message: 'Session already active'
-          });
+          return res.json(buildReject('Session already active'));
         }
         
         // For hotspot, check max devices
         if (customer.hotspotUsername === username && customer.package?.maxDevices) {
           if (customer.package.maxDevices <= 1) {
-            return res.json({
-              result: 'reject',
-              message: 'Maximum device limit reached'
-            });
+            return res.json(buildReject('Maximum device limit reached'));
           }
         }
       }
 
-      return res.json({
-        result: 'accept'
-      });
+      return res.json(buildAccept());
 
     } catch (error) {
       console.error('Check simultaneous error:', error);
-      return res.status(500).json({
-        result: 'reject'
-      });
+      return res.status(500).json(buildReject());
     }
   },
 
@@ -783,15 +721,11 @@ export const rlmController = {
 
       console.log(`Post-auth for ${username}: ${reply_message || 'Success'}`);
 
-      return res.json({
-        result: 'accept'
-      });
+      return res.json(buildAccept());
 
     } catch (error) {
       console.error('Post-auth error:', error);
-      return res.status(500).json({
-        result: 'reject'
-      });
+      return res.status(500).json(buildReject());
     }
   },
 
@@ -848,6 +782,3 @@ export const rlmController = {
     return new Date();
   }
 };
-
-
-

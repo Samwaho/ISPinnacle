@@ -191,7 +191,7 @@ export const rlmController = {
           }
           
           // Hotspot specific attributes
-          flatAttributes['reply:Mikrotik-Hotspot-Profile'] = 'default';
+          flatAttributes['reply:MikroTik-Group'] = 'default';
         }
 
         // Session timeout based on package duration
@@ -272,6 +272,8 @@ export const rlmController = {
         }
       }
 
+      flatAttributes['reply:User-Name'] = username;
+      
       console.log('RADIUS Authorization response:', {
         username,
         attributes: Object.keys(flatAttributes),
@@ -386,6 +388,10 @@ export const rlmController = {
     try {
       const { username, nas_ip_address } = req.body;
 
+      if (!username) {
+        return res.json(buildAccept());
+      }
+
       // Verify user exists and is active
       const customer = await prisma.organizationCustomer.findFirst({
         where: {
@@ -435,6 +441,10 @@ export const rlmController = {
         connect_info,
         user_agent
       } = req.body;
+
+      if (!username) {
+        return res.json(buildAccept());
+      }
 
       // Find customer or hotspot voucher
       const customer = await prisma.organizationCustomer.findFirst({

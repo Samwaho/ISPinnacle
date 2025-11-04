@@ -30,6 +30,8 @@ export const rlmController = {
   async authorize(req: Request, res: Response) {
     try {
       const { username, password, nas_ip_address, nas_port } = req.body;
+
+      const passwordProvided = typeof password === 'string' && password.length > 0;
       
       console.log('RADIUS Authorization request:', {
         username,
@@ -254,8 +256,12 @@ export const rlmController = {
 
       // Add additional attributes for hotspot authentication
       if (isHotspotVoucher || (!isPPPoE && customer)) {
-        // Set Auth-Type to PAP for hotspot
-        flatAttributes['control:Auth-Type'] = 'PAP';
+        // Only force PAP when the Access-Request actually contains a PAP password.
+        // Some MikroTik hotspot flows use CHAP and omit User-Password which would
+        // break authentication if we forced PAP.
+        if (passwordProvided) {
+          flatAttributes['control:Auth-Type'] = 'PAP';
+        }
         
         // Add service type for hotspot
         flatAttributes['reply:Service-Type'] = 'Framed-User';

@@ -151,6 +151,7 @@ export const rlmController = {
       // Determine connection type and build attributes
       const isPPPoE = customer ? customer.pppoeUsername === username : false;
       const flatAttributes: Record<string, string | number> = {};
+      let sessionTimeoutSeconds: number | null = null;
 
       if (packageData) {
         // Speed limits in bits per second
@@ -197,9 +198,9 @@ export const rlmController = {
         }
 
         // Session timeout based on package duration
-        const sessionTimeout = rlmController.calculateSessionTimeout(packageData);
-        if (sessionTimeout > 0) {
-          flatAttributes['reply:Session-Timeout'] = sessionTimeout;
+        const baseSessionTimeout = rlmController.calculateSessionTimeout(packageData);
+        if (baseSessionTimeout > 0) {
+          sessionTimeoutSeconds = baseSessionTimeout;
         }
 
         // For hotspot vouchers, calculate remaining time if already used
@@ -221,16 +222,36 @@ export const rlmController = {
           
           if (remainingMs > 0) {
             const remainingSeconds = Math.floor(remainingMs / 1000);
-            flatAttributes['reply:Session-Timeout'] = remainingSeconds;
-            console.log(`Setting session timeout to ${remainingSeconds} seconds (${Math.floor(remainingSeconds/3600)}h ${Math.floor((remainingSeconds%3600)/60)}m) for voucher ${username}`);
+            sessionTimeoutSeconds = sessionTimeoutSeconds === null ? remainingSeconds : Math.min(sessionTimeoutSeconds, remainingSeconds);
+            console.log(`Setting session timeout (usage-based) to ${remainingSeconds} seconds (${Math.floor(remainingSeconds/3600)}h ${Math.floor((remainingSeconds%3600)/60)}m) for voucher ${username}`);
           } else {
             // Duration has expired, reject the connection
             console.log(`Voucher ${username} duration expired, rejecting connection`);
+            await prisma.hotspotVoucher.update({
+              where: { id: hotspotVoucher.id },
+              data: { status: 'EXPIRED' }
+            });
             return res.json({
               result: 'reject',
               message: 'Voucher duration expired'
             });
           }
+        }
+
+        if (isHotspotVoucher && hotspotVoucher?.expiresAt) {
+          const secondsUntilExpiry = Math.floor((hotspotVoucher.expiresAt.getTime() - Date.now()) / 1000);
+          if (secondsUntilExpiry <= 0) {
+            console.log(`Voucher ${username} absolute expiry reached, rejecting connection`);
+            await prisma.hotspotVoucher.update({
+              where: { id: hotspotVoucher.id },
+              data: { status: 'EXPIRED' }
+            });
+            return res.json({
+              result: 'reject',
+              message: 'Voucher duration expired'
+            });
+          }
+          sessionTimeoutSeconds = sessionTimeoutSeconds === null ? secondsUntilExpiry : Math.min(sessionTimeoutSeconds, secondsUntilExpiry);
         }
 
         // Idle timeout
@@ -269,12 +290,13 @@ export const rlmController = {
         flatAttributes['reply:Framed-Protocol'] = 'PPP';
         
         // Add session timeout for hotspot
-        if (packageData) {
-          const sessionTimeout = rlmController.calculateSessionTimeout(packageData);
-          if (sessionTimeout > 0) {
-            flatAttributes['reply:Session-Timeout'] = sessionTimeout;
-          }
-        }
+        // Session timeout already computed earlier
+      }
+
+      if (sessionTimeoutSeconds !== null) {
+        const clampedTimeout = Math.max(1, Math.floor(sessionTimeoutSeconds));
+        flatAttributes['reply:Session-Timeout'] = clampedTimeout;
+        console.log(`Final Session-Timeout for ${username}: ${clampedTimeout} seconds`);
       }
 
       console.log('RADIUS Authorization response:', {
@@ -848,6 +870,5 @@ export const rlmController = {
     return new Date();
   }
 };
-
 
 

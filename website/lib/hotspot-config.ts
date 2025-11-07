@@ -1,7 +1,7 @@
 // Hotspot Configuration
 export const hotspotConfig = {
-  // Default organization ID (can be overridden by URL parameter)
-  defaultOrgId: 'cmfc3c2fa0001kwyk82la4cw7',
+  // Default organization ID (overridden via URL or env)
+  defaultOrgId: process.env.NEXT_PUBLIC_DEFAULT_ORG_ID ?? '',
   
   // API base URL
   apiUrl: 'https://ispinnacle.co.ke',

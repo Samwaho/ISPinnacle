@@ -11,6 +11,8 @@ import { useTRPC } from '@/trpc/client';
 import { useQuery, useMutation } from '@tanstack/react-query';
 import Image from 'next/image';
 import { ModeToggle } from '@/components/ModeToggle';
+import { hotspotConfig } from '@/lib/hotspot-config';
+import { MissingOrgConfig } from '@/components/hotspot/missing-org-config';
 
 interface Organization {
   id: string;
@@ -44,7 +46,9 @@ interface Voucher {
 
 export default function HotspotStatusPage() {
   const searchParams = useSearchParams();
-  const orgId = searchParams.get('org') || 'cmfc3c2fa0001kwyk82la4cw7';
+  const orgId = (searchParams.get('org') || hotspotConfig.defaultOrgId || '').trim();
+  const hasOrgId = Boolean(orgId);
+  const missingOrgMessage = 'Organization ID is required. Append ?org=... from MikroTik or set NEXT_PUBLIC_DEFAULT_ORG_ID.';
   const voucherCode = searchParams.get('voucher') || searchParams.get('username') || '';
   const rawLinkLogout = searchParams.get('link-logout') || '';
   const linkLoginOnly = searchParams.get('link-login-only') || '';
@@ -84,9 +88,11 @@ export default function HotspotStatusPage() {
   const trpc = useTRPC();
 
   // Fetch organization details
-  const { data: organizationData } = useQuery(
-    trpc.hotspot.getOrganization.queryOptions({ orgId })
-  );
+  const organizationQuery = trpc.hotspot.getOrganization.queryOptions({ orgId });
+  const { data: organizationData } = useQuery({
+    ...organizationQuery,
+    enabled: hasOrgId && (organizationQuery.enabled ?? true),
+  });
 
   // Connect voucher mutation
   const { mutate: connectVoucher } = useMutation(
@@ -143,8 +149,14 @@ export default function HotspotStatusPage() {
       return;
     }
 
+    if (!hasOrgId) {
+      setIsLoading(false);
+      toast.error(missingOrgMessage);
+      return;
+    }
+
     connectVoucher({ voucherCode });
-  }, [voucherCode, connectVoucher]);
+  }, [voucherCode, connectVoucher, hasOrgId, missingOrgMessage]);
 
   // Update remaining time
   useEffect(() => {
@@ -182,6 +194,10 @@ export default function HotspotStatusPage() {
   }, [voucherCode, checkVoucherStatus]);
 
   const organization = organizationData?.organization;
+
+  if (!hasOrgId) {
+    return <MissingOrgConfig page="status" />;
+  }
 
   // Helper – total duration in ms from package
   const getDurationInMs = (unit?: string): number => {
@@ -270,7 +286,7 @@ export default function HotspotStatusPage() {
                   </Button>
                 ) : null}
                 <Button 
-                  onClick={() => (window.location.href = `/hotspot/login?org=${orgId}`)}
+                  onClick={() => (window.location.href = `/hotspot/login?org=${encodeURIComponent(orgId)}`)}
                   className="w-full"
                 >
                   <Wifi className="h-4 w-4 mr-2" />
@@ -490,14 +506,14 @@ export default function HotspotStatusPage() {
         {/* Actions */}
         <div className="text-center space-y-4">
           <Button 
-            onClick={() => window.location.href = `/hotspot/logout?org=${orgId}`}
+            onClick={() => (window.location.href = `/hotspot/logout?org=${encodeURIComponent(orgId)}`)}
             variant="outline"
             className="mr-4"
           >
             Disconnect
           </Button>
           <Button 
-            onClick={() => window.location.href = `/hotspot/login?org=${orgId}`}
+            onClick={() => (window.location.href = `/hotspot/login?org=${encodeURIComponent(orgId)}`)}
           >
             <Wifi className="h-4 w-4 mr-2" />
             Get Another Voucher

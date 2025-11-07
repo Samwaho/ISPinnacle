@@ -12,6 +12,8 @@ import { useTRPC } from '@/trpc/client';
 import { useQuery, useMutation } from '@tanstack/react-query';
 import Image from 'next/image';
 import { ModeToggle } from '@/components/ModeToggle';
+import { hotspotConfig } from '@/lib/hotspot-config';
+import { MissingOrgConfig } from '@/components/hotspot/missing-org-config';
 
 interface Package {
   id: string;
@@ -27,7 +29,9 @@ interface Package {
 export default function HotspotLoginPage() {
   const searchParams = useSearchParams();
   const router = useRouter();
-  const orgId = searchParams.get('org') || 'cmfc3c2fa0001kwyk82la4cw7';
+  const orgId = (searchParams.get('org') || hotspotConfig.defaultOrgId || '').trim();
+  const hasOrgId = Boolean(orgId);
+  const missingOrgMessage = 'Organization ID is required. Append ?org=... from MikroTik or set NEXT_PUBLIC_DEFAULT_ORG_ID.';
   const linkLoginOnly = searchParams.get('link-login-only') || '';
   const linkOrig = searchParams.get('link-orig') || '';
   const chapId = searchParams.get('chap-id') || '';
@@ -71,18 +75,22 @@ export default function HotspotLoginPage() {
   };
 
   // Fetch organization details
-  const { data: organizationData } = useQuery(
-    trpc.hotspot.getOrganization.queryOptions({ orgId })
-  );
+  const organizationQuery = trpc.hotspot.getOrganization.queryOptions({ orgId });
+  const { data: organizationData } = useQuery({
+    ...organizationQuery,
+    enabled: hasOrgId && (organizationQuery.enabled ?? true),
+  });
 
   // Fetch packages
-  const { data: packagesData, isLoading: isLoadingPackages } = useQuery(
-    trpc.hotspot.getPackages.queryOptions({ organizationId: orgId })
-  );
+  const packagesQuery = trpc.hotspot.getPackages.queryOptions({ organizationId: orgId });
+  const { data: packagesData, isLoading: isLoadingPackages } = useQuery({
+    ...packagesQuery,
+    enabled: hasOrgId && (packagesQuery.enabled ?? true),
+  });
 
   // Immediately redirect connected users to status page
   useEffect(() => {
-    if (!existingVoucherParam) return;
+    if (!existingVoucherParam || !hasOrgId) return;
 
     let isMounted = true;
 
@@ -121,7 +129,7 @@ export default function HotspotLoginPage() {
     return () => {
       isMounted = false;
     };
-  }, [existingVoucherParam, orgId, linkLoginOnly, linkOrig, chapId, chapChallenge, router]);
+  }, [existingVoucherParam, orgId, hasOrgId, linkLoginOnly, linkOrig, chapId, chapChallenge, router]);
 
   // Purchase voucher mutation
   const { mutate: purchaseVoucher, isPending: isPurchasing } = useMutation(
@@ -222,6 +230,10 @@ export default function HotspotLoginPage() {
   };
 
   const attemptAutoLogin = async (code: string, alreadyValidated: boolean = false) => {
+    if (!hasOrgId) {
+      toast.error(missingOrgMessage);
+      return;
+    }
     try {
       // Validate voucher on server (also returns remaining time) unless already validated
       if (!alreadyValidated) {
@@ -308,6 +320,10 @@ export default function HotspotLoginPage() {
 
   // Purchase voucher
   const handlePurchaseVoucher = async () => {
+    if (!hasOrgId) {
+      toast.error(missingOrgMessage);
+      return;
+    }
     if (!selectedPackageId) {
       toast.error('Please select a package first');
       return;
@@ -372,6 +388,10 @@ export default function HotspotLoginPage() {
 
   // Connect with voucher
   const handleConnectVoucher = async () => {
+    if (!hasOrgId) {
+      toast.error(missingOrgMessage);
+      return;
+    }
     if (!voucherCode) {
       toast.error('Please enter the voucher code');
       return;
@@ -388,6 +408,10 @@ export default function HotspotLoginPage() {
 
   const organization = organizationData?.organization;
   const packages = packagesData?.packages || [];
+
+  if (!hasOrgId) {
+    return <MissingOrgConfig page="login" />;
+  }
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 dark:from-gray-900 dark:to-gray-800">

@@ -10,11 +10,15 @@ import { useTRPC } from '@/trpc/client';
 import { useQuery } from '@tanstack/react-query';
 import Image from 'next/image';
 import { ModeToggle } from '@/components/ModeToggle';
+import { hotspotConfig } from '@/lib/hotspot-config';
+import { MissingOrgConfig } from '@/components/hotspot/missing-org-config';
 
 
 export default function HotspotLogoutPage() {
   const searchParams = useSearchParams();
-  const orgId = searchParams.get('org') || 'cmfc3c2fa0001kwyk82la4cw7';
+  const orgId = (searchParams.get('org') || hotspotConfig.defaultOrgId || '').trim();
+  const hasOrgId = Boolean(orgId);
+  const missingOrgMessage = 'Organization ID is required. Append ?org=... from MikroTik or set NEXT_PUBLIC_DEFAULT_ORG_ID.';
   const rawLinkLogout = searchParams.get('link-logout') || '';
   const linkLoginOnly = searchParams.get('link-login-only') || '';
 
@@ -43,12 +47,20 @@ export default function HotspotLogoutPage() {
   const trpc = useTRPC();
 
   // Fetch organization details
-  const { data: organizationData } = useQuery(
-    trpc.hotspot.getOrganization.queryOptions({ orgId })
-  );
+  const organizationQuery = trpc.hotspot.getOrganization.queryOptions({ orgId });
+  const { data: organizationData } = useQuery({
+    ...organizationQuery,
+    enabled: hasOrgId && (organizationQuery.enabled ?? true),
+  });
+
+  const loginUrl = hasOrgId ? `/hotspot/login?org=${encodeURIComponent(orgId)}` : '/hotspot/login';
 
   // Handle logout
   const handleLogout = async () => {
+    if (!hasOrgId) {
+      toast.error(missingOrgMessage);
+      return;
+    }
     setIsLoggingOut(true);
     
     try {
@@ -62,7 +74,7 @@ export default function HotspotLogoutPage() {
         setIsLoggedOut(true);
         toast.success('Logout requested');
         setTimeout(() => {
-          window.location.href = `/hotspot/login?org=${orgId}`;
+          window.location.href = loginUrl;
         }, 2000);
       }
     } catch (error) {
@@ -74,6 +86,10 @@ export default function HotspotLogoutPage() {
   };
 
   const organization = organizationData?.organization;
+
+  if (!hasOrgId) {
+    return <MissingOrgConfig page="logout" />;
+  }
 
   if (isLoggedOut) {
     return (
@@ -121,7 +137,7 @@ export default function HotspotLogoutPage() {
                 Redirecting to login page in 3 seconds...
               </p>
               <Button 
-                onClick={() => window.location.href = `/hotspot/login?org=${orgId}`}
+                onClick={() => (window.location.href = loginUrl)}
                 className="w-full"
               >
                 <Wifi className="h-4 w-4 mr-2" />
@@ -212,7 +228,7 @@ export default function HotspotLogoutPage() {
             
             <Button 
               variant="outline" 
-              onClick={() => window.location.href = `/hotspot/status?org=${orgId}`}
+              onClick={() => window.location.href = `/hotspot/status?org=${encodeURIComponent(orgId)}`}
               className="w-full"
               disabled={isLoggingOut}
             >

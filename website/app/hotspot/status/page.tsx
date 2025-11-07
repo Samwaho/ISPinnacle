@@ -195,10 +195,6 @@ export default function HotspotStatusPage() {
 
   const organization = organizationData?.organization;
 
-  if (!hasOrgId) {
-    return <MissingOrgConfig page="status" />;
-  }
-
   // Helper – total duration in ms from package
   const getDurationInMs = (unit?: string): number => {
     switch (unit) {
@@ -227,6 +223,10 @@ export default function HotspotStatusPage() {
     const pct = totalMs > 0 ? Math.min(100, Math.round((usedMs / totalMs) * 100)) : 0;
     return { totalMs, remainingMs, usedMs, pct };
   }, [voucher]);
+
+  if (!hasOrgId) {
+    return <MissingOrgConfig page="status" />;
+  }
 
   if (isLoading) {
     return (

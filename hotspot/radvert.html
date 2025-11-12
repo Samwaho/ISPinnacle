@@ -7,14 +7,18 @@
 <meta http-equiv="expires" content="-1">
 <title>Internet hotspot - Advertisement</title>
 <link rel="stylesheet" href="css/style.css">
-<script src="config.js"></script>
+<script>
+  window.EXTERNAL_PORTAL_BASE = 'https://ispinnacle.co.ke';
+  window.EXTERNAL_PORTAL_ORG = 'cmhceijtv00032o2joxig9dc8';
+  window.__externalPortalConfigReady = true;
+</script>
 <script>
     var popup = '';
     
     // Get organization ID from URL parameter or set a default
     function getOrgId() {
         const urlParams = new URLSearchParams(window.location.search);
-        return urlParams.get('org') || window.EXTERNAL_PORTAL_ORG || 'cmhceijtv00032o2joxig9dc8';
+        return urlParams.get('org') || window.EXTERNAL_PORTAL_ORG || '';
     }
 
     // Get base API URL

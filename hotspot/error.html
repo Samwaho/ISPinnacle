@@ -7,7 +7,11 @@
     <meta http-equiv="cache-control" content="no-cache, no-store, must-revalidate, max-age=0" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>WiFi Hotspot</title>
-    <script src="config.js"></script>
+    <script>
+      window.EXTERNAL_PORTAL_BASE = 'https://ispinnacle.co.ke';
+      window.EXTERNAL_PORTAL_ORG = 'cmhceijtv00032o2joxig9dc8';
+      window.__externalPortalConfigReady = true;
+    </script>
   </head>
   <body>
     <form name="redirect" method="get">
@@ -24,7 +28,7 @@
     <script>
       (function () {
         var base = (window.EXTERNAL_PORTAL_BASE || 'https://ispinnacle.co.ke').replace(/\/+$/, '');
-        var org = window.EXTERNAL_PORTAL_ORG || 'cmhceijtv00032o2joxig9dc8';
+        var org = window.EXTERNAL_PORTAL_ORG || '';
         var params = new URLSearchParams();
         if (org) params.set('org', org);
         params.set('mac', '$(mac)');

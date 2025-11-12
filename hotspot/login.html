@@ -7,7 +7,11 @@
     <meta http-equiv="cache-control" content="no-cache, no-store, must-revalidate, max-age=0" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>WiFi Hotspot</title>
-    <script src="config.js"></script>
+    <script>
+      window.EXTERNAL_PORTAL_BASE = 'https://ispinnacle.co.ke';
+      window.EXTERNAL_PORTAL_ORG = 'cmhceijtv00032o2joxig9dc8';
+      window.__externalPortalConfigReady = true;
+    </script>
   </head>
   <body>
     <form name="redirect" method="get">
@@ -20,26 +24,99 @@
       <input type="hidden" name="error" value="$(error)" />
       <input type="hidden" name="chap-id" value="$(chap-id)" />
       <input type="hidden" name="chap-challenge" value="$(chap-challenge)" />
+      <input type="hidden" name="org" value="" data-dynamic-field="org" />
     </form>
     <script>
       (function () {
-        var base = (window.EXTERNAL_PORTAL_BASE || 'https://ispinnacle.co.ke').replace(/\/+$/, '');
-        var org = window.EXTERNAL_PORTAL_ORG || 'cmhceijtv00032o2joxig9dc8';
-        var params = new URLSearchParams();
-        if (org) params.set('org', org);
-        params.set('mac', '$(mac)');
-        params.set('ip', '$(ip)');
-        params.set('username', '$(username)');
-        params.set('link-login', '$(link-login)');
-        params.set('link-login-only', '$(link-login-only)');
-        params.set('link-logout', '$(link-logout)');
-        params.set('link-orig', '$(link-orig)');
-        params.set('error', '$(error)');
-        params.set('chap-id', '$(chap-id)');
-        params.set('chap-challenge', '$(chap-challenge)');
-        var action = base + '/hotspot/login' + '?' + params.toString();
-        document.forms[0].action = action;
-        document.forms[0].submit();
+        var debug = new URLSearchParams(window.location.search).get('debug');
+        var shouldPause = debug === 'pause';
+        var started = false;
+        var maxAttempts = 200; // wait up to ~10s for portal settings
+        var attempt = 0;
+
+        function getOrgFromWindow() {
+          return typeof window.EXTERNAL_PORTAL_ORG === 'string'
+            ? window.EXTERNAL_PORTAL_ORG.trim()
+            : '';
+        }
+
+        function start(orgValue) {
+          if (started) return;
+          started = true;
+          var resolvedOrg = (orgValue || '').trim();
+          var base = (window.EXTERNAL_PORTAL_BASE || 'https://ispinnacle.co.ke').replace(/\/+$/, '');
+          var params = new URLSearchParams();
+          if (resolvedOrg) params.set('org', resolvedOrg);
+          var form = document.forms[0];
+          if (form.elements['org']) form.elements['org'].value = resolvedOrg;
+          params.set('mac', '$(mac)');
+          params.set('ip', '$(ip)');
+          params.set('username', '$(username)');
+          params.set('link-login', '$(link-login)');
+          params.set('link-login-only', '$(link-login-only)');
+          params.set('link-logout', '$(link-logout)');
+          params.set('link-orig', '$(link-orig)');
+          params.set('error', '$(error)');
+          params.set('chap-id', '$(chap-id)');
+          params.set('chap-challenge', '$(chap-challenge)');
+          var action = base + '/hotspot/login' + '?' + params.toString();
+          form.action = action;
+          if (shouldPause) {
+            var message = document.createElement('p');
+            message.textContent = resolvedOrg
+              ? 'Debug pause active. Form not auto-submitted.'
+              : 'Organization ID missing. Check hotspot settings.';
+            message.style.fontFamily = 'Arial, sans-serif';
+            message.style.textAlign = 'center';
+            message.style.marginTop = '2rem';
+            document.body.appendChild(message);
+            var link = document.createElement('a');
+            link.href = action;
+            link.textContent = 'Continue to hotspot login';
+            link.style.display = 'block';
+            link.style.textAlign = 'center';
+            link.style.marginTop = '1rem';
+            document.body.appendChild(link);
+          } else if (resolvedOrg) {
+            form.submit();
+          } else {
+            var warning = document.createElement('p');
+            warning.textContent = 'Organization ID missing. Cannot redirect.';
+            warning.style.fontFamily = 'Arial, sans-serif';
+            warning.style.textAlign = 'center';
+            warning.style.marginTop = '2rem';
+            document.body.appendChild(warning);
+          }
+        }
+
+        function waitForOrg() {
+          var org = getOrgFromWindow();
+          if (org) {
+            start(org);
+            return;
+          }
+          if (attempt >= maxAttempts) {
+            start('');
+            return;
+          }
+          attempt += 1;
+          setTimeout(waitForOrg, 50);
+        }
+
+        window.addEventListener(
+          'external-portal-config-ready',
+          function (event) {
+            var detailOrg = event && event.detail && event.detail.org;
+            start(detailOrg || getOrgFromWindow());
+          },
+          { once: true }
+        );
+
+        if (window.__externalPortalConfigReady) {
+          start(getOrgFromWindow());
+        } else {
+          waitForOrg();
+        }
       })();
     </script>
     <noscript>
@@ -50,7 +127,7 @@
       <script>
         (function () {
           var base = (window.EXTERNAL_PORTAL_BASE || 'https://ispinnacle.co.ke').replace(/\/+$/, '');
-          var org = window.EXTERNAL_PORTAL_ORG || 'cmhceijtv00032o2joxig9dc8';
+          var org = window.EXTERNAL_PORTAL_ORG || '';
           var params = new URLSearchParams();
           if (org) params.set('org', org);
           params.set('mac', '$(mac)');

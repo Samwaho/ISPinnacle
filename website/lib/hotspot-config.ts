@@ -1,8 +1,5 @@
 // Hotspot Configuration
 export const hotspotConfig = {
-  // Default organization ID (overridden via URL or env)
-  defaultOrgId: process.env.NEXT_PUBLIC_DEFAULT_ORG_ID ?? '',
-  
   // API base URL
   apiUrl: 'https://ispinnacle.co.ke',
   
@@ -169,8 +166,8 @@ export const hotspotUtils = {
     return /^[A-Z0-9]{8}$/.test(code);
   },
 
-  // Get organization ID from URL or use default
+  // Get organization ID from URL (required for hotspot pages)
   getOrganizationId: (searchParams: URLSearchParams): string => {
-    return searchParams.get('org') || hotspotConfig.defaultOrgId;
+    return searchParams.get('org') || '';
   },
 };

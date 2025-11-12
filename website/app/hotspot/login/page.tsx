@@ -12,7 +12,6 @@ import { useTRPC } from '@/trpc/client';
 import { useQuery, useMutation } from '@tanstack/react-query';
 import Image from 'next/image';
 import { ModeToggle } from '@/components/ModeToggle';
-import { hotspotConfig } from '@/lib/hotspot-config';
 import { MissingOrgConfig } from '@/components/hotspot/missing-org-config';
 
 interface Package {
@@ -29,9 +28,9 @@ interface Package {
 export default function HotspotLoginPage() {
   const searchParams = useSearchParams();
   const router = useRouter();
-  const orgId = (searchParams.get('org') || hotspotConfig.defaultOrgId || '').trim();
+  const orgId = (searchParams.get('org') || '').trim();
   const hasOrgId = Boolean(orgId);
-  const missingOrgMessage = 'Organization ID is required. Append ?org=... from MikroTik or set NEXT_PUBLIC_DEFAULT_ORG_ID.';
+  const missingOrgMessage = 'Organization ID is required. Append ?org=... from MikroTik.';
   const linkLoginOnly = searchParams.get('link-login-only') || '';
   const linkOrig = searchParams.get('link-orig') || '';
   const chapId = searchParams.get('chap-id') || '';

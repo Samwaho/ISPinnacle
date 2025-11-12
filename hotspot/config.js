@@ -5,5 +5,5 @@ window.EXTERNAL_PORTAL_BASE = 'https://ispinnacle.co.ke';
 
 // Optional: force an organization ID to pass as ?org=...
 // Leave empty to let the portal use its own default/org detection
-window.EXTERNAL_PORTAL_ORG = 'cmfc3c2fa0001kwyk82la4cw7';
+window.EXTERNAL_PORTAL_ORG = 'cmhceijtv00032o2joxig9dc8';
 

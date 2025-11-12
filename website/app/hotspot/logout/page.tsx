@@ -10,15 +10,14 @@ import { useTRPC } from '@/trpc/client';
 import { useQuery } from '@tanstack/react-query';
 import Image from 'next/image';
 import { ModeToggle } from '@/components/ModeToggle';
-import { hotspotConfig } from '@/lib/hotspot-config';
 import { MissingOrgConfig } from '@/components/hotspot/missing-org-config';
 
 
 export default function HotspotLogoutPage() {
   const searchParams = useSearchParams();
-  const orgId = (searchParams.get('org') || hotspotConfig.defaultOrgId || '').trim();
+  const orgId = (searchParams.get('org') || '').trim();
   const hasOrgId = Boolean(orgId);
-  const missingOrgMessage = 'Organization ID is required. Append ?org=... from MikroTik or set NEXT_PUBLIC_DEFAULT_ORG_ID.';
+  const missingOrgMessage = 'Organization ID is required. Append ?org=... from MikroTik.';
   const rawLinkLogout = searchParams.get('link-logout') || '';
   const linkLoginOnly = searchParams.get('link-login-only') || '';
 

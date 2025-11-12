@@ -474,7 +474,7 @@ model MpesaConfiguration {
   consumerSecret String
   shortCode String
   passKey String
-  transactionType MpesaTransactionType @default(PAYBILL)
+  transactionType MpesaTransactionType
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 

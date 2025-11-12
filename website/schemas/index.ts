@@ -237,7 +237,7 @@ export const mpesaConfigurationSchema = z.object({
     consumerSecret: z.string().min(1, "Consumer secret is required"),
     shortCode: z.string().min(1, "Short code is required"),
     passKey: z.string().min(1, "Pass key is required"),
-    transactionType: z.enum(["PAYBILL", "BUYGOODS"]).default("PAYBILL"),
+    transactionType: z.enum(["PAYBILL", "BUYGOODS"]),
   });
 
 // Kopo Kopo configuration

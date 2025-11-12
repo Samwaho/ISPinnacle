@@ -4,7 +4,7 @@ import {
   processCustomerPayment,
   storeMpesaTransaction,
 } from "@/lib/server-hooks";
-import { MpesaTransactionType, PaymentGateway, TransactionSource } from "@/lib/generated/prisma";
+import { PaymentGateway, TransactionSource } from "@/lib/generated/prisma";
 import { SmsService } from '@/lib/sms';
 
 export async function POST(request: NextRequest) {
@@ -69,21 +69,26 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // Validate extracted data
-    if (typeof amount !== 'number' || isNaN(amount) || amount <= 0) {
-      console.error("Invalid amount in callback:", amount);
-      return NextResponse.json(
-        { success: false, message: "Invalid transaction amount" },
-        { status: 400 }
-      );
-    }
+    const isSuccessful = ResultCode === 0;
 
-    if (!phoneNumber) {
-      console.error("Missing phone number in callback");
-      return NextResponse.json(
-        { success: false, message: "Missing phone number" },
-        { status: 400 }
-      );
+    if (isSuccessful) {
+      if (typeof amount !== 'number' || isNaN(amount) || amount <= 0) {
+        console.error("Invalid amount in successful callback:", amount);
+        return NextResponse.json(
+          { success: false, message: "Invalid transaction amount" },
+          { status: 400 }
+        );
+      }
+
+      if (!phoneNumber) {
+        console.error("Missing phone number in successful callback");
+        return NextResponse.json(
+          { success: false, message: "Missing phone number" },
+          { status: 400 }
+        );
+      }
+    } else if (typeof amount !== 'number' || isNaN(amount)) {
+      amount = 0; // Failed callbacks may omit the amount; normalize for logging
     }
 
     // Parse transaction date from M-Pesa format (YYYYMMDDHHMMSS) to Date
@@ -130,15 +135,27 @@ export async function POST(request: NextRequest) {
 
     // If it's a hotspot voucher, handle it differently
     if (hotspotVoucher) {
+      const hotspotMpesaConfig = hotspotVoucher.organization.mpesaConfiguration;
+      if (!hotspotMpesaConfig || !hotspotMpesaConfig.transactionType || !hotspotMpesaConfig.shortCode) {
+        console.error("Hotspot voucher callback missing M-Pesa configuration for organization", hotspotVoucher.organizationId);
+        return NextResponse.json(
+          { success: false, message: "Organization M-Pesa configuration incomplete" },
+          { status: 500 }
+        );
+      }
+
+      const hotspotTransactionType = hotspotMpesaConfig.transactionType;
+      const hotspotShortCode = hotspotMpesaConfig.shortCode;
+
       if (ResultCode === 0) {
         // Store M-Pesa transaction for hotspot voucher
         try {
           await storeMpesaTransaction(
             mpesaReceiptNumber || CheckoutRequestID,
             amount,
-            hotspotVoucher.organization.mpesaConfiguration?.transactionType || MpesaTransactionType.PAYBILL,
+            hotspotTransactionType,
             transactionDateTime,
-            hotspotVoucher.organization.mpesaConfiguration?.shortCode || '',
+            hotspotShortCode,
             String(phoneNumber),
             String(phoneNumber),
             hotspotVoucher.voucherCode, // Use voucher code as account reference
@@ -261,14 +278,30 @@ export async function POST(request: NextRequest) {
       },
     });
 
+    if (!paymentLink) {
+      console.error("Payment link not found for CheckoutRequestID:", CheckoutRequestID);
+      return NextResponse.json(
+        { success: false, message: "Payment link not found for STK callback" },
+        { status: 404 }
+      );
+    }
+
+    const mpesaConfig = paymentLink.organization.mpesaConfiguration;
+    if (!mpesaConfig || !mpesaConfig.shortCode || !mpesaConfig.transactionType) {
+      console.error("Payment link callback missing M-Pesa configuration for organization", paymentLink.organizationId);
+      return NextResponse.json(
+        { success: false, message: "Organization M-Pesa configuration incomplete" },
+        { status: 500 }
+      );
+    }
+
     // Derive account reference from customer and business short code from organization
-    const AccountReference = paymentLink
-      ? paymentLink.customer.pppoeUsername ||
-        paymentLink.customer.hotspotUsername ||
-        CheckoutRequestID
-      : CheckoutRequestID;
-    const businessShortCode = paymentLink?.organization?.mpesaConfiguration?.shortCode || '';
-    const transactionType = paymentLink?.organization?.mpesaConfiguration?.transactionType || MpesaTransactionType.PAYBILL;
+    const AccountReference =
+      paymentLink.customer.pppoeUsername ||
+      paymentLink.customer.hotspotUsername ||
+      CheckoutRequestID;
+    const businessShortCode = mpesaConfig.shortCode;
+    const transactionType = mpesaConfig.transactionType;
 
     console.log("Processing STK callback:", {
       CheckoutRequestID,

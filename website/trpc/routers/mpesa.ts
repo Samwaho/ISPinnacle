@@ -93,6 +93,19 @@ export class MpesaAPI {
       TransactionDesc: description || "Payment",
     };
 
+    // Log the outgoing payload (omit sensitive password)
+    console.log("Initiating STK Push with payload:", {
+      BusinessShortCode: payload.BusinessShortCode,
+      Timestamp: payload.Timestamp,
+      TransactionType: payload.TransactionType,
+      Amount: payload.Amount,
+      PartyA: payload.PartyA,
+      PartyB: payload.PartyB,
+      CallBackURL: payload.CallBackURL,
+      AccountReference: payload.AccountReference,
+      TransactionDesc: payload.TransactionDesc,
+    });
+
     const response = await fetch(`${this.baseUrl}/mpesa/stkpush/v1/processrequest`, {
       method: 'POST',
       headers: {

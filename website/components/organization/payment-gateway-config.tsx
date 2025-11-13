@@ -96,6 +96,7 @@ export const PaymentGatewayConfig = ({ organizationId }: PaymentGatewayConfigPro
           consumerKey: "",
           consumerSecret: "",
           shortCode: "",
+          partyB: "",
           passKey: "",
           transactionType: "PAYBILL",
           updatedAt: new Date(),
@@ -253,6 +254,12 @@ export const PaymentGatewayConfig = ({ organizationId }: PaymentGatewayConfigPro
                       <p className="text-sm font-medium text-muted-foreground">Short Code</p>
                       <p className="text-sm">{mpesaConfig.configuration.shortCode}</p>
                     </div>
+                    {mpesaConfig.configuration.partyB && (
+                      <div>
+                        <p className="text-sm font-medium text-muted-foreground">Store Number (PartyB)</p>
+                        <p className="text-sm">{mpesaConfig.configuration.partyB}</p>
+                      </div>
+                    )}
                     <div>
                       <p className="text-sm font-medium text-muted-foreground">Transaction Type</p>
                       <p className="text-sm capitalize">{mpesaConfig.configuration.transactionType.toLowerCase()}</p>

@@ -197,6 +197,7 @@ export const hotspotRouter = createTRPCRouter({
               consumerKey: config.consumerKey,
               consumerSecret: config.consumerSecret,
               shortCode: config.shortCode,
+              partyB: config.partyB || config.shortCode,
               passKey: config.passKey,
               transactionType: config.transactionType,
             });

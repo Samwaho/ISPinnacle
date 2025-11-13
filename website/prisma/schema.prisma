@@ -473,6 +473,7 @@ model MpesaConfiguration {
   consumerKey String
   consumerSecret String
   shortCode String
+  partyB String?
   passKey String
   transactionType MpesaTransactionType
   createdAt DateTime @default(now())

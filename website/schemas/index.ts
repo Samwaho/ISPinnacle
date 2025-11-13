@@ -236,8 +236,17 @@ export const mpesaConfigurationSchema = z.object({
     consumerKey: z.string().min(1, "Consumer key is required"),
     consumerSecret: z.string().min(1, "Consumer secret is required"),
     shortCode: z.string().min(1, "Short code is required"),
+    partyB: z.string().optional(),
     passKey: z.string().min(1, "Pass key is required"),
     transactionType: z.enum(["PAYBILL", "BUYGOODS"]),
+  }).superRefine((data, ctx) => {
+    if (data.transactionType === "BUYGOODS" && !data.partyB?.trim()) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["partyB"],
+        message: "Store number / PartyB is required for Buy Goods configurations",
+      });
+    }
   });
 
 // Kopo Kopo configuration

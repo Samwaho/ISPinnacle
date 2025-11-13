@@ -16,6 +16,7 @@ export class MpesaAPI {
   private consumerKey: string;
   private consumerSecret: string;
   private shortCode: string;
+  private partyB?: string;
   private passKey: string;
   private transactionType: "PAYBILL" | "BUYGOODS";
   private baseUrl: string;
@@ -24,12 +25,14 @@ export class MpesaAPI {
     consumerKey: string;
     consumerSecret: string;
     shortCode: string;
+    partyB?: string;
     passKey: string;
     transactionType: "PAYBILL" | "BUYGOODS";
   }) {
     this.consumerKey = config.consumerKey;
     this.consumerSecret = config.consumerSecret;
     this.shortCode = config.shortCode;
+    this.partyB = config.partyB;
     this.passKey = config.passKey;
     this.transactionType = config.transactionType;
     this.baseUrl = process.env.MPESA_BASE_URL
@@ -124,7 +127,7 @@ export class MpesaAPI {
       TransactionType: this.transactionType === "PAYBILL" ? "CustomerPayBillOnline" : "CustomerBuyGoodsOnline",
       Amount: sanitizedAmount,
       PartyA: normalizedPhone,
-      PartyB: this.shortCode,
+      PartyB: this.partyB || this.shortCode,
       PhoneNumber: normalizedPhone,
       CallBackURL: callbackUrl,
       AccountReference: accountReference,
@@ -272,6 +275,7 @@ export const mpesaRouter = createTRPCRouter({
           consumerKey: input.consumerKey,
           consumerSecret: input.consumerSecret,
           shortCode: input.shortCode,
+          partyB: input.partyB,
           passKey: input.passKey,
           transactionType: input.transactionType,
         },
@@ -280,6 +284,7 @@ export const mpesaRouter = createTRPCRouter({
           consumerKey: input.consumerKey,
           consumerSecret: input.consumerSecret,
           shortCode: input.shortCode,
+          partyB: input.partyB,
           passKey: input.passKey,
           transactionType: input.transactionType,
         },
@@ -291,6 +296,7 @@ export const mpesaRouter = createTRPCRouter({
         configuration: {
           id: configuration.id,
           shortCode: configuration.shortCode,
+          partyB: configuration.partyB,
           transactionType: configuration.transactionType,
           createdAt: configuration.createdAt,
           updatedAt: configuration.updatedAt,
@@ -328,6 +334,7 @@ export const mpesaRouter = createTRPCRouter({
           consumerKey: configuration.consumerKey,
           consumerSecret: configuration.consumerSecret,
           shortCode: configuration.shortCode,
+          partyB: configuration.partyB,
           passKey: configuration.passKey,
           transactionType: configuration.transactionType,
           createdAt: configuration.createdAt,
@@ -358,6 +365,7 @@ export const mpesaRouter = createTRPCRouter({
           consumerKey: configuration.consumerKey,
           consumerSecret: configuration.consumerSecret,
           shortCode: configuration.shortCode,
+          partyB: configuration.partyB || configuration.shortCode,
           passKey: configuration.passKey,
           transactionType: configuration.transactionType,
         });
@@ -413,6 +421,7 @@ export const mpesaRouter = createTRPCRouter({
           consumerKey: configuration.consumerKey,
           consumerSecret: configuration.consumerSecret,
           shortCode: configuration.shortCode,
+          partyB: configuration.partyB || configuration.shortCode,
           passKey: configuration.passKey,
           transactionType: configuration.transactionType,
         });
@@ -463,6 +472,7 @@ export const mpesaRouter = createTRPCRouter({
           consumerKey: configuration.consumerKey,
           consumerSecret: configuration.consumerSecret,
           shortCode: configuration.shortCode,
+          partyB: configuration.partyB || configuration.shortCode,
           passKey: configuration.passKey,
           transactionType: configuration.transactionType,
         });

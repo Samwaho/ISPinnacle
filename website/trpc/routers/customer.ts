@@ -881,6 +881,7 @@ export const customerRouter = createTRPCRouter({
             consumerKey: paymentLink.organization.mpesaConfiguration.consumerKey,
             consumerSecret: paymentLink.organization.mpesaConfiguration.consumerSecret,
             shortCode: paymentLink.organization.mpesaConfiguration.shortCode,
+            partyB: paymentLink.organization.mpesaConfiguration.partyB || paymentLink.organization.mpesaConfiguration.shortCode,
             passKey: paymentLink.organization.mpesaConfiguration.passKey,
             transactionType: paymentLink.organization.mpesaConfiguration.transactionType,
           });

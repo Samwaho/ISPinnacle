@@ -23,8 +23,17 @@ const mpesaConfigSchema = z.object({
   consumerKey: z.string().min(1, "Consumer key is required"),
   consumerSecret: z.string().min(1, "Consumer secret is required"),
   shortCode: z.string().min(1, "Short code is required"),
+  partyB: z.string().optional(),
   passKey: z.string().min(1, "Pass key is required"),
   transactionType: z.enum(["PAYBILL", "BUYGOODS"]),
+}).superRefine((data, ctx) => {
+  if (data.transactionType === "BUYGOODS" && !data.partyB?.trim()) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ["partyB"],
+      message: "Store number (PartyB) is required for Buy Goods setups",
+    });
+  }
 });
 
 type MpesaConfigFormData = z.infer<typeof mpesaConfigSchema>;
@@ -36,6 +45,7 @@ interface PaymentGatewayEditFormProps {
     consumerKey: string;
     consumerSecret: string;
     shortCode: string;
+    partyB?: string | null;
     passKey: string;
     transactionType: "PAYBILL" | "BUYGOODS";
     updatedAt: Date;
@@ -57,6 +67,7 @@ export const PaymentGatewayEditForm = ({
       consumerKey: configuration.consumerKey || "",
       consumerSecret: configuration.consumerSecret || "",
       shortCode: configuration.shortCode || "",
+      partyB: configuration.partyB || "",
       passKey: configuration.passKey || "",
       transactionType: configuration.transactionType || "PAYBILL",
     },
@@ -161,6 +172,26 @@ export const PaymentGatewayEditForm = ({
                           {...field}
                         />
                       </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <FormField
+                  control={form.control}
+                  name="partyB"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Store Number (PartyB)</FormLabel>
+                      <FormControl>
+                        <Input
+                          placeholder="Enter till/store number used as PartyB"
+                          {...field}
+                        />
+                      </FormControl>
+                      <p className="text-xs text-muted-foreground">
+                        Required for Buy Goods setups where the settlement till differs from the business short code.
+                      </p>
                       <FormMessage />
                     </FormItem>
                   )}

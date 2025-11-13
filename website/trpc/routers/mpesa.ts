@@ -164,7 +164,7 @@ export class MpesaAPI {
   async checkPaymentStatus(checkoutRequestId: string) {
     const accessToken = await this.getAccessToken();
     const timestamp = this.generateTimestamp();
-    const password = this.generatePassword();
+    const password = this.generatePassword(timestamp);
 
     const payload = {
       BusinessShortCode: this.shortCode,

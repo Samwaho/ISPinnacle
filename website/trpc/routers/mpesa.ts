@@ -6,6 +6,7 @@ import { OrganizationPermission } from "@/lib/generated/prisma";
 import { hasPermissions } from "@/lib/server-hooks";
 import crypto from "crypto";
 import { mpesaConfigurationSchema, stkPushSchema, paymentStatusSchema, c2bRegisterSchema, c2bSimulateSchema } from "@/schemas";
+import { hotspotUtils } from "@/lib/hotspot-config";
 
 // M-Pesa API schemas
 
@@ -68,29 +69,66 @@ export class MpesaAPI {
     return `${year}${month}${day}${hour}${minute}${second}`;
   }
 
-  private generatePassword(): string {
-    const timestamp = this.generateTimestamp();
+  private generatePassword(timestamp: string): string {
     const password = `${this.shortCode}${this.passKey}${timestamp}`;
     return Buffer.from(password).toString('base64');
+  }
+
+  private sanitizeAccountReference(reference: string): string {
+    const fallback = 'HOTSPOT';
+    const cleaned = (reference || '')
+      .replace(/[^A-Za-z0-9]/g, '')
+      .toUpperCase();
+    return (cleaned || fallback).slice(0, 12);
+  }
+
+  private sanitizeDescription(description?: string): string {
+    const fallback = 'Payment';
+    const cleaned = (description || fallback)
+      .replace(/[^A-Za-z0-9\s\-\.,]/g, ' ')
+      .replace(/\s+/g, ' ')
+      .trim();
+    return (cleaned || fallback).slice(0, 13);
+  }
+
+  private normalizePhoneNumber(phoneNumber: string): string {
+    const normalized = hotspotUtils.normalizePhoneNumber(phoneNumber);
+    if (!normalized) {
+      throw new Error(`Invalid phone number supplied for STK push: ${phoneNumber}`);
+    }
+    return normalized;
+  }
+
+  private getCallbackUrl(path: string): string {
+    const base = process.env.CALLBACK_URL?.replace(/\/$/, '');
+    if (!base) {
+      throw new Error("CALLBACK_URL environment variable is not set");
+    }
+    return `${base}${path.startsWith('/') ? '' : '/'}${path}`;
   }
 
   async initiateSTKPush(phoneNumber: string, amount: number, reference: string, description?: string) {
     const accessToken = await this.getAccessToken();
     const timestamp = this.generateTimestamp();
-    const password = this.generatePassword();
+    const password = this.generatePassword(timestamp);
+    const normalizedPhone = this.normalizePhoneNumber(phoneNumber);
+    const accountReference = this.sanitizeAccountReference(reference);
+    const transactionDesc = this.sanitizeDescription(description);
+    const callbackUrl = this.getCallbackUrl('/api/mp/callback');
+    const sanitizedAmount = Math.max(1, Math.round(amount));
 
     const payload = {
       BusinessShortCode: this.shortCode,
       Password: password,
       Timestamp: timestamp,
       TransactionType: this.transactionType === "PAYBILL" ? "CustomerPayBillOnline" : "CustomerBuyGoodsOnline",
-      Amount: Math.round(amount),
-      PartyA: phoneNumber,
+      Amount: sanitizedAmount,
+      PartyA: normalizedPhone,
       PartyB: this.shortCode,
-      PhoneNumber: phoneNumber,
-      CallBackURL: `${process.env.CALLBACK_URL}/api/mp/callback`,
-      AccountReference: reference,
-      TransactionDesc: description || "Payment",
+      PhoneNumber: normalizedPhone,
+      CallBackURL: callbackUrl,
+      AccountReference: accountReference,
+      TransactionDesc: transactionDesc,
     };
 
     // Log the outgoing payload (omit sensitive password)

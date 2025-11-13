@@ -5,6 +5,7 @@ import { TRPCError } from "@trpc/server";
 import { OrganizationPackageType, PaymentGateway, VoucherStatus } from "@/lib/generated/prisma";
 import { MpesaAPI } from "./mpesa";
 import { KopoKopoAPI } from "./kopokopo";
+import { hotspotUtils } from "@/lib/hotspot-config";
 
 // Helper function to convert duration to milliseconds
 function getDurationInMs(durationType: string): number {
@@ -102,6 +103,14 @@ export const hotspotRouter = createTRPCRouter({
     }))
     .mutation(async ({ input }) => {
       const { organizationId, packageId, phoneNumber } = input;
+      const normalizedPhoneNumber = hotspotUtils.normalizePhoneNumber(phoneNumber);
+
+      if (!normalizedPhoneNumber) {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: "Invalid phone number. Use 07XXXXXXXX, 01XXXXXXXX or 2547XXXXXXXX.",
+        });
+      }
 
       // Verify organization exists
       const organization = await prisma.organization.findUnique({
@@ -148,7 +157,7 @@ export const hotspotRouter = createTRPCRouter({
           voucherCode,
           organizationId,
           packageId,
-          phoneNumber,
+          phoneNumber: normalizedPhoneNumber,
           amount: packageData.price,
           status: 'PENDING',
           expiresAt,
@@ -193,7 +202,7 @@ export const hotspotRouter = createTRPCRouter({
             });
 
             const result = await mpesaAPI.initiateSTKPush(
-              phoneNumber,
+              normalizedPhoneNumber,
               packageData.price,
               voucher.voucherCode,
               `Hotspot ${packageData.name}`
@@ -243,7 +252,7 @@ export const hotspotRouter = createTRPCRouter({
             });
 
             const result = await k2.initiateIncomingPayment({
-              phoneNumber,
+              phoneNumber: normalizedPhoneNumber,
               amount: packageData.price,
               reference,
               description: `Hotspot ${packageData.name}`,

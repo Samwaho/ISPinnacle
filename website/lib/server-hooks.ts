@@ -159,10 +159,14 @@ export const processCustomerPayment = async (
     daysToAdd = packageDays * ratio;
   }
 
-  // Calculate new expiry date from current time (when payment is made)
-  const currentTime = new Date();
+  // Calculate new expiry date; extend from current expiry if still active
+  const now = new Date();
+  const currentExpiry =
+    customer.expiryDate && customer.expiryDate > now
+      ? new Date(customer.expiryDate)
+      : now;
   const newExpiry = new Date(
-    currentTime.getTime() + daysToAdd * 24 * 60 * 60 * 1000
+    currentExpiry.getTime() + daysToAdd * 24 * 60 * 60 * 1000
   );
 
   // Update customer expiry date

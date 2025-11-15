@@ -393,7 +393,11 @@ export const PackageForm = ({ mode = "create" }: PackageFormProps) => {
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel>Duration Type</FormLabel>
-                    <Select onValueChange={field.onChange} value={field.value}>
+                    <Select
+                      key={`duration-type-${field.value ?? "none"}`}
+                      onValueChange={field.onChange}
+                      value={field.value ?? undefined}
+                    >
                       <FormControl>
                         <SelectTrigger>
                           <SelectValue placeholder="Select duration type" />
@@ -429,7 +433,11 @@ export const PackageForm = ({ mode = "create" }: PackageFormProps) => {
                   render={({ field }) => (
                     <FormItem>
                       <FormLabel>Package Type</FormLabel>
-                      <Select onValueChange={field.onChange} value={field.value}>
+                      <Select
+                        key={`package-type-${field.value ?? "none"}`}
+                        onValueChange={field.onChange}
+                        value={field.value ?? undefined}
+                      >
                         <FormControl>
                           <SelectTrigger>
                             <SelectValue placeholder="Select package type" />

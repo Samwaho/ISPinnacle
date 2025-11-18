@@ -493,10 +493,6 @@ export default function HotspotLoginPage() {
                     <CardContent>
                       <div className="space-y-2">
                         <div className="flex items-center text-sm text-gray-600 dark:text-gray-400">
-                          <Wifi className="h-4 w-4 mr-2" />
-                          {pkg.downloadSpeed} Mbps
-                        </div>
-                        <div className="flex items-center text-sm text-gray-600 dark:text-gray-400">
                           <Clock className="h-4 w-4 mr-2" />
                           {pkg.duration} {formatDurationUnit(pkg.durationType, pkg.duration)}
                         </div>

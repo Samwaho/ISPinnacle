@@ -46,6 +46,8 @@ const permissionLabels: Record<OrganizationPermission, string> = {
   [OrganizationPermission.MANAGE_EXPENSES]: "Manage Expenses",
   [OrganizationPermission.VIEW_SMS_CONFIGURATION]: "View SMS Configuration",
   [OrganizationPermission.MANAGE_SMS_CONFIGURATION]: "Manage SMS Configuration",
+  [OrganizationPermission.VIEW_DEVICES]: "View Devices",
+  [OrganizationPermission.MANAGE_DEVICES]: "Manage Devices",
 };
 
 export const RoleCreateForm = ({

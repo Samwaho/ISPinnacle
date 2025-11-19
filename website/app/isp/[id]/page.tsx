@@ -275,9 +275,9 @@ const DashboardPage = () => {
                 </div>
               </div>
             )}
-          </CardContent>
-        </Card>
-      </div>
+      </CardContent>
+    </Card>
+  </div>
 
       {/* Package distribution */}
       <Card>

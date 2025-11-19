@@ -344,6 +344,8 @@ export const organizationRouter = createTRPCRouter({
           canManageMembers: false,
           canManageRoles: false,
           canManageSettings: false,
+          canViewDevices: false,
+          canManageDevices: false,
           isOwner: false,
         };
       }
@@ -369,6 +371,8 @@ export const organizationRouter = createTRPCRouter({
         canManageExpenses: permissions.includes(OrganizationPermission.MANAGE_EXPENSES),
         canViewSms: permissions.includes(OrganizationPermission.VIEW_ORGANIZATION_DETAILS),
         canManageSms: permissions.includes(OrganizationPermission.MANAGE_SETTINGS),
+        canViewDevices: permissions.includes(OrganizationPermission.VIEW_DEVICES),
+        canManageDevices: permissions.includes(OrganizationPermission.MANAGE_DEVICES),
         isOwner: organization?.ownerId === ctx.session.user.id,
       };
     }),

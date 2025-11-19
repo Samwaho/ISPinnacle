@@ -1,0 +1,32 @@
+{
+  "name": "routeros-api",
+  "version": "0.1.0",
+  "description": "RouterOS control plane for Mikrotik devices",
+  "main": "dist/server.js",
+  "scripts": {
+    "dev": "ts-node-dev --respawn --transpile-only src/server.ts",
+    "build": "tsc --project tsconfig.json",
+    "start": "node dist/server.js",
+    "lint": "tsc --noEmit"
+  },
+  "keywords": [
+    "routeros",
+    "mikrotik",
+    "wireguard"
+  ],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "dependencies": {
+    "@fastify/cors": "^8.4.2",
+    "dotenv": "^16.4.7",
+    "fastify": "^4.27.0",
+    "node-routeros": "^1.0.0",
+    "zod": "^3.23.8"
+  },
+  "devDependencies": {
+    "@types/node": "^20.11.30",
+    "ts-node-dev": "^2.0.0",
+    "typescript": "^5.6.3"
+  }
+}

@@ -35,6 +35,8 @@ enum OrganizationPermission {
   MANAGE_CUSTOMERS
   VIEW_SMS_CONFIGURATION
   MANAGE_SMS_CONFIGURATION
+  VIEW_DEVICES
+  MANAGE_DEVICES
 }
 
 enum OrganizationInvitationStatus {
@@ -92,6 +94,18 @@ enum ConnectionStatus {
   ONLINE
   OFFLINE
   EXPIRED
+}
+
+enum OrganizationDeviceType {
+  MIKROTIK
+  OTHER
+}
+
+enum OrganizationDeviceStatus {
+  ONLINE
+  OFFLINE
+  MAINTENANCE
+  UNKNOWN
 }
 model User {
   id            String          @id @default(cuid())
@@ -196,6 +210,7 @@ model Organization {
   smsConfiguration SMSConfiguration?
   smsTemplates SMSTemplate[]
   hotspotVouchers HotspotVoucher[]
+  devices OrganizationDevice[]
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -480,6 +495,37 @@ model MpesaConfiguration {
   updatedAt DateTime @updatedAt
 
   @@unique([organizationId])
+  @@index([organizationId])
+}
+
+model OrganizationDevice {
+  id String @id @default(cuid())
+  organizationId String
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  name String
+  description String?
+  deviceType OrganizationDeviceType @default(MIKROTIK)
+  vendor String?
+  model String?
+  serialNumber String?
+  routerOsHost String
+  routerOsPort Int @default(8728)
+  routerOsUsername String
+  routerOsPassword String
+  vpnIpAddress String @unique
+  vpnCidr Int @default(32)
+  wireguardPublicKey String?
+  wireguardPrivateKey String?
+  wireguardPresharedKey String?
+  wireguardEndpoint String?
+  wireguardListenPort Int?
+  status OrganizationDeviceStatus @default(UNKNOWN)
+  lastSeenAt DateTime?
+  lastSyncAt DateTime?
+  metadata Json?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
   @@index([organizationId])
 }
 

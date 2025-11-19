@@ -8,6 +8,7 @@ import {
   Building,
   LayoutDashboard,
   ChartBar,
+  Router,
 } from "lucide-react";
 
 interface SidebarItem {
@@ -21,7 +22,8 @@ interface SidebarItem {
     | typeof Package
     | typeof Ticket
     | typeof DollarSign
-    | typeof Warehouse;
+    | typeof Warehouse
+    | typeof Router;
 }
 
 export const sidebarData: SidebarItem[] = [
@@ -49,6 +51,11 @@ export const sidebarData: SidebarItem[] = [
     title: "Stations",
     path: (id) => `/isp/${id}/stations`,
     icon: Building,
+  },
+  {
+    title: "Devices",
+    path: (id) => `/isp/${id}/devices`,
+    icon: Router,
   },
   {
     title: "Transactions",

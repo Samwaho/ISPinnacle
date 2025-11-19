@@ -12,6 +12,7 @@ import { transactionsRouter } from './transactions';
 import { smsRouter } from './sms';
 import { expensesRouter } from './expenses';
 import { analyticsRouter } from './analytics';
+import { devicesRouter } from './devices';
 
 export const appRouter = createTRPCRouter({
   user: userRouter,
@@ -26,6 +27,7 @@ export const appRouter = createTRPCRouter({
   sms: smsRouter,
   expenses: expensesRouter,
   analytics: analyticsRouter,
+  devices: devicesRouter,
 });
 // export type definition of API
 export type AppRouter = typeof appRouter;

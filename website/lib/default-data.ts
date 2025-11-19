@@ -18,6 +18,8 @@ export const defaultOrganizationRoles = [
       OrganizationPermission.MANAGE_ROLES,
       OrganizationPermission.VIEW_SMS_CONFIGURATION,
       OrganizationPermission.MANAGE_SMS_CONFIGURATION,
+      OrganizationPermission.VIEW_DEVICES,
+      OrganizationPermission.MANAGE_DEVICES,
     ],
     isDefault: true,
   },
@@ -26,6 +28,7 @@ export const defaultOrganizationRoles = [
     description: "Member role with limited permissions",
     permissions: [
       OrganizationPermission.VIEW_ORGANIZATION_DETAILS,
+      OrganizationPermission.VIEW_DEVICES,
     ],
     isDefault: true,
   },

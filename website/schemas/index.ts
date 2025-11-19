@@ -1,4 +1,4 @@
-import { OrganizationPermission } from "@/lib/generated/prisma";
+import { OrganizationDeviceType, OrganizationPermission } from "@/lib/generated/prisma";
 import { hotspotUtils } from "@/lib/hotspot-config";
 import { z } from "zod";
 
@@ -161,6 +161,37 @@ export const updateStationSchema = stationSchema.extend({
 
 export const deleteStationSchema = z.object({
     id: z.string().min(1, "Station ID is required"),
+    organizationId: z.string().min(1, "Organization ID is required"),
+});
+
+// Device schemas
+const deviceBaseSchema = z.object({
+    name: z.string().min(1, "Device name is required"),
+    description: z.string().optional(),
+    deviceType: z.nativeEnum(OrganizationDeviceType).default(OrganizationDeviceType.MIKROTIK),
+    vendor: z.string().optional(),
+    model: z.string().optional(),
+    serialNumber: z.string().optional(),
+    routerOsPort: z.number().int().positive("RouterOS port must be positive").default(8728),
+    routerOsUsername: z.string().min(1, "RouterOS username is required"),
+    wireguardEndpoint: z.string().optional(),
+    wireguardListenPort: z.number().int().positive("WireGuard listen port must be positive").max(65535, "Invalid port").optional(),
+    metadata: z.record(z.any()).optional(),
+});
+
+export const createDeviceSchema = deviceBaseSchema.extend({
+    organizationId: z.string().min(1, "Organization ID is required"),
+    routerOsPassword: z.string().min(1, "RouterOS password is required"),
+});
+
+export const updateDeviceSchema = deviceBaseSchema.extend({
+    id: z.string().min(1, "Device ID is required"),
+    organizationId: z.string().min(1, "Organization ID is required"),
+    routerOsPassword: z.string().optional(),
+});
+
+export const deleteDeviceSchema = z.object({
+    id: z.string().min(1, "Device ID is required"),
     organizationId: z.string().min(1, "Organization ID is required"),
 });
 

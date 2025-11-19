@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 
 const OrganizationCardSkeleton = () => {
   return (
-    <Card className="min-w-80">
+    <Card className="h-full">
       <CardHeader>
         <div className="flex items-start justify-between">
           <div className="flex items-center space-x-4">

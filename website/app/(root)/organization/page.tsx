@@ -8,12 +8,12 @@ import { OrganizationCard } from "@/components/organization/organization-card";
 const OrganizationPage = async () => {
   const organizations = await caller.organization.getMyOrganizations();
   return (
-    <div className="flex flex-col items-center justify-center mt-16">
-      <div className="text-center mb-16">
+    <div className="container mx-auto flex flex-col items-center px-6 py-16">
+      <div className="text-center mb-16 max-w-2xl">
         <h1 className="text-4xl font-bold tracking-tight mb-4 text-gradient-custom">
           Your Organizations
         </h1>
-        <p className="text-xl text-muted-foreground max-w-2xl mx-auto">
+        <p className="text-xl text-muted-foreground">
           Manage your organizations and team collaborations
         </p>
 
@@ -26,7 +26,7 @@ const OrganizationPage = async () => {
         </div>
       </div>
       {organizations.length === 0 ? (
-        <div className="text-center py-16">
+        <div className="text-center py-16 w-full">
           <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg p-12 max-w-md mx-auto">
             <Building2 className="h-16 w-16 text-gray-400 mx-auto mb-4" />
             <h3 className="text-xl font-semibold text-gray-900 dark:text-gray-100 mb-2">
@@ -44,13 +44,15 @@ const OrganizationPage = async () => {
           </div>
         </div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-          {organizations.map((organization) => (
-            <OrganizationCard
-              key={organization.id}
-              organization={organization}
-            />
-          ))}
+        <div className="mt-8 w-full">
+          <div className="grid grid-cols-1 gap-8 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+            {organizations.map((organization) => (
+              <OrganizationCard
+                key={organization.id}
+                organization={organization}
+              />
+            ))}
+          </div>
         </div>
       )}
     </div>

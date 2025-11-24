@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button";
 import { DeviceSecretsDialog } from "./device-secrets-dialog";
 import { OrganizationDeviceStatus } from "@/lib/generated/prisma";
 import { formatDistanceToNow } from "date-fns";
-import { MoreHorizontal, Pencil, RefreshCw, Shield, Trash2, Wrench } from "lucide-react";
+import { MoreHorizontal, Pencil, Power, RefreshCw, Router, Shield, Trash2, Wrench } from "lucide-react";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -82,7 +82,7 @@ export const createDeviceColumns = ({
               {device.name}
             </Link>
             <p className="text-xs text-muted-foreground">
-              {device.vendor || "Device"} {device.model || ""} · {device.vpnIpAddress}/{device.vpnCidr}
+              {device.vendor || "Device"} {device.model || ""} | {device.vpnIpAddress}/{device.vpnCidr}
             </p>
           </div>
         );
@@ -114,7 +114,7 @@ export const createDeviceColumns = ({
               {device.wireguardPublicKey ?? "Pending"}
             </p>
             <p className="text-xs text-muted-foreground">
-              Listen {device.wireguardListenPort ?? "\u2014"}
+              Listen {device.wireguardListenPort ?? "-"}
             </p>
           </div>
         );
@@ -191,9 +191,18 @@ const DeviceActionsCell = ({
           </Button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end" className="w-56">
+          <DropdownMenuItem asChild>
+            <Link
+              href={`/isp/${organizationId}/devices/${device.id}`}
+              className="flex w-full items-center gap-2"
+            >
+              <Router className="h-4 w-4" />
+              View device
+            </Link>
+          </DropdownMenuItem>
           <DropdownMenuItem onSelect={() => onSync(device.id)} disabled={syncing}>
             <RefreshCw className={`h-4 w-4 ${syncing ? "animate-spin" : ""}`} />
-            {syncing ? "Syncing..." : "Sync status"}
+            {syncing ? "Syncing..." : "Check status"}
           </DropdownMenuItem>
           <DropdownMenuItem asChild>
             <Link

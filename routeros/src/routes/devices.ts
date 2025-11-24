@@ -1,4 +1,5 @@
 import type { FastifyInstance } from "fastify";
+import type { RawData } from "ws";
 import { z } from "zod";
 import {
   ROUTEROS_QUERIES,
@@ -6,6 +7,7 @@ import {
   executeRouterQueries,
   testRouterConnection,
 } from "../routeros-client";
+import { config } from "../config";
 
 const ROUTER_QUERY_KEYS = Object.keys(ROUTEROS_QUERIES) as [RouterOsQueryKey, ...RouterOsQueryKey[]];
 const routerQueryEnum = z.enum(ROUTER_QUERY_KEYS);
@@ -26,7 +28,103 @@ const credentialsSchema = z.object({
   rawCommands: z.array(rawCommandSchema).optional(),
 });
 
+const streamHandshakeSchema = credentialsSchema.extend({
+  intervalMs: z.number().int().positive().max(30000).optional(),
+});
+
 export const registerDeviceRoutes = async (app: FastifyInstance) => {
+  app.get("/devices/:deviceId/stream", { websocket: true }, (connection, request) => {
+    const token = (request.query as Record<string, string | undefined> | undefined)?.token;
+    if (config.apiKey && token !== config.apiKey) {
+      request.log.warn(
+        { path: request.url, method: request.method, deviceId: request.params?.deviceId, reason: "invalid_api_key" },
+        "Unauthorized websocket request",
+      );
+      connection.socket.close(4401, "Unauthorized");
+      return;
+    }
+
+    request.log.info(
+      { path: request.url, deviceId: request.params?.deviceId },
+      "WebSocket connected",
+    );
+
+    let closed = false;
+    let timer: NodeJS.Timeout | null = null;
+    const shutdown = (code = 1000, reason?: string) => {
+      if (closed) return;
+      closed = true;
+      if (timer) clearInterval(timer);
+      connection.socket.close(code, reason);
+    };
+
+    const handleMessage = async (data: RawData) => {
+      if (closed) return;
+      try {
+        const payload = JSON.parse(data.toString());
+        const creds = streamHandshakeSchema.parse(payload);
+        const interval = creds.intervalMs ?? 5000;
+
+        const runQuery = async () => {
+          try {
+            const result = await executeRouterQueries(
+              {
+                address: creds.address,
+                username: creds.username,
+                password: creds.password,
+                port: creds.port,
+                useSsl: creds.useSsl,
+              },
+              creds.queries,
+              creds.rawCommands,
+            );
+            connection.socket.send(
+              JSON.stringify({
+                type: "data",
+                deviceId: creds.deviceId,
+                results: {
+                  deviceId: creds.deviceId,
+                  ...result,
+                },
+              }),
+            );
+          } catch (error) {
+            request.log.error(
+              { deviceId: creds.deviceId, address: creds.address, err: error },
+              "RouterOS stream query failed",
+            );
+            connection.socket.send(
+              JSON.stringify({
+                type: "error",
+                message: error instanceof Error ? error.message : "RouterOS stream error",
+              }),
+            );
+          }
+        };
+
+        await runQuery();
+        timer = setInterval(runQuery, interval);
+        connection.socket.send(JSON.stringify({ type: "ready", intervalMs: interval }));
+        connection.socket.off("message", handleMessage);
+      } catch (err) {
+        connection.socket.send(
+          JSON.stringify({
+            type: "error",
+            message: err instanceof Error ? err.message : "Invalid stream payload",
+          }),
+        );
+      }
+    };
+
+    connection.socket.on("message", handleMessage);
+    connection.socket.on("close", () => {
+      shutdown();
+    });
+    connection.socket.on("error", () => {
+      shutdown(1011, "stream error");
+    });
+  });
+
   app.post("/api/devices/query", async (request, reply) => {
     const payload = credentialsSchema.parse(request.body);
     request.log.info(

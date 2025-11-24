@@ -83,6 +83,78 @@ const DevicesPage = () => {
     },
     [organizationId, syncDevice]
   );
+  const { mutateAsync: pollDeviceStatus } = useMutation(
+    t.devices.fetchStatus.mutationOptions({
+      onSuccess: (_, variables) => {
+        queryClient.invalidateQueries({
+          queryKey: t.devices.list.queryKey({ organizationId }),
+        });
+        queryClient.invalidateQueries({
+          queryKey: t.devices.get.queryKey({ id: variables.id, organizationId }),
+        });
+      },
+      onError: (error, variables) => {
+        queryClient.setQueriesData<DeviceTableRow[]>(
+          { queryKey: t.devices.list.queryKey({ organizationId }) },
+          (current) =>
+            current?.map((d) =>
+              d.id === variables.id
+                ? {
+                    ...d,
+                    status: OrganizationDeviceStatus.OFFLINE,
+                    lastSyncAt: new Date().toISOString(),
+                  }
+                : d
+            ) ?? current
+        );
+        queryClient.setQueryData(
+          t.devices.get.queryKey({ id: variables.id, organizationId }),
+          (current: DeviceTableRow | undefined) =>
+            current
+              ? {
+                  ...current,
+                  status: OrganizationDeviceStatus.OFFLINE,
+                  lastSyncAt: new Date().toISOString(),
+                }
+              : current
+        );
+      },
+    })
+  );
+  const pollingRef = React.useRef(false);
+  React.useEffect(() => {
+    if (!canViewDevices || devices.length === 0) return;
+
+    const intervalMs = 45000;
+    const runPoll = async () => {
+      if (pollingRef.current) return;
+      pollingRef.current = true;
+      const staleThreshold = Date.now() - 5 * 60 * 1000;
+      const candidates = devices
+        .filter((d) => {
+          if (d.status === OrganizationDeviceStatus.ONLINE) {
+            return !d.lastSyncAt || new Date(d.lastSyncAt as string | Date).getTime() < staleThreshold;
+          }
+          return true;
+        })
+        .slice(0, 3);
+      for (const device of candidates) {
+        try {
+          await pollDeviceStatus({ id: device.id, organizationId });
+        } catch {
+          // ignore per-device errors in background poll
+        }
+      }
+      pollingRef.current = false;
+    };
+
+    const id = setInterval(runPoll, intervalMs);
+    runPoll();
+    return () => {
+      clearInterval(id);
+      pollingRef.current = false;
+    };
+  }, [canViewDevices, devices, organizationId, pollDeviceStatus]);
 
   const [deviceToDelete, setDeviceToDelete] = React.useState<DeviceTableRow | null>(null);
   const { mutate: deleteDevice, isPending: isDeleting } = useMutation(

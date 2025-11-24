@@ -53,6 +53,7 @@ export const OrganizationForm = () => {
       logo: "",
       website: "",
       description: "",
+      vpnSubnetCidr: "",
     },
   });
   const onSubmit = (data: z.infer<typeof organizationSchema>) => {
@@ -129,6 +130,22 @@ export const OrganizationForm = () => {
                         type="url"
                       />
                     </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={form.control}
+                name="vpnSubnetCidr"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>VPN Subnet (CIDR)</FormLabel>
+                    <FormControl>
+                      <Input {...field} placeholder="10.20.0.0/24" />
+                    </FormControl>
+                    <p className="text-xs text-muted-foreground">
+                      Devices will auto-assign VPN IPs from this subnet. Leave blank to use the default pool.
+                    </p>
                     <FormMessage />
                   </FormItem>
                 )}

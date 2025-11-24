@@ -7,6 +7,7 @@ import {
   Globe,
   Calendar,
   Edit,
+  Network,
 } from "lucide-react";
 import { Button } from "../ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "../ui/card";
@@ -24,6 +25,7 @@ interface OrganizationDetailsProps {
     logo?: string | null;
     website?: string | null;
     description?: string | null;
+    vpnSubnetCidr?: string | null;
     createdAt: Date;
     updatedAt: Date;
   };
@@ -135,6 +137,15 @@ export const OrganizationDetails = ({ organization, canEdit = false }: Organizat
                   </div>
                 </div>
               )}
+              <div className="flex items-center gap-3">
+                <Network className="h-4 w-4 text-muted-foreground" />
+                <div>
+                  <p className="text-sm font-medium">VPN Subnet</p>
+                  <p className="text-sm text-muted-foreground">
+                    {organization.vpnSubnetCidr || "Not set (uses shared default)"}
+                  </p>
+                </div>
+              </div>
             </div>
           </CardContent>
         </Card>

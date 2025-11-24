@@ -2,6 +2,27 @@ import { OrganizationDeviceType, OrganizationPermission } from "@/lib/generated/
 import { hotspotUtils } from "@/lib/hotspot-config";
 import { z } from "zod";
 
+const isValidIpv4Cidr = (value?: string) => {
+    if (!value) return true;
+    const [ip, prefixRaw] = value.split("/");
+    const octets = ip?.split(".") ?? [];
+    const prefix = Number.parseInt(prefixRaw ?? "", 10);
+    if (octets.length !== 4 || !Number.isInteger(prefix) || prefix < 1 || prefix > 32) return false;
+    return octets.every((octet) => {
+        const parsed = Number.parseInt(octet, 10);
+        return Number.isInteger(parsed) && parsed >= 0 && parsed <= 255;
+    });
+};
+
+const vpnSubnetSchema = z
+    .string()
+    .trim()
+    .optional()
+    .transform((value) => (value === "" ? undefined : value))
+    .refine((value) => isValidIpv4Cidr(value), {
+        message: "Enter a valid IPv4 CIDR (e.g. 10.20.0.0/24)",
+    });
+
 export const loginSchema = z.object({
     email: z.string().email("Invalid email address"),
     password: z.string().min(1, "Password is required"),
@@ -68,6 +89,7 @@ export const organizationSchema = z.object({
     logo: z.string().optional(),
     description: z.string().optional(),
     website: z.string().optional(),
+    vpnSubnetCidr: vpnSubnetSchema,
 });
 
 export const updateOrganizationSchema = organizationSchema.extend({
@@ -182,6 +204,12 @@ const deviceBaseSchema = z.object({
 export const createDeviceSchema = deviceBaseSchema.extend({
     organizationId: z.string().min(1, "Organization ID is required"),
     routerOsPassword: z.string().min(1, "RouterOS password is required"),
+    wireguardPublicKey: z
+      .string()
+      .trim()
+      .min(40, "WireGuard public key is required")
+      .max(60, "WireGuard public key looks invalid")
+      .optional(),
 });
 
 export const updateDeviceSchema = deviceBaseSchema.extend({

@@ -122,12 +122,30 @@ export const devicesRouter = createTRPCRouter({
     .mutation(async ({ input, ctx }) => {
       await ensureManagePermission(input.organizationId);
 
-      const { routerOsPassword, metadata, wireguardListenPort, ...rest } = input;
+      const {
+        routerOsPassword,
+        metadata,
+        wireguardListenPort,
+        wireguardPublicKey,
+        ...rest
+      } = input;
       const basePayload = pruneUndefined(rest);
       const listenPort = wireguardListenPort ?? 51820;
 
       const device = await prisma.$transaction(async (tx) => {
-        const vpnIpAddress = await allocateNextVpnIp(tx);
+        let vpnIpAddress: string;
+        try {
+          vpnIpAddress = await allocateNextVpnIp(input.organizationId, tx);
+        } catch (error) {
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message:
+              error instanceof Error
+                ? error.message
+                : "Unable to allocate a VPN IP address for this organization",
+            cause: error,
+          });
+        }
         const presharedKey = generatePresharedKey();
 
         return tx.organizationDevice.create({
@@ -138,13 +156,25 @@ export const devicesRouter = createTRPCRouter({
             vpnIpAddress,
             vpnCidr: DEFAULT_DEVICE_VPN_MASK,
             routerOsHost: vpnIpAddress,
-            wireguardPublicKey: null,
+            wireguardPublicKey: wireguardPublicKey?.trim() ?? null,
             wireguardPrivateKey: null,
             wireguardPresharedKey: presharedKey,
             wireguardListenPort: listenPort,
           },
         });
       });
+
+      if (device.wireguardPublicKey) {
+        try {
+          await registerDeviceOnCentralVpn(device);
+        } catch (error) {
+          throw new TRPCError({
+            code: "INTERNAL_SERVER_ERROR",
+            message: "Failed to provision device on central VPN",
+            cause: error,
+          });
+        }
+      }
 
       await createActivity(
         input.organizationId,

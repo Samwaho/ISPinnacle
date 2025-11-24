@@ -14,7 +14,7 @@ export const organizationRouter = createTRPCRouter({
   createOrganization: protectedProcedure
     .input(organizationSchema)
     .mutation(async ({ input, ctx }) => {
-      const { name, email, phone, logo, description, website } = input;
+      const { name, email, phone, logo, description, website, vpnSubnetCidr } = input;
       // Create organization
       const organization = await prisma.organization.create({
         data: {
@@ -24,6 +24,7 @@ export const organizationRouter = createTRPCRouter({
           logo,
           description,
           website,
+          vpnSubnetCidr: vpnSubnetCidr ?? null,
           ownerId: ctx.session.user.id!,
         },
       });
@@ -80,7 +81,12 @@ export const organizationRouter = createTRPCRouter({
       
       const organization = await prisma.organization.update({
         where: { id },
-        data,
+        data: {
+          ...data,
+          ...(data.vpnSubnetCidr !== undefined
+            ? { vpnSubnetCidr: data.vpnSubnetCidr || null }
+            : {}),
+        },
       });
 
       await SmsService.createDefaultTemplates({ organizationId: id, organizationName: data.name, supportNumber: data.phone });
@@ -92,6 +98,13 @@ export const organizationRouter = createTRPCRouter({
       if (data.phone && data.phone !== currentOrg?.phone) changes.push(`phone from "${currentOrg?.phone}" to "${data.phone}"`);
       if (data.description && data.description !== currentOrg?.description) changes.push(`description`);
       if (data.website && data.website !== currentOrg?.website) changes.push(`website from "${currentOrg?.website}" to "${data.website}"`);
+      if (data.vpnSubnetCidr !== undefined && data.vpnSubnetCidr !== currentOrg?.vpnSubnetCidr) {
+        changes.push(
+          data.vpnSubnetCidr
+            ? `VPN subnet to "${data.vpnSubnetCidr}"`
+            : "removed VPN subnet (using default pool)"
+        );
+      }
       
       const activityMessage = changes.length > 0 
         ? `Updated organization details: ${changes.join(', ')}`

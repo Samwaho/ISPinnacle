@@ -51,7 +51,8 @@ export const DeviceFormFields = <TFormValues extends DeviceFormValues>({
   return (
     <>
       <p className="text-sm text-muted-foreground">
-        Fields marked with <RequiredMark /> are required. RouterOS management IP will be assigned automatically.
+        Fields marked with <RequiredMark /> are required. RouterOS management IP will be assigned automatically from your
+        organization&apos;s VPN subnet.
       </p>
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
         <FormField

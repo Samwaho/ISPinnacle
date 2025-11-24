@@ -34,10 +34,12 @@ const streamHandshakeSchema = credentialsSchema.extend({
 
 export const registerDeviceRoutes = async (app: FastifyInstance) => {
   app.get("/devices/:deviceId/stream", { websocket: true }, (connection, request) => {
+    const params = request.params as { deviceId?: string } | undefined;
+    const deviceId = params?.deviceId;
     const token = (request.query as Record<string, string | undefined> | undefined)?.token;
     if (config.apiKey && token !== config.apiKey) {
       request.log.warn(
-        { path: request.url, method: request.method, deviceId: request.params?.deviceId, reason: "invalid_api_key" },
+        { path: request.url, method: request.method, deviceId, reason: "invalid_api_key" },
         "Unauthorized websocket request",
       );
       connection.socket.close(4401, "Unauthorized");
@@ -45,7 +47,7 @@ export const registerDeviceRoutes = async (app: FastifyInstance) => {
     }
 
     request.log.info(
-      { path: request.url, deviceId: request.params?.deviceId },
+      { path: request.url, deviceId },
       "WebSocket connected",
     );
 

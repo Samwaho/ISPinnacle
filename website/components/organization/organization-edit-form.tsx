@@ -67,7 +67,7 @@ export const OrganizationEditForm = ({ organization, onCancel }: OrganizationEdi
     }
   }));
 
-  const form = useForm<z.infer<typeof updateOrganizationSchema>>({
+  const form = useForm<z.input<typeof updateOrganizationSchema>>({
     resolver: zodResolver(updateOrganizationSchema),
     defaultValues: {
       id: organization.id,
@@ -81,7 +81,7 @@ export const OrganizationEditForm = ({ organization, onCancel }: OrganizationEdi
     },
   });
 
-  const onSubmit = (data: z.infer<typeof updateOrganizationSchema>) => {
+  const onSubmit = (data: z.input<typeof updateOrganizationSchema>) => {
     updateOrganization(data);
   };
 

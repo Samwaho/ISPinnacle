@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button";
 import { DeviceSecretsDialog } from "./device-secrets-dialog";
 import { OrganizationDeviceStatus } from "@/lib/generated/prisma";
 import { formatDistanceToNow } from "date-fns";
-import { MoreHorizontal, Pencil, Power, RefreshCw, Router, Shield, Trash2, Wrench } from "lucide-react";
+import { MoreHorizontal, Pencil, RefreshCw, Router, Shield, Trash2, Wrench } from "lucide-react";
 import {
   DropdownMenu,
   DropdownMenuContent,

@@ -18,7 +18,7 @@ import { toast } from "sonner";
 import { OrganizationDeviceType } from "@/lib/generated/prisma";
 import { ArrowLeft, Router } from "lucide-react";
 
-type FormValues = z.infer<typeof createDeviceSchema>;
+type FormValues = z.input<typeof createDeviceSchema>;
 
 const DeviceCreatePage = () => {
   const params = useParams<{ id: string }>();

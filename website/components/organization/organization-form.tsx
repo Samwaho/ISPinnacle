@@ -44,7 +44,7 @@ export const OrganizationForm = () => {
       });
     }
   }));
-  const form = useForm<z.infer<typeof organizationSchema>>({
+  const form = useForm<z.input<typeof organizationSchema>>({
     resolver: zodResolver(organizationSchema),
     defaultValues: {
       name: "",
@@ -56,7 +56,7 @@ export const OrganizationForm = () => {
       vpnSubnetCidr: "",
     },
   });
-  const onSubmit = (data: z.infer<typeof organizationSchema>) => {
+  const onSubmit = (data: z.input<typeof organizationSchema>) => {
     createOrganization(data);
   };
 

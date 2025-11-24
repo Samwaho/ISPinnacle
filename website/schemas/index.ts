@@ -198,7 +198,7 @@ const deviceBaseSchema = z.object({
     routerOsUsername: z.string().min(1, "RouterOS username is required"),
     wireguardEndpoint: z.string().optional(),
     wireguardListenPort: z.number().int().positive("WireGuard listen port must be positive").max(65535, "Invalid port").optional(),
-    metadata: z.record(z.any()).optional(),
+    metadata: z.record(z.string(), z.any()).optional(),
 });
 
 export const createDeviceSchema = deviceBaseSchema.extend({

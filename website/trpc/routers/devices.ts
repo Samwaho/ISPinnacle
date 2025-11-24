@@ -25,7 +25,10 @@ const pruneUndefined = <T extends Record<string, unknown>>(payload: T) =>
     Object.entries(payload).filter(([, value]) => value !== undefined)
   ) as T;
 
-const routerQueryValues = RouterOsApi.supportedQueries as [RouterOsQueryName, ...RouterOsQueryName[]];
+const routerQueryValues = [...RouterOsApi.supportedQueries] as [
+  RouterOsQueryName,
+  ...RouterOsQueryName[],
+];
 const routerQueryEnum = z.enum(routerQueryValues);
 
 const ensureViewPermission = async (organizationId: string) => {
@@ -131,6 +134,8 @@ export const devicesRouter = createTRPCRouter({
       } = input;
       const basePayload = pruneUndefined(rest);
       const listenPort = wireguardListenPort ?? 51820;
+      const metadataPayload =
+        metadata !== undefined ? { metadata: metadata as Prisma.InputJsonValue } : {};
 
       const device = await prisma.$transaction(async (tx) => {
         let vpnIpAddress: string;
@@ -151,7 +156,7 @@ export const devicesRouter = createTRPCRouter({
         return tx.organizationDevice.create({
           data: {
             ...basePayload,
-            metadata: (metadata ?? undefined) as Prisma.JsonValue | undefined,
+            ...metadataPayload,
             routerOsPassword,
             vpnIpAddress,
             vpnCidr: DEFAULT_DEVICE_VPN_MASK,
@@ -209,6 +214,8 @@ export const devicesRouter = createTRPCRouter({
         ...rest
       } = input;
       const payload = pruneUndefined(rest);
+      const metadataPayload =
+        metadata !== undefined ? { metadata: metadata as Prisma.InputJsonValue } : {};
 
       const existing = await prisma.organizationDevice.findFirst({
         where: { id, organizationId },
@@ -225,9 +232,9 @@ export const devicesRouter = createTRPCRouter({
         where: { id },
         data: {
           ...payload,
+          ...metadataPayload,
           ...(wireguardListenPort !== undefined ? { wireguardListenPort } : {}),
           ...(routerOsPassword ? { routerOsPassword } : {}),
-          ...(metadata !== undefined ? { metadata: metadata as Prisma.JsonValue } : {}),
         },
       });
 
@@ -338,7 +345,7 @@ export const devicesRouter = createTRPCRouter({
       z.object({
         id: z.string().min(1, "Device ID is required"),
         organizationId: z.string().min(1, "Organization ID is required"),
-        queries: z.array(routerQueryEnum).default(RouterOsApi.supportedQueries),
+        queries: z.array(routerQueryEnum).default(routerQueryValues),
         rawCommands: z
           .array(
             z.object({

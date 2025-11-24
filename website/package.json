@@ -71,9 +71,9 @@
     "sonner": "^2.0.7",
     "superjson": "^2.2.2",
     "tailwind-merge": "^3.3.1",
+    "tweetnacl": "^1.0.3",
     "uuid": "^11.1.0",
     "vaul": "^1.1.2",
-    "tweetnacl": "^1.0.3",
     "zod": "^4.0.16"
   },
   "devDependencies": {
@@ -81,6 +81,7 @@
     "@tailwindcss/postcss": "^4",
     "@types/bcrypt": "^6.0.0",
     "@types/node": "^20",
+    "@types/pg": "^8.15.6",
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "eslint": "^9",

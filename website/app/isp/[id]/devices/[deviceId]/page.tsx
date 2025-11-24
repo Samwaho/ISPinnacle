@@ -66,7 +66,6 @@ const DeviceDetailPage = () => {
   });
   const {
     data: deviceSecrets,
-    isPending: secretsPending,
   } = useQuery({
     ...t.devices.secrets.queryOptions({ id: deviceId, organizationId }),
     enabled: canManage,
@@ -77,7 +76,6 @@ const DeviceDetailPage = () => {
   const [liveQueryError, setLiveQueryError] = React.useState<string | null>(null);
   const inFlightRef = React.useRef(false);
   const websocketRef = React.useRef<WebSocket | null>(null);
-  const websocketReconnectRef = React.useRef<NodeJS.Timeout | null>(null);
   const seededInitialFetch = React.useRef(false);
   const [streamingActive, setStreamingActive] = React.useState(allowStreaming);
   const streamingBlockedRef = React.useRef(false);
@@ -216,7 +214,6 @@ const DeviceDetailPage = () => {
     connect();
 
     return () => {
-      if (websocketReconnectRef.current) clearTimeout(websocketReconnectRef.current);
       if (websocketRef.current) {
         websocketRef.current.onclose = null;
         websocketRef.current.close();

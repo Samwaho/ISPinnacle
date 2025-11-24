@@ -17,7 +17,7 @@ import { Form } from "@/components/ui/form";
 import { toast } from "sonner";
 import { ArrowLeft, Router } from "lucide-react";
 
-type FormValues = z.infer<typeof updateDeviceSchema>;
+type FormValues = z.input<typeof updateDeviceSchema>;
 
 const DeviceEditPage = () => {
   const params = useParams<{ id: string; deviceId: string }>();

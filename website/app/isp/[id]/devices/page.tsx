@@ -109,12 +109,12 @@ const DevicesPage = () => {
         );
         queryClient.setQueryData(
           t.devices.get.queryKey({ id: variables.id, organizationId }),
-          (current: DeviceTableRow | undefined) =>
+          (current) =>
             current
               ? {
                   ...current,
                   status: OrganizationDeviceStatus.OFFLINE,
-                  lastSyncAt: new Date().toISOString(),
+                  lastSyncAt: new Date(),
                 }
               : current
         );

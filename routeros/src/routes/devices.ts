@@ -63,10 +63,15 @@ export const registerDeviceRoutes = async (app: FastifyInstance) => {
 
     let closed = false;
     let timer: NodeJS.Timeout | null = null;
+    const sessionTimeout = setTimeout(() => {
+      shutdown(1001, "stream timeout");
+    }, 5 * 60 * 1000);
+    let consecutiveFailures = 0;
     const shutdown = (code = 1000, reason?: string) => {
       if (closed) return;
       closed = true;
       if (timer) clearInterval(timer);
+      clearTimeout(sessionTimeout);
       connection.socket.close(code, reason);
     };
 
@@ -78,6 +83,7 @@ export const registerDeviceRoutes = async (app: FastifyInstance) => {
         const interval = creds.intervalMs ?? 5000;
 
         const runQuery = async () => {
+          if (closed) return;
           try {
             const result = await executeRouterQueries(
               {
@@ -100,6 +106,7 @@ export const registerDeviceRoutes = async (app: FastifyInstance) => {
                 },
               }),
             );
+            consecutiveFailures = 0;
           } catch (error) {
             request.log.error(
               { deviceId: creds.deviceId, address: creds.address, err: error },
@@ -111,6 +118,10 @@ export const registerDeviceRoutes = async (app: FastifyInstance) => {
                 message: error instanceof Error ? error.message : "RouterOS stream error",
               }),
             );
+            consecutiveFailures += 1;
+            if (consecutiveFailures >= 5) {
+              shutdown(1011, "too many errors");
+            }
           }
         };
 

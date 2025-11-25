@@ -238,6 +238,9 @@ const DeviceDetailPage = () => {
     connect();
 
     return () => {
+      streamingBlockedRef.current = true;
+      setStreamingActive(false);
+      setLiveQueryError(null);
       if (websocketRef.current) {
         websocketRef.current.onclose = null;
         websocketRef.current.close();

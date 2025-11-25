@@ -143,7 +143,8 @@ const DeviceDetailPage = () => {
   }, [insecureWsInSecurePage]);
 
   React.useEffect(() => {
-    if (!device || !wsUrl || streamingBlockedRef.current || !deviceSecrets?.routerOsPassword) return;
+    if (!device || !wsUrl || !deviceSecrets?.routerOsPassword) return;
+    streamingBlockedRef.current = false;
 
     const connect = () => {
       if (streamingBlockedRef.current) return;
@@ -249,7 +250,6 @@ const DeviceDetailPage = () => {
     connect();
 
     return () => {
-      streamingBlockedRef.current = true;
       setStreamingActive(false);
       setLiveQueryError(null);
       if (reconnectRef.current) {

@@ -13,7 +13,10 @@ import { TRPCError } from "@trpc/server";
 import { z } from "zod";
 import type { Prisma } from "@/lib/generated/prisma";
 import { RouterOsApi, type RouterOsQueryName } from "@/lib/routeros-api";
-import { registerDeviceOnCentralVpn } from "@/lib/vpn-provisioner";
+import {
+  registerDeviceOnCentralVpn,
+  removeDeviceFromCentralVpn,
+} from "@/lib/vpn-provisioner";
 
 const sanitizeDevice = (device: OrganizationDevice) => {
   const { routerOsPassword, wireguardPrivateKey, wireguardPresharedKey, ...rest } = device;
@@ -265,6 +268,18 @@ export const devicesRouter = createTRPCRouter({
           code: "NOT_FOUND",
           message: "Device not found",
         });
+      }
+
+      if (device.wireguardPublicKey) {
+        try {
+          await removeDeviceFromCentralVpn(device);
+        } catch (error) {
+          throw new TRPCError({
+            code: "INTERNAL_SERVER_ERROR",
+            message: "Failed to remove device from central VPN",
+            cause: error,
+          });
+        }
       }
 
       await prisma.organizationDevice.delete({

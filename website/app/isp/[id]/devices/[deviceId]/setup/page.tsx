@@ -125,7 +125,13 @@ const DeviceSetupPage = () => {
   const serverPublicKey = process.env.NEXT_PUBLIC_ROUTEROS_SERVER_PUBLIC_KEY;
   const serverEndpoint = process.env.NEXT_PUBLIC_ROUTEROS_SERVER_ENDPOINT;
   const serverEndpointPort = process.env.NEXT_PUBLIC_ROUTEROS_SERVER_PORT || "13231";
-  const serverAllowedAddress = "10.20.0.1/32";
+  const centralManagementHost = "10.20.249.250/32";
+  const vpnIpOctets = device.vpnIpAddress.split(".").map((value) => Number.parseInt(value, 10));
+  const orgSubnetAllowed =
+    vpnIpOctets.length === 4 && vpnIpOctets.every((octet) => Number.isInteger(octet) && octet >= 0 && octet <= 255)
+      ? `${vpnIpOctets[0]}.${vpnIpOctets[1]}.${vpnIpOctets[2]}.0/24`
+      : null;
+  const peerAllowedAddresses = [orgSubnetAllowed, centralManagementHost].filter(Boolean).join(",");
 
   const wgInterfaceCommand = `/interface/wireguard/add name=wg-vpn listen-port=${listenPort}`;
   const readPublicKeyCommand = `/interface/wireguard/print detail where name=wg-vpn`;
@@ -136,7 +142,7 @@ const DeviceSetupPage = () => {
     serverPublicKey
       ? `public-key="${serverPublicKey}"`
       : `public-key="<SERVER_PUBLIC_KEY>"`,
-    `allowed-address=${serverAllowedAddress}`,
+    `allowed-address=${peerAllowedAddresses || centralManagementHost}`,
     serverEndpoint
       ? `endpoint-address=${serverEndpoint}`
       : `endpoint-address=<SERVER_ENDPOINT>`,
@@ -152,6 +158,7 @@ const DeviceSetupPage = () => {
     .join(" \\\n  ");
 
   const addressCommand = `/ip/address/add address=${device.vpnIpAddress}/24 interface=wg-vpn`;
+  const routeCommand = `/ip/route/add dst-address=${centralManagementHost} gateway=wg-vpn`;
 
   return (
     <div className="mx-auto flex w-full max-w-4xl flex-col gap-6 px-4 py-8">
@@ -264,10 +271,16 @@ const DeviceSetupPage = () => {
                 <div>
                   <p className="text-sm font-semibold">Add the central peer</p>
                   <p className="text-xs text-muted-foreground">
-                    Connect the router to the ISP WireGuard hub with the generated preshared key.
+                    Connect the router to the ISP WireGuard hub with the generated preshared key and restrict traffic to your org subnet and the hub address.
                   </p>
                 </div>
                 <CodeBlock text={peerCommand} />
+                <p className="text-xs text-muted-foreground">
+                  Allowed addresses:{` `}
+                  <code>{orgSubnetAllowed || "10.20.org-subnet.0/24"}</code>
+                  {`, `}
+                  <code>{centralManagementHost}</code>.
+                </p>
                 <p className="text-xs text-muted-foreground">
                   Keys are wrapped in quotes so RouterOS accepts <code>+</code> and <code>=</code> characters. Paste the snippet as-is (each line ends with <code>\</code>) or run it on a single line.
                 </p>
@@ -291,6 +304,21 @@ const DeviceSetupPage = () => {
                   </p>
                 </div>
                 <CodeBlock text={addressCommand} />
+              </div>
+            </li>
+
+            <li className="relative w-full overflow-hidden rounded-lg border bg-background p-4 pl-6 pt-6 shadow-sm sm:pl-8 sm:pt-4">
+              <span className="absolute left-4 top-2 flex h-8 w-8 items-center justify-center rounded-full border bg-background text-sm font-semibold text-primary sm:left-0 sm:top-4 sm:-translate-x-1/2">
+                5
+              </span>
+              <div className="space-y-3">
+                <div>
+                  <p className="text-sm font-semibold">Add routes for the hub</p>
+                  <p className="text-xs text-muted-foreground">
+                    Point traffic for the hub IP through the WireGuard interface you just created (wg-vpn unless you renamed it).
+                  </p>
+                </div>
+                <CodeBlock text={routeCommand} />
               </div>
             </li>
           </ol>

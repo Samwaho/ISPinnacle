@@ -55,6 +55,10 @@ const DeviceDetailPage = () => {
   const canView = permissions?.canViewDevices ?? false;
   const canManage = permissions?.canManageDevices ?? false;
   const wsUrl = React.useMemo(() => getDeviceWebSocketUrl(deviceId), [deviceId]);
+  const insecureWsInSecurePage =
+    typeof window !== "undefined" &&
+    window.location.protocol === "https:" &&
+    (wsUrl?.startsWith("ws://") ?? false);
   const deviceQuery = t.devices.get.queryOptions({ id: deviceId, organizationId });
   const {
     data: device,
@@ -70,7 +74,7 @@ const DeviceDetailPage = () => {
     ...t.devices.secrets.queryOptions({ id: deviceId, organizationId }),
     enabled: canManage,
   });
-  const allowStreaming = Boolean(wsUrl && deviceSecrets?.routerOsPassword);
+  const allowStreaming = Boolean(wsUrl && deviceSecrets?.routerOsPassword && !insecureWsInSecurePage);
 
   const [liveQuery, setLiveQuery] = React.useState<RouterOsQueryResponse | null>(null);
   const [liveQueryError, setLiveQueryError] = React.useState<string | null>(null);
@@ -129,6 +133,14 @@ const DeviceDetailPage = () => {
   }, [device, organizationId, syncDevice]);
 
   React.useEffect(() => {
+    if (insecureWsInSecurePage) {
+      setLiveQueryError("Live stream disabled on HTTPS because the WebSocket endpoint is not using WSS. Use manual refresh or configure WSS.");
+      setStreamingActive(false);
+      streamingBlockedRef.current = true;
+    }
+  }, [insecureWsInSecurePage]);
+
+  React.useEffect(() => {
     if (!device || !wsUrl || streamingBlockedRef.current || !deviceSecrets?.routerOsPassword) return;
 
     const connect = () => {
@@ -136,7 +148,18 @@ const DeviceDetailPage = () => {
       if (process.env.NODE_ENV !== "production") {
         console.info("[routeros] opening websocket", { deviceId: device.id, wsUrl });
       }
-      const socket = new WebSocket(wsUrl);
+      let socket: WebSocket;
+      try {
+        socket = new WebSocket(wsUrl);
+      } catch (error) {
+        setLiveQueryError("WebSocket blocked by browser security. Use manual refresh or configure a secure (wss://) endpoint.");
+        setStreamingActive(false);
+        streamingBlockedRef.current = true;
+        if (process.env.NODE_ENV !== "production") {
+          console.warn("[routeros] websocket failed to open", { deviceId: device.id, error });
+        }
+        return;
+      }
       websocketRef.current = socket;
 
       socket.onopen = () => {

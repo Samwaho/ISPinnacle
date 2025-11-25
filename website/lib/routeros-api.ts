@@ -1,4 +1,10 @@
-const QUERY_KEYS = ["systemResources", "interfaces", "wireguardInterfaces"] as const;
+const QUERY_KEYS = [
+  "systemResources",
+  "interfaces",
+  "wireguardInterfaces",
+  "pppActive",
+  "hotspotActive",
+] as const;
 
 export type RouterOsQueryName = typeof QUERY_KEYS[number];
 

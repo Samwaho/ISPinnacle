@@ -5,6 +5,8 @@ export const ROUTEROS_QUERIES = {
   systemResources: "/system/resource/print",
   interfaces: "/interface/print",
   wireguardInterfaces: "/interface/wireguard/print",
+  pppActive: "/ppp/active/print",
+  hotspotActive: "/ip/hotspot/active/print",
 } as const;
 
 export type RouterOsQueryKey = keyof typeof ROUTEROS_QUERIES;

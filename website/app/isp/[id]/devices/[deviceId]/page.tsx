@@ -22,6 +22,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Progress } from "@/components/ui/progress";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { OrganizationDeviceStatus } from "@/lib/generated/prisma";
 import type { RouterOsQueryResponse } from "@/lib/routeros-api";
 import { getDeviceWebSocketUrl } from "@/lib/routeros-ws";
@@ -177,7 +178,7 @@ const DeviceDetailPage = () => {
             password: deviceSecrets.routerOsPassword,
             port: device.routerOsPort,
             useSsl: false,
-            queries: ["systemResources", "interfaces"],
+            queries: ["systemResources", "interfaces", "pppActive", "hotspotActive"],
             intervalMs: 5000,
           };
           socket.send(JSON.stringify(handshake));
@@ -357,9 +358,9 @@ const DeviceDetailPage = () => {
             <CardDescription>
               {allowStreaming
                 ? streamingActive
-                  ? "Live stream via WebSocket to inspect resources, interfaces, and traffic."
+                  ? "Live stream via WebSocket to inspect resources, interfaces, and active sessions."
                   : "WebSocket unavailable, tap refresh for a manual pull."
-                : "Manual refresh to pull live resources, interfaces, and traffic."}
+                : "Manual refresh to pull live resources, interfaces, and session data."}
             </CardDescription>
           </div>
           <div className="flex flex-wrap gap-2">
@@ -441,6 +442,19 @@ const toNumber = (value: unknown) => {
   return Number.isFinite(num) ? num : undefined;
 };
 
+const formatUptimeValue = (value: string | number | undefined) => {
+  if (value === undefined || value === null) return "-";
+  if (typeof value === "number") {
+    if (!Number.isFinite(value)) return "-";
+    const seconds = Math.max(0, Math.floor(value));
+    const hours = Math.floor(seconds / 3600);
+    const minutes = Math.floor((seconds % 3600) / 60);
+    const secs = seconds % 60;
+    return `${hours}h ${minutes}m ${secs}s`;
+  }
+  return value || "-";
+};
+
 const DeviceInsights = ({ query }: { query: RouterOsQueryResponse }) => {
   const results = (query.results ?? {}) as Record<string, unknown>;
   const rawLogs = Array.isArray(query.rawResults) ? query.rawResults : [];
@@ -450,6 +464,12 @@ const DeviceInsights = ({ query }: { query: RouterOsQueryResponse }) => {
     : ((rawSystemResources ?? {}) as Record<string, unknown>);
   const interfaces = Array.isArray(results["interfaces"])
     ? (results["interfaces"] as Record<string, unknown>[])
+    : [];
+  const pppActive = Array.isArray(results["pppActive"])
+    ? (results["pppActive"] as Record<string, unknown>[])
+    : [];
+  const hotspotActive = Array.isArray(results["hotspotActive"])
+    ? (results["hotspotActive"] as Record<string, unknown>[])
     : [];
   const cpuLoad = toNumber(systemResources["cpu-load"] ?? systemResources["cpuLoad"]);
   const cpuName = (systemResources["cpu"] ?? systemResources["cpuName"]) as string | undefined;
@@ -476,6 +496,7 @@ const DeviceInsights = ({ query }: { query: RouterOsQueryResponse }) => {
 
   const executedAt = query.executedAt ? new Date(query.executedAt) : null;
   const executedLabel = executedAt ? formatDistanceToNow(executedAt, { addSuffix: true }) : "Just now";
+  const defaultTab = interfaces.length > 0 ? "interfaces" : pppActive.length > 0 ? "ppp" : "hotspot";
 
   return (
     <div className="space-y-6">
@@ -571,59 +592,156 @@ const DeviceInsights = ({ query }: { query: RouterOsQueryResponse }) => {
 
       </div>
 
-      <div className="space-y-3">
-        <div className="flex items-center justify-between">
-          <p className="text-sm font-medium">Interfaces</p>
+      <div className="space-y-4">
+        <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
+          <p className="text-sm font-medium">Interfaces & sessions</p>
           <p className="text-xs text-muted-foreground">
-            Showing {interfaces.length} interface{interfaces.length === 1 ? "" : "s"}
+            Live data from RouterOS; totals refresh with streaming or manual pulls.
           </p>
         </div>
-        <div className="overflow-x-auto rounded-lg border">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Name</TableHead>
-                <TableHead>Type</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead className="text-right">RX</TableHead>
-                <TableHead className="text-right">TX</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {interfaces.map((iface, idx) => {
-                const name = (iface["name"] ?? iface["interface"]) as string | undefined;
-                const type = (iface["type"] ?? iface["interface-type"]) as string | undefined;
-                const running = (iface["running"] ?? iface["active"]) as boolean | string | undefined;
-                const rxBytes = toNumber(iface["rx-byte"] ?? iface["rxBytes"]);
-                const txBytes = toNumber(iface["tx-byte"] ?? iface["txBytes"]);
-                const isRunning = running === true || running === "true" || running === "running";
-                return (
-                  <TableRow key={name ?? type ?? idx}>
-                    <TableCell className="font-medium">{name ?? "Interface"}</TableCell>
-                    <TableCell>{type ?? "-"}</TableCell>
-                    <TableCell>
-                      <Badge
-                        variant="outline"
-                        className={isRunning ? "bg-emerald-50 text-emerald-700 border-emerald-200" : ""}
-                      >
-                        {isRunning ? "Running" : "Idle"}
-                      </Badge>
-                    </TableCell>
-                    <TableCell className="text-right">{formatBytes(rxBytes)}</TableCell>
-                    <TableCell className="text-right">{formatBytes(txBytes)}</TableCell>
+        <Tabs defaultValue={defaultTab} className="w-full">
+          <TabsList className="w-full overflow-x-auto sm:w-fit">
+            <TabsTrigger value="interfaces">Interfaces ({interfaces.length})</TabsTrigger>
+            <TabsTrigger value="ppp">PPP Active ({pppActive.length})</TabsTrigger>
+            <TabsTrigger value="hotspot">Hotspot Active ({hotspotActive.length})</TabsTrigger>
+          </TabsList>
+
+          <TabsContent value="interfaces" className="mt-4">
+            <div className="overflow-x-auto rounded-lg border">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Name</TableHead>
+                    <TableHead>Type</TableHead>
+                    <TableHead>Status</TableHead>
+                    <TableHead className="text-right">RX</TableHead>
+                    <TableHead className="text-right">TX</TableHead>
                   </TableRow>
-                );
-              })}
-              {interfaces.length === 0 ? (
-                <TableRow>
-                  <TableCell colSpan={5} className="text-center text-sm text-muted-foreground">
-                    No interfaces returned from the device.
-                  </TableCell>
-                </TableRow>
-              ) : null}
-            </TableBody>
-          </Table>
-        </div>
+                </TableHeader>
+                <TableBody>
+                  {interfaces.map((iface, idx) => {
+                    const name = (iface["name"] ?? iface["interface"]) as string | undefined;
+                    const type = (iface["type"] ?? iface["interface-type"]) as string | undefined;
+                    const running = (iface["running"] ?? iface["active"]) as boolean | string | undefined;
+                    const rxBytes = toNumber(iface["rx-byte"] ?? iface["rxBytes"]);
+                    const txBytes = toNumber(iface["tx-byte"] ?? iface["txBytes"]);
+                    const isRunning = running === true || running === "true" || running === "running";
+                    return (
+                      <TableRow key={name ?? type ?? idx}>
+                        <TableCell className="font-medium">{name ?? "Interface"}</TableCell>
+                        <TableCell>{type ?? "-"}</TableCell>
+                        <TableCell>
+                          <Badge
+                            variant="outline"
+                            className={isRunning ? "bg-emerald-50 text-emerald-700 border-emerald-200" : ""}
+                          >
+                            {isRunning ? "Running" : "Idle"}
+                          </Badge>
+                        </TableCell>
+                        <TableCell className="text-right">{formatBytes(rxBytes)}</TableCell>
+                        <TableCell className="text-right">{formatBytes(txBytes)}</TableCell>
+                      </TableRow>
+                    );
+                  })}
+                  {interfaces.length === 0 ? (
+                    <TableRow>
+                      <TableCell colSpan={5} className="text-center text-sm text-muted-foreground">
+                        No interfaces returned from the device.
+                      </TableCell>
+                    </TableRow>
+                  ) : null}
+                </TableBody>
+              </Table>
+            </div>
+          </TabsContent>
+
+          <TabsContent value="ppp" className="mt-4">
+            <div className="overflow-x-auto rounded-lg border">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>User</TableHead>
+                    <TableHead>Service</TableHead>
+                    <TableHead>Remote address</TableHead>
+                    <TableHead>Caller ID</TableHead>
+                    <TableHead className="text-right">Uptime</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {pppActive.map((session, idx) => {
+                    const user = (session["name"] ?? session["user"]) as string | undefined;
+                    const service = (session["service"] ?? session["type"]) as string | undefined;
+                    const address = (session["address"] ?? session["remote-address"]) as string | undefined;
+                    const callerId = (session["caller-id"] ?? session["callerId"]) as string | undefined;
+                    const uptime = formatUptimeValue(
+                      (session["uptime"] ?? session["uptime-seconds"]) as string | number | undefined
+                    );
+                    return (
+                      <TableRow key={user ?? callerId ?? address ?? idx}>
+                        <TableCell className="font-medium">{user ?? "PPP user"}</TableCell>
+                        <TableCell>{service ?? "-"}</TableCell>
+                        <TableCell>{address ?? "-"}</TableCell>
+                        <TableCell>{callerId ?? "-"}</TableCell>
+                        <TableCell className="text-right">{uptime}</TableCell>
+                      </TableRow>
+                    );
+                  })}
+                  {pppActive.length === 0 ? (
+                    <TableRow>
+                      <TableCell colSpan={5} className="text-center text-sm text-muted-foreground">
+                        No active PPP sessions reported.
+                      </TableCell>
+                    </TableRow>
+                  ) : null}
+                </TableBody>
+              </Table>
+            </div>
+          </TabsContent>
+
+          <TabsContent value="hotspot" className="mt-4">
+            <div className="overflow-x-auto rounded-lg border">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>User</TableHead>
+                    <TableHead>Address</TableHead>
+                    <TableHead>MAC</TableHead>
+                    <TableHead>Login by</TableHead>
+                    <TableHead className="text-right">Usage</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {hotspotActive.map((session, idx) => {
+                    const user = (session["user"] ?? session["name"]) as string | undefined;
+                    const address = (session["address"] ?? session["active-address"]) as string | undefined;
+                    const mac = (session["mac-address"] ?? session["macAddress"]) as string | undefined;
+                    const loginBy = (session["login-by"] ?? session["loginBy"]) as string | undefined;
+                    const bytesIn = toNumber(session["bytes-in"] ?? session["bytesIn"]);
+                    const bytesOut = toNumber(session["bytes-out"] ?? session["bytesOut"]);
+                    return (
+                      <TableRow key={user ?? mac ?? address ?? idx}>
+                        <TableCell className="font-medium">{user ?? "Hotspot user"}</TableCell>
+                        <TableCell>{address ?? "-"}</TableCell>
+                        <TableCell>{mac ?? "-"}</TableCell>
+                        <TableCell>{loginBy ?? "-"}</TableCell>
+                        <TableCell className="text-right">
+                          {formatBytes(bytesIn)} / {formatBytes(bytesOut)}
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })}
+                  {hotspotActive.length === 0 ? (
+                    <TableRow>
+                      <TableCell colSpan={5} className="text-center text-sm text-muted-foreground">
+                        No active hotspot sessions reported.
+                      </TableCell>
+                    </TableRow>
+                  ) : null}
+                </TableBody>
+              </Table>
+            </div>
+          </TabsContent>
+        </Tabs>
       </div>
 
       <div className="space-y-3">

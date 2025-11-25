@@ -75,8 +75,6 @@ export const registerDeviceOnCentralVpn = async (device: Pick<
   });
 };
 
-type WireguardPeerRow = { ".id"?: string; comment?: string } & Record<string, unknown>;
-
 export const removeDeviceFromCentralVpn = async (
   device: Pick<OrganizationDevice, "id" | "name">
 ) => {
@@ -93,52 +91,17 @@ export const removeDeviceFromCentralVpn = async (
     interface: vpnInterface,
   });
 
-  const lookup = await RouterOsApi.queryDevice({
+  const result = await RouterOsApi.removePeer({
     deviceId: device.id,
     address: vpnHost!,
     username: vpnUsername!,
     password: vpnPassword!,
     port: normalizePort(),
-    queries: [],
-    rawCommands: [
-      {
-        command: "/interface/wireguard/peers/print",
-        args: [`?comment=${device.id}`],
-      },
-    ],
-  });
-
-  const peerRows = lookup.rawResults?.[0]?.result;
-  const peerIds = Array.isArray(peerRows)
-    ? (peerRows as WireguardPeerRow[])
-        .map((row) => row?.[".id"])
-        .filter((id): id is string => Boolean(id))
-    : [];
-
-  if (peerIds.length === 0) {
-    console.info("[vpn-provisioner] No VPN peer found for device; skipping removal", {
-      deviceId: device.id,
-    });
-    return;
-  }
-
-  const removalCommands = peerIds.map((peerId) => ({
-    command: "/interface/wireguard/peers/remove",
-    args: [`=numbers=${peerId}`],
-  }));
-
-  await RouterOsApi.queryDevice({
-    deviceId: device.id,
-    address: vpnHost!,
-    username: vpnUsername!,
-    password: vpnPassword!,
-    port: normalizePort(),
-    queries: [],
-    rawCommands: removalCommands,
+    peerComment: device.id,
   });
 
   console.info("[vpn-provisioner] Device removed from VPN", {
     deviceId: device.id,
-    peerCount: peerIds.length,
+    peerCount: result.removed,
   });
 };

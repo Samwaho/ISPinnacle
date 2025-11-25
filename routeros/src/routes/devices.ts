@@ -32,6 +32,16 @@ const streamHandshakeSchema = credentialsSchema.extend({
   intervalMs: z.number().int().positive().max(30000).optional(),
 });
 
+const deletePeerSchema = z.object({
+  deviceId: z.string().min(1),
+  address: z.string().min(1),
+  port: z.number().int().positive().max(65535).optional(),
+  username: z.string().min(1),
+  password: z.string().min(1),
+  useSsl: z.boolean().optional(),
+  peerComment: z.string().min(1).optional(),
+});
+
 export const registerDeviceRoutes = async (app: FastifyInstance) => {
   app.get("/devices/:deviceId/stream", { websocket: true }, (connection, request) => {
     const params = request.params as { deviceId?: string } | undefined;
@@ -204,5 +214,82 @@ export const registerDeviceRoutes = async (app: FastifyInstance) => {
       reachable: true,
       checkedAt: new Date().toISOString(),
     });
+  });
+
+  app.post("/api/devices/remove-peer", async (request, reply) => {
+    const payload = deletePeerSchema.parse(request.body);
+    const comment = payload.peerComment?.trim() || payload.deviceId;
+    request.log.info(
+      {
+        deviceId: payload.deviceId,
+        address: payload.address,
+        comment,
+      },
+      "Removing RouterOS WireGuard peer",
+    );
+
+    try {
+      const lookup = await executeRouterQueries(
+        {
+          address: payload.address,
+          username: payload.username,
+          password: payload.password,
+          port: payload.port,
+          useSsl: payload.useSsl,
+        },
+        [],
+        [
+          {
+            command: "/interface/wireguard/peers/print",
+            args: [`?comment=${comment}`],
+          },
+        ],
+      );
+
+      const peerRows = lookup.rawResults?.[0]?.result;
+      const peerIds = Array.isArray(peerRows)
+        ? (peerRows as Record<string, unknown>[])
+            .map((row) => row?.[".id"])
+            .filter((id): id is string => typeof id === "string" && id.length > 0)
+        : [];
+
+      if (peerIds.length === 0) {
+        request.log.info(
+          { deviceId: payload.deviceId, comment },
+          "No WireGuard peer found; skipping removal",
+        );
+        reply.send({ deviceId: payload.deviceId, removed: 0 });
+        return;
+      }
+
+      const removalCommands = peerIds.map((peerId) => ({
+        command: "/interface/wireguard/peers/remove",
+        args: [`=numbers=${peerId}`],
+      }));
+
+      await executeRouterQueries(
+        {
+          address: payload.address,
+          username: payload.username,
+          password: payload.password,
+          port: payload.port,
+          useSsl: payload.useSsl,
+        },
+        [],
+        removalCommands,
+      );
+
+      reply.send({ deviceId: payload.deviceId, removed: peerIds.length });
+    } catch (error) {
+      request.log.error(
+        {
+          deviceId: payload.deviceId,
+          address: payload.address,
+          err: error,
+        },
+        "Failed to remove WireGuard peer",
+      );
+      throw error;
+    }
   });
 };

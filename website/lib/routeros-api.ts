@@ -14,6 +14,16 @@ export type RouterOsRawCommand = {
   args?: string[];
 };
 
+export type DeletePeerRequest = {
+  deviceId: string;
+  address: string;
+  username: string;
+  password: string;
+  port?: number;
+  useSsl?: boolean;
+  peerComment?: string;
+};
+
 type DeviceQueryRequest = {
   deviceId: string;
   address: string;
@@ -60,5 +70,27 @@ export const RouterOsApi = {
     }
 
     return (await response.json()) as RouterOsQueryResponse;
+  },
+
+  async removePeer(payload: DeletePeerRequest): Promise<{ deviceId: string; removed: number }> {
+    assertConfig();
+
+    const response = await fetch(`${baseUrl}/api/devices/remove-peer`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "x-api-key": apiKey!,
+      },
+      body: JSON.stringify(payload),
+    });
+
+    if (!response.ok) {
+      const errorBody = await response.text();
+      throw new Error(
+        `RouterOS API peer removal failed with status ${response.status}: ${errorBody}`
+      );
+    }
+
+    return (await response.json()) as { deviceId: string; removed: number };
   },
 };

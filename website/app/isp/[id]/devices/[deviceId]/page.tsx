@@ -81,6 +81,7 @@ const DeviceDetailPage = () => {
   const [liveQueryError, setLiveQueryError] = React.useState<string | null>(null);
   const inFlightRef = React.useRef(false);
   const websocketRef = React.useRef<WebSocket | null>(null);
+  const reconnectRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
   const seededInitialFetch = React.useRef(false);
   const [streamingActive, setStreamingActive] = React.useState(allowStreaming);
   const streamingBlockedRef = React.useRef(false);
@@ -146,6 +147,10 @@ const DeviceDetailPage = () => {
 
     const connect = () => {
       if (streamingBlockedRef.current) return;
+      if (reconnectRef.current) {
+        clearTimeout(reconnectRef.current);
+        reconnectRef.current = null;
+      }
       if (process.env.NODE_ENV !== "production") {
         console.info("[routeros] opening websocket", { deviceId: device.id, wsUrl });
       }
@@ -217,6 +222,9 @@ const DeviceDetailPage = () => {
         if (process.env.NODE_ENV !== "production") {
           console.warn("[routeros] websocket error", { deviceId: device.id });
         }
+        if (!streamingBlockedRef.current) {
+          reconnectRef.current = setTimeout(() => setStreamSession((s) => s + 1), 3000);
+        }
       };
 
       socket.onclose = (event) => {
@@ -226,12 +234,15 @@ const DeviceDetailPage = () => {
         if (process.env.NODE_ENV !== "production") {
           console.warn("[routeros] websocket closed", { deviceId: device.id, code: event.code, reason: event.reason, unauthorized });
         }
-        streamingBlockedRef.current = true;
+        streamingBlockedRef.current = unauthorized;
         const fallbackMessage = unauthorized
           ? "WebSocket auth failed; use manual refresh."
-          : "Live stream unavailable; use manual refresh or retry.";
+          : "Live stream unavailable; retrying...";
         setLiveQueryError(fallbackMessage);
         setStreamingActive(false);
+        if (!unauthorized) {
+          reconnectRef.current = setTimeout(() => setStreamSession((s) => s + 1), 2000);
+        }
       };
     };
 
@@ -241,6 +252,10 @@ const DeviceDetailPage = () => {
       streamingBlockedRef.current = true;
       setStreamingActive(false);
       setLiveQueryError(null);
+      if (reconnectRef.current) {
+        clearTimeout(reconnectRef.current);
+        reconnectRef.current = null;
+      }
       if (websocketRef.current) {
         websocketRef.current.onclose = null;
         websocketRef.current.close();

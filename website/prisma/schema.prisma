@@ -215,7 +215,6 @@ model Organization {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  @@unique([ownerId])
   @@index([ownerId])
 }
 

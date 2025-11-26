@@ -4,6 +4,7 @@ import { prisma } from "@/lib/db";
 export const DEFAULT_VPN_NETWORK_CIDR = "10.20.0.0/16";
 export const DEFAULT_VPN_HOST_OFFSET = 10;
 export const DEFAULT_DEVICE_VPN_MASK = 32;
+export const DEFAULT_ORG_SUBNET_PREFIX: number = 24;
 
 type PrismaDbClient = PrismaClient | Prisma.TransactionClient;
 
@@ -85,17 +86,102 @@ export async function allocateNextVpnIp(
 ): Promise<string> {
   const organization = await db.organization.findUnique({
     where: { id: organizationId },
-    select: { vpnSubnetCidr: true, name: true },
+    select: {
+      vpnSubnetCidr: true,
+      name: true,
+      devices: { select: { vpnIpAddress: true }, take: 1 },
+    },
   });
 
   if (!organization) {
     throw new Error("Organization not found");
   }
 
-  const subnetCidr = (organization.vpnSubnetCidr ?? DEFAULT_VPN_NETWORK_CIDR).trim();
+  const deriveSubnetFromIp = (ip: string) => {
+    const prefixMask = DEFAULT_ORG_SUBNET_PREFIX === 0
+      ? 0
+      : ((0xffffffff << (32 - DEFAULT_ORG_SUBNET_PREFIX)) >>> 0);
+    const start = ipToNumber(ip) & prefixMask;
+    return `${numberToIp(start)}/${DEFAULT_ORG_SUBNET_PREFIX}`;
+  };
+
+  const allocateOrgSubnetFromPool = async (): Promise<string> => {
+    const [poolBaseIp, poolPrefixRaw] = DEFAULT_VPN_NETWORK_CIDR.split("/");
+    const poolPrefix = Number.parseInt(poolPrefixRaw ?? "", 10);
+    if (!poolBaseIp || !Number.isInteger(poolPrefix) || poolPrefix < 1 || poolPrefix > 32) {
+      throw new Error("Invalid default VPN network CIDR");
+    }
+    if (poolPrefix > DEFAULT_ORG_SUBNET_PREFIX) {
+      throw new Error("Default VPN pool is smaller than the per-organization subnet size");
+    }
+
+    const poolMask = poolPrefix === 0 ? 0 : ((0xffffffff << (32 - poolPrefix)) >>> 0);
+    const poolStart = ipToNumber(poolBaseIp) & poolMask;
+    const subnetSize = 2 ** (32 - DEFAULT_ORG_SUBNET_PREFIX);
+    const maxSubnets = 2 ** (DEFAULT_ORG_SUBNET_PREFIX - poolPrefix);
+
+    const usedSubnetStarts = new Set<number>();
+
+    const organizations = await db.organization.findMany({
+      select: { vpnSubnetCidr: true },
+    });
+
+    for (const org of organizations) {
+      if (!org.vpnSubnetCidr) continue;
+      const [cidrBase, cidrPrefixRaw] = org.vpnSubnetCidr.split("/");
+      const cidrPrefix = Number.parseInt(cidrPrefixRaw ?? "", 10);
+      if (!cidrBase || !Number.isInteger(cidrPrefix) || cidrPrefix < 1 || cidrPrefix > 32) continue;
+
+      const normalizedPrefix = Math.min(cidrPrefix, DEFAULT_ORG_SUBNET_PREFIX);
+      const normalizedMask = normalizedPrefix === 0 ? 0 : ((0xffffffff << (32 - normalizedPrefix)) >>> 0);
+      const normalizedStart = ipToNumber(cidrBase) & normalizedMask;
+
+      const blocks = cidrPrefix <= DEFAULT_ORG_SUBNET_PREFIX ? 2 ** (DEFAULT_ORG_SUBNET_PREFIX - cidrPrefix) : 1;
+      for (let i = 0; i < blocks; i++) {
+        usedSubnetStarts.add((normalizedStart + i * subnetSize) >>> 0);
+      }
+    }
+
+    const legacyDevices = await db.organizationDevice.findMany({
+      where: { organization: { vpnSubnetCidr: null } },
+      select: { vpnIpAddress: true },
+    });
+
+    for (const device of legacyDevices) {
+      try {
+        const legacyStart = ipToNumber(device.vpnIpAddress) & ((0xffffffff << (32 - DEFAULT_ORG_SUBNET_PREFIX)) >>> 0);
+        usedSubnetStarts.add(legacyStart >>> 0);
+      } catch {
+        // ignore malformed legacy addresses
+      }
+    }
+
+    for (let i = 0; i < maxSubnets; i++) {
+      const candidateStart = poolStart + i * subnetSize;
+      if (!usedSubnetStarts.has(candidateStart >>> 0)) {
+        return `${numberToIp(candidateStart >>> 0)}/${DEFAULT_ORG_SUBNET_PREFIX}`;
+      }
+    }
+
+    throw new Error(`No available /${DEFAULT_ORG_SUBNET_PREFIX} subnets left in ${DEFAULT_VPN_NETWORK_CIDR}`);
+  };
+
+  let subnetCidr = organization.vpnSubnetCidr?.trim();
+  if (!subnetCidr) {
+    const inferredSubnet = organization.devices[0]?.vpnIpAddress
+      ? deriveSubnetFromIp(organization.devices[0].vpnIpAddress)
+      : null;
+    subnetCidr = inferredSubnet ?? (await allocateOrgSubnetFromPool());
+    await db.organization.update({
+      where: { id: organizationId },
+      data: { vpnSubnetCidr: subnetCidr },
+    });
+  }
+
   const subnetRange = calculateSubnetRange(subnetCidr);
 
   const existingIps = await db.organizationDevice.findMany({
+    where: { organizationId },
     select: { vpnIpAddress: true },
   });
 

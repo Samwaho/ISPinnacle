@@ -77,7 +77,6 @@ export const OrganizationEditForm = ({ organization, onCancel }: OrganizationEdi
       logo: organization.logo || "",
       website: organization.website || "",
       description: organization.description || "",
-      vpnSubnetCidr: organization.vpnSubnetCidr || "",
     },
   });
 
@@ -156,26 +155,10 @@ export const OrganizationEditForm = ({ organization, onCancel }: OrganizationEdi
                           type="url"
                         />
                       </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <FormField
-                  control={form.control}
-                  name="vpnSubnetCidr"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>VPN Subnet (CIDR)</FormLabel>
-                      <FormControl>
-                        <Input {...field} placeholder="10.20.0.0/24" />
-                      </FormControl>
-                      <p className="text-xs text-muted-foreground">
-                        Devices will receive VPN IPs from this subnet. Leave blank to use the default pool.
-                      </p>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
               </div>
               <FormField
                 control={form.control}

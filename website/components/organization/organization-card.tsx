@@ -58,35 +58,37 @@ export const OrganizationCard = ({ organization }: OrganizationCardProps) => {
         </div>
       </CardHeader>
 
-      <CardContent className="space-y-4">
-        {organization.description && (
-          <CardDescription className="text-gray-600 dark:text-gray-400 leading-relaxed">
-            {organization.description}
-          </CardDescription>
-        )}
-
-        <div className="space-y-2">
-          <div className="flex items-center space-x-2 text-sm text-gray-600 dark:text-gray-400">
-            <Mail className="h-4 w-4" />
-            <span>{organization.email}</span>
-          </div>
-          <div className="flex items-center space-x-2 text-sm text-gray-600 dark:text-gray-400">
-            <Phone className="h-4 w-4" />
-            <span>{organization.phone}</span>
-          </div>
-          {organization.website && (
-            <div className="flex items-center space-x-2 text-sm text-gray-600 dark:text-gray-400">
-              <Globe className="h-4 w-4" />
-              <a
-                href={organization.website}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-primary hover:underline transition-colors"
-              >
-                {organization.website}
-              </a>
-            </div>
+      <CardContent className="flex flex-1 flex-col space-y-4">
+        <div className="flex flex-1 flex-col space-y-4">
+          {organization.description && (
+            <CardDescription className="text-gray-600 dark:text-gray-400 leading-relaxed">
+              {organization.description}
+            </CardDescription>
           )}
+
+          <div className="space-y-2">
+            <div className="flex items-center space-x-2 text-sm text-gray-600 dark:text-gray-400">
+              <Mail className="h-4 w-4" />
+              <span>{organization.email}</span>
+            </div>
+            <div className="flex items-center space-x-2 text-sm text-gray-600 dark:text-gray-400">
+              <Phone className="h-4 w-4" />
+              <span>{organization.phone}</span>
+            </div>
+            {organization.website && (
+              <div className="flex items-center space-x-2 text-sm text-gray-600 dark:text-gray-400">
+                <Globe className="h-4 w-4" />
+                <a
+                  href={organization.website}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-primary hover:underline transition-colors"
+                >
+                  {organization.website}
+                </a>
+              </div>
+            )}
+          </div>
         </div>
 
         <Link href={`/organization/${organization.id}`}>

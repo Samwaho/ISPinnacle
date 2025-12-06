@@ -420,7 +420,8 @@ const AnalyticsPage = () => {
       const timestamp = new Date().toISOString().split("T")[0];
       const fileName = `financial-analytics-${organizationId}-${selectedPeriod}-${timestamp}.xlsx`;
 
-      const buffer = await workbook.xlsx.writeBuffer();
+      // exceljs typings don't expose writeBuffer on the Xlsx interface, but it's available in the browser build
+      const buffer = await (workbook.xlsx as unknown as { writeBuffer: () => Promise<ArrayBuffer> }).writeBuffer();
       const blob = new Blob([buffer], {
         type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
       });

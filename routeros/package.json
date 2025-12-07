@@ -22,7 +22,7 @@
     "@fastify/websocket": "^9.0.0",
     "dotenv": "^16.4.7",
     "fastify": "^4.27.0",
-    "node-routeros": "^1.6.9",
+    "mikronode-ng2": "^1.0.12",
     "zod": "^3.23.8"
   },
   "devDependencies": {

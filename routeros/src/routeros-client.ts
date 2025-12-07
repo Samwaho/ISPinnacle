@@ -1,4 +1,4 @@
-import { RouterOSAPI } from "node-routeros";
+import MikroNode from "mikronode-ng2";
 import { config } from "./config";
 
 export const ROUTEROS_QUERIES = {
@@ -30,36 +30,21 @@ export type RouterOsRawCommand = {
   args?: string[];
 };
 
-const createClient = (credentials: RouterCredentials) =>
-  new RouterOSAPI({
-    host: credentials.address,
-    user: credentials.username,
-    password: credentials.password,
+type MikroConnection = ReturnType<typeof MikroNode.getConnection>;
+
+const createConnection = (credentials: RouterCredentials) =>
+  MikroNode.getConnection(credentials.address, credentials.username, credentials.password, {
     port: credentials.port ?? 8728,
-    timeout: config.requestTimeoutMs,
-    keepalive: false,
-    tls: credentials.useSsl ? {} : undefined,
+    timeout: Math.max(1, Math.ceil(config.requestTimeoutMs / 1000)), // mikronode expects seconds
+    closeOnDone: false,
+    closeOnTimeout: true,
+    tls: credentials.useSsl ? {} : false,
   });
 
-// Some RouterOS versions respond with `!empty` which node-routeros treats as an
-// unknown reply and throws. Treat that as "no rows" instead of failing the stream.
-const safeWrite = async (client: RouterOSAPI, command: string, args: string[] = []) => {
-  try {
-    return await client.write(command, args);
-  } catch (err) {
-    const message = (err as { message?: string }).message ?? "";
-    const errno = (err as { errno?: string }).errno;
-    const isUnknownEmpty =
-      errno === "UNKNOWNREPLY" ||
-      message.includes("UNKNOWNREPLY") ||
-      message.includes("!empty") ||
-      message.includes("unknown reply");
-    if (isUnknownEmpty) {
-      console.warn("[routeros-client] ignoring empty reply", { command });
-      return [];
-    }
-    throw err;
-  }
+const runCommand = async (connection: MikroConnection, command: string, args: string[] = []) => {
+  // getCommandPromise parses replies into arrays of objects automatically.
+  const parameters = args.length > 0 ? args : undefined;
+  return connection.getCommandPromise(command, parameters, { closeOnDone: true });
 };
 
 export const executeRouterQueries = async (
@@ -73,19 +58,19 @@ export const executeRouterQueries = async (
     queries: queryKeys,
     rawCommandsCount: rawCommands.length,
   });
-  const client = createClient(credentials);
-  await client.connect();
+  const connection = createConnection(credentials);
+  const session = await connection.getConnectPromise();
 
   try {
     const results: Record<string, unknown> = {};
     for (const key of queryKeys) {
       const command = ROUTEROS_QUERIES[key];
-      results[key] = await safeWrite(client, command);
+      results[key] = await runCommand(session, command);
     }
 
     const rawResults = [];
     for (const command of rawCommands) {
-      const result = await safeWrite(client, command.command, command.args ?? []);
+      const result = await runCommand(session, command.command, command.args ?? []);
       rawResults.push({
         command: command.command,
         result,
@@ -104,7 +89,11 @@ export const executeRouterQueries = async (
     });
     return result;
   } finally {
-    await client.close().catch(() => undefined);
+    try {
+      session.close();
+    } catch {
+      /* noop */
+    }
   }
 };
 

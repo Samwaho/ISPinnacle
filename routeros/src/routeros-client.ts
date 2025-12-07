@@ -41,6 +41,23 @@ const createClient = (credentials: RouterCredentials) =>
     tls: credentials.useSsl ? {} : undefined,
   });
 
+// Some RouterOS versions respond with `!empty` which node-routeros treats as an
+// unknown reply and throws. Treat that as "no rows" instead of failing the stream.
+const safeWrite = async (client: RouterOSAPI, command: string, args: string[] = []) => {
+  try {
+    return await client.write(command, args);
+  } catch (err) {
+    const isUnknownEmpty =
+      (err as { errno?: string; message?: string }).errno === "UNKNOWNREPLY" ||
+      (err as { message?: string }).message?.includes("UNKNOWNREPLY");
+    if (isUnknownEmpty) {
+      console.warn("[routeros-client] ignoring empty reply", { command });
+      return [];
+    }
+    throw err;
+  }
+};
+
 export const executeRouterQueries = async (
   credentials: RouterCredentials,
   queryKeys: RouterOsQueryKey[],
@@ -59,12 +76,12 @@ export const executeRouterQueries = async (
     const results: Record<string, unknown> = {};
     for (const key of queryKeys) {
       const command = ROUTEROS_QUERIES[key];
-      results[key] = await client.write(command);
+      results[key] = await safeWrite(client, command);
     }
 
     const rawResults = [];
     for (const command of rawCommands) {
-      const result = await client.write(command.command, command.args ?? []);
+      const result = await safeWrite(client, command.command, command.args ?? []);
       rawResults.push({
         command: command.command,
         result,

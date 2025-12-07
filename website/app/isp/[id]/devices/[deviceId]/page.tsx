@@ -86,6 +86,7 @@ const DeviceDetailPage = () => {
   const [streamingActive, setStreamingActive] = React.useState(allowStreaming);
   const streamingBlockedRef = React.useRef(false);
   const [streamSession, setStreamSession] = React.useState(0);
+  const wsFailureCountRef = React.useRef(0);
 
   const { mutate: syncDevice, isPending: syncing } = useMutation(
     t.devices.fetchStatus.mutationOptions({
@@ -139,12 +140,14 @@ const DeviceDetailPage = () => {
       setLiveQueryError("Live stream disabled on HTTPS because the WebSocket endpoint is not using WSS. Use manual refresh or configure WSS.");
       setStreamingActive(false);
       streamingBlockedRef.current = true;
+      wsFailureCountRef.current = 0;
     }
   }, [insecureWsInSecurePage]);
 
   React.useEffect(() => {
     if (!device || !wsUrl || !deviceSecrets?.routerOsPassword) return;
     streamingBlockedRef.current = false;
+    wsFailureCountRef.current = 0;
 
     const connect = () => {
       if (streamingBlockedRef.current) return;
@@ -218,7 +221,16 @@ const DeviceDetailPage = () => {
       };
 
       socket.onerror = () => {
-        setLiveQueryError("WebSocket connection error");
+        wsFailureCountRef.current += 1;
+        const tooManyFailures = wsFailureCountRef.current >= 3;
+        if (tooManyFailures) {
+          streamingBlockedRef.current = true;
+        }
+        setLiveQueryError(
+          tooManyFailures
+            ? "WebSocket unreachable. The stream endpoint may not support WSS or the proxy is not upgrading connections. Use manual refresh or fix the WSS endpoint."
+            : "WebSocket connection error"
+        );
         setStreamingActive(false);
         if (process.env.NODE_ENV !== "production") {
           console.warn("[routeros] websocket error", { deviceId: device.id });
@@ -235,10 +247,12 @@ const DeviceDetailPage = () => {
         if (process.env.NODE_ENV !== "production") {
           console.warn("[routeros] websocket closed", { deviceId: device.id, code: event.code, reason: event.reason, unauthorized });
         }
-        streamingBlockedRef.current = unauthorized;
+        streamingBlockedRef.current = unauthorized || wsFailureCountRef.current >= 3;
         const fallbackMessage = unauthorized
           ? "WebSocket auth failed; use manual refresh."
-          : "Live stream unavailable; retrying...";
+          : streamingBlockedRef.current
+            ? "WebSocket unreachable. Use manual refresh or fix the WSS endpoint."
+            : "Live stream unavailable; retrying...";
         setLiveQueryError(fallbackMessage);
         setStreamingActive(false);
         if (!unauthorized) {
@@ -399,6 +413,7 @@ const DeviceDetailPage = () => {
                 variant="secondary"
                 onClick={() => {
                   streamingBlockedRef.current = false;
+                  wsFailureCountRef.current = 0;
                   setLiveQueryError(null);
                   setStreamSession((s) => s + 1);
                 }}

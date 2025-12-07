@@ -47,9 +47,13 @@ const safeWrite = async (client: RouterOSAPI, command: string, args: string[] = 
   try {
     return await client.write(command, args);
   } catch (err) {
+    const message = (err as { message?: string }).message ?? "";
+    const errno = (err as { errno?: string }).errno;
     const isUnknownEmpty =
-      (err as { errno?: string; message?: string }).errno === "UNKNOWNREPLY" ||
-      (err as { message?: string }).message?.includes("UNKNOWNREPLY");
+      errno === "UNKNOWNREPLY" ||
+      message.includes("UNKNOWNREPLY") ||
+      message.includes("!empty") ||
+      message.includes("unknown reply");
     if (isUnknownEmpty) {
       console.warn("[routeros-client] ignoring empty reply", { command });
       return [];

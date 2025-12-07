@@ -1,5 +1,22 @@
 import { RouterOSAPI } from "node-routeros";
 import { config } from "./config";
+// node-routeros throws on `!empty` replies via Channel.onUnknown; patch to swallow.
+try {
+  // eslint-disable-next-line @typescript-eslint/no-var-requires
+  const { Channel } = require("node-routeros/dist/Channel");
+  if (Channel && Channel.prototype && !Channel.prototype.__patchedIgnoreUnknown) {
+    const originalOnUnknown = Channel.prototype.onUnknown;
+    Channel.prototype.onUnknown = function onUnknownPatched(reply: unknown) {
+      console.warn("[routeros-client] ignoring unknown/empty reply", { reply });
+      // emit an event so awaiting promises can resolve gracefully
+      this.emit("unknown", reply);
+    };
+    Channel.prototype.__patchedIgnoreUnknown = true;
+    Channel.prototype._originalOnUnknown = originalOnUnknown;
+  }
+} catch (err) {
+  console.warn("[routeros-client] failed to patch Channel.onUnknown", { err });
+}
 
 export const ROUTEROS_QUERIES = {
   systemResources: "/system/resource/print",

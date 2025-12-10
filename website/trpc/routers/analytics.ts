@@ -2,7 +2,7 @@ import { createTRPCRouter, protectedProcedure } from "../init";
 import { prisma } from "@/lib/db";
 import { z } from "zod";
 import { TRPCError } from "@trpc/server";
-import { OrganizationPermission, VoucherStatus } from "@/lib/generated/prisma";
+import { OrganizationPermission, VoucherStatus, OrganizationDeviceStatus } from "@/lib/generated/prisma";
 import { hasPermissions } from "@/lib/server-hooks";
 
 export const analyticsRouter = createTRPCRouter({
@@ -644,7 +644,10 @@ export const analyticsRouter = createTRPCRouter({
       const expiredCustomers = await prisma.organizationCustomer.count({
         where: { 
           organizationId: input.organizationId,
-          status: "EXPIRED",
+          OR: [
+            { status: "EXPIRED" },
+            { expiryDate: { lt: new Date() } }
+          ]
         },
       });
 
@@ -766,5 +769,164 @@ export const analyticsRouter = createTRPCRouter({
         },
         total: mpesaTotal + k2Total,
       };
+    }),
+  // Real-time network and customer stats
+  getRealtimeStats: protectedProcedure
+    .input(z.object({
+      organizationId: z.string().min(1, "Organization ID is required"),
+    }))
+    .query(async ({ input }) => {
+      const canView = await hasPermissions(input.organizationId, [OrganizationPermission.VIEW_ORGANIZATION_DETAILS]);
+      if (!canView) throw new TRPCError({ code: "FORBIDDEN" });
+
+      const [onlineDevices, totalDevices, onlineCustomers, totalCustomers] = await Promise.all([
+        prisma.organizationDevice.count({
+          where: { organizationId: input.organizationId, status: OrganizationDeviceStatus.ONLINE },
+        }),
+        prisma.organizationDevice.count({
+          where: { organizationId: input.organizationId },
+        }),
+        prisma.organizationCustomerConnection.count({
+          where: { 
+             customer: { organizationId: input.organizationId },
+             sessionStatus: "ONLINE" 
+          },
+        }),
+        prisma.organizationCustomer.count({
+          where: { organizationId: input.organizationId, status: "ACTIVE" },
+        }),
+      ]);
+
+      return {
+        devices: { online: onlineDevices, total: totalDevices, offline: totalDevices - onlineDevices },
+        customers: { online: onlineCustomers, total: totalCustomers, offline: totalCustomers - onlineCustomers },
+      };
+    }),
+
+  // Top data consumers
+  getDataUsageStats: protectedProcedure
+    .input(z.object({
+      organizationId: z.string().min(1, "Organization ID is required"),
+    }))
+    .query(async ({ input }) => {
+      const canView = await hasPermissions(input.organizationId, [OrganizationPermission.VIEW_CUSTOMERS]);
+      if (!canView) throw new TRPCError({ code: "FORBIDDEN" });
+
+      // Fetch top active connections by usage
+      // Note: This relies on totalInputOctets/totalOutputOctets being reliable counters
+      const connections = await prisma.organizationCustomerConnection.findMany({
+        where: { customer: { organizationId: input.organizationId } },
+        include: { customer: { select: { name: true, pppoeUsername: true } } },
+        orderBy: { totalInputOctets: 'desc' }, // Rough proxy for "usage" if we can't sum both easily in Prisma
+        take: 5,
+      });
+
+      return connections.map(c => ({
+        id: c.customerId,
+        name: c.customer.name,
+        username: c.customer.pppoeUsername,
+        download: Number(c.totalOutputOctets), // Router Output = User Download
+        upload: Number(c.totalInputOctets),   // Router Input = User Upload
+        total: Number(c.totalOutputOctets) + Number(c.totalInputOctets),
+      })).sort((a, b) => b.total - a.total);
+    }),
+
+  // Customer acquisition trend
+  getCustomerGrowth: protectedProcedure
+    .input(z.object({
+      organizationId: z.string().min(1, "Organization ID is required"),
+      period: z.enum(["7d", "30d", "90d", "1y"]).default("30d"),
+    }))
+    .query(async ({ input }) => {
+      const canView = await hasPermissions(input.organizationId, [OrganizationPermission.VIEW_CUSTOMERS]);
+      if (!canView) throw new TRPCError({ code: "FORBIDDEN" });
+
+      const now = new Date();
+      let startDate: Date;
+       switch (input.period) {
+        case "7d": startDate = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000); break;
+        case "30d": startDate = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000); break;
+        case "90d": startDate = new Date(now.getTime() - 90 * 24 * 60 * 60 * 1000); break;
+        case "1y": startDate = new Date(now.getTime() - 365 * 24 * 60 * 60 * 1000); break;
+      }
+
+      const customers = await prisma.organizationCustomer.findMany({
+        where: {
+          organizationId: input.organizationId,
+          createdAt: { gte: startDate },
+        },
+        orderBy: { createdAt: 'asc' },
+        select: { createdAt: true },
+      });
+
+      // Group by date
+      const map = new Map<string, number>();
+      customers.forEach(c => {
+        const date = c.createdAt.toISOString().split('T')[0];
+        map.set(date, (map.get(date) || 0) + 1);
+      });
+
+      const result = Array.from(map.entries()).map(([date, count]) => ({ date, count }));
+      result.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+      
+      // Calculate cumulative
+      let cumulative = 0;
+      return result.map(r => {
+        cumulative += r.count;
+        return { ...r, cumulative };
+      });
+    }),
+
+  getRevenueBySource: protectedProcedure
+    .input(z.object({ organizationId: z.string() }))
+    .query(async ({ ctx, input }) => {
+      const canView = await hasPermissions(input.organizationId, [
+        OrganizationPermission.VIEW_EXPENSES, 
+      ]);
+      if (!canView) {
+        throw new TRPCError({ 
+          code: "FORBIDDEN", 
+          message: "You are not authorized to view financial analytics in this organization" 
+        });
+      }
+
+      // 1. PPPoE Revenue (from OrganizationCustomerPayment)
+      const pppoeAgg = await prisma.organizationCustomerPayment.aggregate({
+        where: {
+          organizationId: input.organizationId,
+        },
+        _sum: { amount: true },
+      });
+      const pppoeRevenue = pppoeAgg._sum.amount || 0;
+
+      // 2. Hotspot Revenue (from Transactions matching Voucher Codes)
+      const voucherCodes = await prisma.hotspotVoucher.findMany({
+        where: { organizationId: input.organizationId },
+        select: { voucherCode: true },
+      });
+      const voucherCodeList = voucherCodes.map(v => v.voucherCode);
+
+      let hotspotRevenue = 0;
+      if (voucherCodeList.length > 0) {
+        const hotspotTx = await prisma.transaction.findMany({
+          where: {
+            organizationId: input.organizationId,
+            billReferenceNumber: { in: voucherCodeList },
+            invoiceNumber: { not: null },
+            NOT: [{ invoiceNumber: "" }],
+          },
+          select: { amount: true },
+        });
+        hotspotRevenue = hotspotTx.reduce((s, t) => s + (t.amount || 0), 0);
+      }
+
+      // 3. Other/Unclassified can be calculated if needed, but for now we focus on these two main sources
+      // For chart consistency, we assume remainder of total transactions logic might coverage "Other", 
+      // but to ensure numbers match the user's mental model of "PPPoE vs Hotspot", we return these two.
+      
+      return [
+        { source: "PPPOE", amount: pppoeRevenue },
+        { source: "HOTSPOT", amount: hotspotRevenue }
+      ];
     }),
 });

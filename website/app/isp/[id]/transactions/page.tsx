@@ -33,7 +33,7 @@ const TransactionsPage = () => {
   console.log("Permissions:", { canViewTransactions, canManageTransactions, userPermissions });
 
   // Local filters for gateway and source (must be declared before any return)
-  const [gatewayFilter, setGatewayFilter] = React.useState<'ALL' | 'MPESA' | 'KOPOKOPO' | 'OTHER'>("ALL");
+  const [gatewayFilter, setGatewayFilter] = React.useState<'ALL' | 'MPESA' | 'KOPOKOPO' | 'JENGA' | 'OTHER'>("ALL");
   const [sourceFilter, setSourceFilter] = React.useState<'ALL' | 'PPPOE' | 'HOTSPOT' | 'OTHER'>("ALL");
 
   const filtered = React.useMemo(() => {
@@ -49,8 +49,8 @@ const TransactionsPage = () => {
       transactionDateTime: t.transactionDateTime instanceof Date ? t.transactionDateTime : new Date(t.transactionDateTime),
       orgAccountBalance: t.orgAccountBalance,
       invoiceNumber: t.invoiceNumber,
-      paymentGateway: ((): 'MPESA' | 'KOPOKOPO' | 'OTHER' => {
-        const gw = (t as { paymentGateway?: 'MPESA' | 'KOPOKOPO' | 'OTHER' | null }).paymentGateway;
+      paymentGateway: ((): 'MPESA' | 'KOPOKOPO' | 'JENGA' | 'OTHER' => {
+        const gw = (t as { paymentGateway?: 'MPESA' | 'KOPOKOPO' | 'JENGA' | 'OTHER' | null }).paymentGateway;
         if (gw) return gw;
         return t.invoiceNumber?.startsWith('K2-') ? 'KOPOKOPO' : 'MPESA';
       })(),
@@ -242,6 +242,7 @@ const TransactionsPage = () => {
                   <SelectItem value="ALL">All Gateways</SelectItem>
                   <SelectItem value="MPESA">M-Pesa</SelectItem>
                   <SelectItem value="KOPOKOPO">Kopo Kopo</SelectItem>
+                  <SelectItem value="JENGA">Jenga</SelectItem>
                   <SelectItem value="OTHER">Other</SelectItem>
                 </SelectContent>
               </Select>

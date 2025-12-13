@@ -47,6 +47,7 @@ enum OrganizationInvitationStatus {
 enum PaymentGateway {
   MPESA
   KOPOKOPO
+  JENGA
   OTHER
 }
 
@@ -208,6 +209,7 @@ model Organization {
   transactions Transaction[]
   mpesaPaymentLinks MpesaPaymentLink[]
   kopokopoConfiguration KopokopoConfiguration?
+  jengaConfiguration JengaConfiguration?
   smsConfiguration SMSConfiguration?
   smsTemplates SMSTemplate[]
   hotspotVouchers HotspotVoucher[]
@@ -587,6 +589,21 @@ model KopokopoConfiguration {
   updatedAt       DateTime      @updatedAt
 
   @@unique([organizationId])
+  @@index([organizationId])
+}
+
+model JengaConfiguration {
+  id             String   @id @default(cuid())
+  organizationId String   @unique
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  merchantCode   String
+  apiKey         String
+  apiSecret      String
+  baseUrl        String?
+  callbackUrl    String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
   @@index([organizationId])
 }
 

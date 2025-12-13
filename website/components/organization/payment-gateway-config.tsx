@@ -16,6 +16,7 @@ import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { PaymentGatewayEditForm } from "./payment-gateway-edit-form";
 import { KopokopoEditForm } from "./kopokopo-edit-form";
+import { JengaEditForm } from "./jenga-edit-form";
 
 
 interface PaymentGatewayConfigProps {
@@ -25,7 +26,7 @@ interface PaymentGatewayConfigProps {
 export const PaymentGatewayConfig = ({ organizationId }: PaymentGatewayConfigProps) => {
   const t = useTRPC();
   const queryClient = useQueryClient();
-  const [editingGateway, setEditingGateway] = useState<"MPESA" | "KOPOKOPO" | null>(null);
+  const [editingGateway, setEditingGateway] = useState<"MPESA" | "KOPOKOPO" | "JENGA" | null>(null);
 
   const { data: mpesaConfig, isLoading } = useQuery(
     t.mpesa.getMpesaConfiguration.queryOptions({ organizationId })
@@ -33,6 +34,10 @@ export const PaymentGatewayConfig = ({ organizationId }: PaymentGatewayConfigPro
 
   const { data: kopoConfig } = useQuery(
     t.kopokopo.getKopokopoConfiguration.queryOptions({ organizationId })
+  );
+
+  const { data: jengaConfig } = useQuery(
+    t.jenga.getJengaConfiguration.queryOptions({ organizationId })
   );
 
 
@@ -84,6 +89,22 @@ export const PaymentGatewayConfig = ({ organizationId }: PaymentGatewayConfigPro
           <Skeleton className="h-4 w-1/2" />
         </CardContent>
       </Card>
+    );
+  }
+
+  if (editingGateway === "JENGA") {
+    return (
+      <JengaEditForm
+        organizationId={organizationId}
+        configuration={jengaConfig?.configuration || {
+          id: "",
+          merchantCode: "",
+          apiKey: "",
+          apiSecret: "",
+          updatedAt: new Date(),
+        }}
+        onCancel={() => setEditingGateway(null)}
+      />
     );
   }
 
@@ -149,6 +170,17 @@ export const PaymentGatewayConfig = ({ organizationId }: PaymentGatewayConfigPro
           >
             <Edit className="h-4 w-4" />
             Edit Kopo Kopo Configuration
+          </Button>
+        )}
+        {selectedGateway === "JENGA" && jengaConfig?.configuration && (
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setEditingGateway("JENGA")}
+            className="flex items-center gap-2"
+          >
+            <Edit className="h-4 w-4" />
+            Edit Jenga Configuration
           </Button>
         )}
       </div>
@@ -226,6 +258,38 @@ export const PaymentGatewayConfig = ({ organizationId }: PaymentGatewayConfigPro
               />
               <Label className="text-sm">
                 {updatePaymentGatewayMutation.isPending ? "Updating..." : "Enable Kopo Kopo"}
+              </Label>
+            </div>
+
+            {/* Jenga Gateway Toggle */}
+            <div className="flex items-center justify-between pt-4">
+              <div className="flex items-center gap-3">
+                <div className="flex items-center gap-2">
+                  <CreditCard className="h-4 w-4 text-amber-600" />
+                  <span className="font-medium">Jenga (Equity)</span>
+                </div>
+                <Badge variant="secondary">{selectedGateway === "JENGA" ? "Active" : "Available"}</Badge>
+              </div>
+              <div className="text-sm text-muted-foreground">
+                Hosted checkout + payment links via Jenga PGW
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2">
+              <Switch
+                checked={selectedGateway === "JENGA"}
+                onCheckedChange={(checked) => {
+                  if (checked) {
+                    updatePaymentGatewayMutation.mutate({
+                      organizationId,
+                      paymentGateway: "JENGA",
+                    });
+                  }
+                }}
+                disabled={updatePaymentGatewayMutation.isPending}
+              />
+              <Label className="text-sm">
+                {updatePaymentGatewayMutation.isPending ? "Updating..." : "Enable Jenga"}
               </Label>
             </div>
 
@@ -355,6 +419,56 @@ export const PaymentGatewayConfig = ({ organizationId }: PaymentGatewayConfigPro
                   >
                     <Settings className="h-4 w-4" />
                     Configure Kopo Kopo
+                  </Button>
+                </>
+              )}
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Jenga Configuration Status Card (only if JENGA selected) */}
+        {selectedGateway === "JENGA" && (
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Settings className="h-5 w-5" />
+                Jenga Status
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {jengaConfig?.configuration ? (
+                <>
+                  <div className="flex items-center gap-2 text-green-600">
+                    <CheckCircle className="h-4 w-4" />
+                    <span className="font-medium">Active</span>
+                  </div>
+                  <div className="space-y-3">
+                    <div>
+                      <p className="text-sm font-medium text-muted-foreground">Merchant Code</p>
+                      <p className="text-sm">{jengaConfig.configuration.merchantCode}</p>
+                    </div>
+                    <div>
+                      <p className="text-sm font-medium text-muted-foreground">Last Updated</p>
+                      <p className="text-sm">{new Date(jengaConfig.configuration.updatedAt).toLocaleDateString()}</p>
+                    </div>
+                  </div>
+                </>
+              ) : (
+                <>
+                  <div className="flex items-center gap-2 text-amber-600">
+                    <AlertCircle className="h-4 w-4" />
+                    <span className="font-medium">Not Configured</span>
+                  </div>
+                  <p className="text-sm text-muted-foreground">
+                    Jenga is selected but not yet configured. Please configure your merchant credentials.
+                  </p>
+                  <Button
+                    onClick={() => setEditingGateway("JENGA")}
+                    size="sm"
+                    className="flex items-center gap-2 w-full"
+                  >
+                    <Settings className="h-4 w-4" />
+                    Configure Jenga
                   </Button>
                 </>
               )}

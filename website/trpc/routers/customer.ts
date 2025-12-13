@@ -778,6 +778,7 @@ export const customerRouter = createTRPCRouter({
             select: {
               id: true,
               name: true,
+              paymentGateway: true,
               logo: true,
             },
           },
@@ -812,6 +813,7 @@ export const customerRouter = createTRPCRouter({
           },
           organization: {
             name: paymentLink.organization.name,
+            paymentGateway: paymentLink.organization.paymentGateway || "MPESA",
             logo: paymentLink.organization.logo,
           },
           createdAt: paymentLink.createdAt,
@@ -840,6 +842,7 @@ export const customerRouter = createTRPCRouter({
             include: {
               mpesaConfiguration: true,
               kopokopoConfiguration: true,
+              jengaConfiguration: true,
             },
           },
         },
@@ -946,6 +949,51 @@ export const customerRouter = createTRPCRouter({
             success: true,
             message: "Payment initiated successfully",
             location: result.location,
+          };
+        }
+
+        if (gateway === "JENGA") {
+          if (!paymentLink.organization.jengaConfiguration) {
+            throw new TRPCError({
+              code: "BAD_REQUEST",
+              message: "Jenga is not configured for this organization",
+            });
+          }
+
+          const { JengaAPI } = await import("./jenga");
+          const jenga = new JengaAPI({
+            merchantCode: paymentLink.organization.jengaConfiguration.merchantCode,
+            apiKey: paymentLink.organization.jengaConfiguration.apiKey,
+            apiSecret: paymentLink.organization.jengaConfiguration.apiSecret,
+            baseUrl: paymentLink.organization.jengaConfiguration.baseUrl || undefined,
+          });
+
+          const result = await jenga.createPaymentLink({
+            amount: paymentLink.amount,
+            description: paymentLink.description,
+            reference,
+            customer: {
+              name: paymentLink.customer.name,
+              email: paymentLink.customer.email || undefined,
+              phone: paymentLink.customer.phone || input.phoneNumber,
+            },
+            redirectUrl: `${process.env.NEXT_PUBLIC_APP_URL || process.env.CALLBACK_URL || ''}/payment/success`,
+          });
+
+          await prisma.mpesaPaymentLink.update({
+            where: { id: paymentLink.id },
+            data: {
+              isUsed: true,
+              checkoutRequestId: null,
+              merchantRequestId: result.paymentLinkRef || null,
+            },
+          });
+
+          return {
+            success: true,
+            message: "Payment link sent via Jenga",
+            paymentLinkRef: result.paymentLinkRef,
+            redirectUrl: result.redirectUrl,
           };
         }
 

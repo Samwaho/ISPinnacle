@@ -24,7 +24,7 @@ export type TransactionTableRow = {
   transactionDateTime: Date
   orgAccountBalance?: number | null
   invoiceNumber?: string | null
-  paymentGateway?: "MPESA" | "KOPOKOPO" | "OTHER" | null
+  paymentGateway?: "MPESA" | "KOPOKOPO" | "JENGA" | "OTHER" | null
   source?: "PPPOE" | "HOTSPOT" | "OTHER" | null
   createdAt: Date
   updatedAt: Date
@@ -80,7 +80,7 @@ export const transactionColumns = ({
     ),
     cell: ({ row }) => (
       <div className="flex items-center gap-2">
-        <Badge variant={row.original.paymentGateway === "KOPOKOPO" ? "secondary" : "default"}>
+        <Badge variant={row.original.paymentGateway === "KOPOKOPO" || row.original.paymentGateway === "JENGA" ? "secondary" : "default"}>
           {row.original.paymentGateway || "MPESA"}
         </Badge>
       </div>

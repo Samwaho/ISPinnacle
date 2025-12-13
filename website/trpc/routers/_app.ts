@@ -6,6 +6,7 @@ import { packagesRouter } from './packages';
 import { customerRouter } from './customer';
 import { mpesaRouter } from './mpesa';
 import { kopokopoRouter } from './kopokopo';
+import { jengaRouter } from './jenga';
 import { hotspotRouter } from './hotspot';
 
 import { transactionsRouter } from './transactions';
@@ -22,6 +23,7 @@ export const appRouter = createTRPCRouter({
   customer: customerRouter,
   mpesa: mpesaRouter,
   kopokopo: kopokopoRouter,
+  jenga: jengaRouter,
   hotspot: hotspotRouter,
   transactions: transactionsRouter,
   sms: smsRouter,

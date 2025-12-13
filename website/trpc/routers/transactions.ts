@@ -30,11 +30,10 @@ export const transactionsRouter = createTRPCRouter({
         },
       });
 
-      // Derive payment gateway from stored data without schema changes
-      // Heuristic: invoiceNumber starting with 'K2-' => KopoKopo; otherwise M-Pesa
+      // Derive payment gateway from stored data; default heuristics fall back to invoice prefix
       const transactions = transactionsRaw.map(t => ({
         ...t,
-        paymentGateway: t.invoiceNumber?.startsWith('K2-') ? 'KOPOKOPO' : 'MPESA',
+        paymentGateway: t.paymentGateway || (t.invoiceNumber?.startsWith('K2-') ? 'KOPOKOPO' : 'MPESA'),
       }));
 
       return transactions;

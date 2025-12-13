@@ -170,9 +170,10 @@ export const hotspotRouter = createTRPCRouter({
       });
 
         // Determine and initiate payment based on organization configuration
-        const [mpesaConfig, k2Config] = await Promise.all([
+        const [mpesaConfig, k2Config, jengaConfig] = await Promise.all([
           prisma.mpesaConfiguration.findFirst({ where: { organizationId } }),
           prisma.kopokopoConfiguration.findFirst({ where: { organizationId } }),
+          prisma.jengaConfiguration.findFirst({ where: { organizationId } }),
         ]);
 
         const preferredGateway = organization.paymentGateway;
@@ -188,6 +189,13 @@ export const hotspotRouter = createTRPCRouter({
           throw new TRPCError({
             code: "PRECONDITION_FAILED",
             message: "Kopo Kopo is selected but not configured for this organization.",
+          });
+        }
+
+        if (preferredGateway === PaymentGateway.JENGA && !jengaConfig) {
+          throw new TRPCError({
+            code: "PRECONDITION_FAILED",
+            message: "Jenga is selected but not configured for this organization.",
           });
         }
 
@@ -279,12 +287,61 @@ export const hotspotRouter = createTRPCRouter({
           }
         };
 
+        const initiateJenga = async (config: NonNullable<typeof jengaConfig>) => {
+          try {
+            const { JengaAPI } = await import("./jenga");
+            const jenga = new JengaAPI({
+              merchantCode: config.merchantCode,
+              apiKey: config.apiKey,
+              apiSecret: config.apiSecret,
+              baseUrl: config.baseUrl || undefined,
+            });
+
+            const result = await jenga.createPaymentLink({
+              amount: packageData.price,
+              description: `Hotspot ${packageData.name}`,
+              reference: voucher.voucherCode,
+              customer: {
+                name: packageData.name,
+                phone: normalizedPhoneNumber,
+              },
+              redirectUrl: `${process.env.NEXT_PUBLIC_APP_URL || process.env.CALLBACK_URL || ''}/hotspot/login`,
+            });
+
+            await prisma.hotspotVoucher.update({
+              where: { id: voucher.id },
+              data: { paymentReference: result.paymentLinkRef || voucher.voucherCode },
+            });
+
+            return {
+              voucherId: voucher.id,
+              voucherCode: voucher.voucherCode,
+              paymentMethod: 'jenga' as const,
+              paymentData: {
+                paymentLinkRef: result.paymentLinkRef || '',
+                redirectUrl: result.redirectUrl,
+              },
+              package: packageData,
+              organization: organization,
+            };
+          } catch (err) {
+            throw new TRPCError({
+              code: "INTERNAL_SERVER_ERROR",
+              message: `Failed to initiate Jenga payment link: ${err instanceof Error ? err.message : 'Unknown error'}`,
+            });
+          }
+        };
+
         if (preferredGateway === PaymentGateway.KOPOKOPO && k2Config) {
           return initiateK2(k2Config);
         }
 
         if (preferredGateway === PaymentGateway.MPESA && mpesaConfig) {
           return initiateMpesa(mpesaConfig);
+        }
+
+        if (preferredGateway === PaymentGateway.JENGA && jengaConfig) {
+          return initiateJenga(jengaConfig);
         }
 
         if (preferredGateway === PaymentGateway.OTHER) {
@@ -294,9 +351,15 @@ export const hotspotRouter = createTRPCRouter({
           if (k2Config) {
             return initiateK2(k2Config);
           }
+          if (jengaConfig) {
+            return initiateJenga(jengaConfig);
+          }
         }
 
         if (!preferredGateway) {
+          if (jengaConfig && !mpesaConfig && !k2Config) {
+            return initiateJenga(jengaConfig);
+          }
           if (k2Config && !mpesaConfig) {
             return initiateK2(k2Config);
           }
@@ -305,6 +368,9 @@ export const hotspotRouter = createTRPCRouter({
           }
           if (k2Config) {
             return initiateK2(k2Config);
+          }
+          if (jengaConfig) {
+            return initiateJenga(jengaConfig);
           }
         }
 

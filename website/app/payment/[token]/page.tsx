@@ -70,12 +70,19 @@ const PaymentLinkPage = () => {
     isPending: isProcessingPayment,
   } = useMutation(
     t.customer.processPaymentLink.mutationOptions({
-      onSuccess: () => {
-        toast.success("Payment initiated successfully! Please check your phone for the M-Pesa prompt.");
-        // setPaymentInitiated(true);
+      onSuccess: (data) => {
+        const gateway = paymentLinkData?.paymentLink.organization.paymentGateway || "MPESA";
+        const successMessage =
+          gateway === "JENGA"
+            ? "Payment link generated. Complete checkout in the Jenga window."
+            : "Payment initiated successfully! Please check your phone for the prompt.";
+
+        if (data?.redirectUrl) {
+          window.open(data.redirectUrl, "_blank");
+        }
+
+        toast.success(successMessage);
         setIsProcessing(true);
-        // Don't redirect immediately - wait for actual payment completion
-        // The success page should only be shown after M-Pesa callback confirms payment
       },
       onError: (error) => {
         toast.error(error.message || "Failed to initiate payment");
@@ -134,6 +141,8 @@ const PaymentLinkPage = () => {
     );
   }
 
+  const gateway = paymentLinkData?.paymentLink?.organization?.paymentGateway || "MPESA";
+
   if (isProcessing) {
     return (
       <CardWrapper
@@ -148,11 +157,15 @@ const PaymentLinkPage = () => {
             Payment Initiated Successfully!
           </h2>
           <p className="text-center text-muted-foreground">
-            Please check your phone for the M-Pesa prompt and enter your PIN to complete the payment.
+            {gateway === "JENGA"
+              ? "We generated a Jenga payment link. If a new window didn't open, please check your SMS/email or click the button again."
+              : "Please check your phone for the prompt and enter your PIN to complete the payment."}
           </p>
           <div className="bg-blue-50 dark:bg-blue-950 p-4 rounded-md max-w-sm">
             <p className="text-sm text-blue-700 dark:text-blue-300">
-              <strong>Important:</strong> Your payment will be confirmed once you complete the M-Pesa transaction on your phone.
+              <strong>Important:</strong> {gateway === "JENGA"
+                ? "Your payment will be confirmed once you complete the Jenga checkout."
+                : "Your payment will be confirmed once you complete the transaction on your phone."}
             </p>
           </div>
         </div>
@@ -221,7 +234,7 @@ const PaymentLinkPage = () => {
         <div className="text-center space-y-2">
           <h2 className="text-2xl font-bold">Payment Request</h2>
           <p className="text-muted-foreground">
-            Complete your payment using M-Pesa
+            {gateway === "JENGA" ? "Complete your payment via Jenga checkout" : "Complete your payment using mobile money"}
           </p>
         </div>
 
@@ -266,7 +279,7 @@ const PaymentLinkPage = () => {
               Enter Phone Number
             </CardTitle>
             <CardDescription>
-              Enter your M-Pesa registered phone number
+              Enter your phone number to receive the payment prompt/link
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -290,7 +303,7 @@ const PaymentLinkPage = () => {
 
               <div className="bg-blue-50 dark:bg-blue-950 p-3 rounded-md">
                 <p className="text-sm text-blue-700 dark:text-blue-300">
-                  <strong>Note:</strong> Enter your M-Pesa phone number in any common format (07XXXXXXXX, 01XXXXXXXX, 7XXXXXXXX, +2547XXXXXXXX). We&apos;ll normalize it automatically.
+                  <strong>Note:</strong> Enter your phone number in any common format (07XXXXXXXX, 01XXXXXXXX, 7XXXXXXXX, +2547XXXXXXXX). We&apos;ll normalize it automatically.
                 </p>
               </div>
 
@@ -307,7 +320,7 @@ const PaymentLinkPage = () => {
                 ) : (
                   <>
                     <CreditCard className="h-4 w-4 mr-2" />
-                    Pay with M-Pesa
+                    {gateway === "JENGA" ? "Pay via Jenga" : "Pay with M-Pesa"}
                   </>
                 )}
               </Button>
@@ -316,10 +329,11 @@ const PaymentLinkPage = () => {
         </Card>
 
                  <div className="text-center text-sm text-muted-foreground max-w-md">
-           <p>
-             By clicking &quot;Pay with M-Pesa&quot;, you will receive an STK push notification on your phone. 
-             Please enter your M-Pesa PIN to complete the payment.
-           </p>
+         <p>
+             {gateway === "JENGA"
+               ? "We will generate a Jenga payment link and open it so you can finish checkout securely."
+               : "By clicking \"Pay with M-Pesa\", you will receive an STK push notification on your phone. Please enter your mobile money PIN to complete the payment."}
+          </p>
          </div>
       </div>
     </CardWrapper>

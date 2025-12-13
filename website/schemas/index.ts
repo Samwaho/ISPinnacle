@@ -317,6 +317,15 @@ export const kopokopoConfigurationSchema = z.object({
   tillNumber: z.string().min(1, "Till number is required"),
 });
 
+// Jenga PGW configuration
+export const jengaConfigurationSchema = z.object({
+  organizationId: z.string(),
+  merchantCode: z.string().min(1, "Merchant code is required"),
+  apiKey: z.string().min(1, "API key is required"),
+  apiSecret: z.string().min(1, "API secret is required"),
+  baseUrl: z.string().url("Enter a valid base URL (e.g. https://uat.finserve.africa)").optional(),
+});
+
 
   export const stkPushSchema = z.object({
     organizationId: z.string(),
@@ -347,7 +356,7 @@ export const kopokopoConfigurationSchema = z.object({
 // Payment Gateway Configuration Schemas
 export const paymentGatewaySelectionSchema = z.object({
     organizationId: z.string().min(1, "Organization ID is required"),
-    paymentGateway: z.enum(["MPESA", "KOPOKOPO"]),
+    paymentGateway: z.enum(["MPESA", "KOPOKOPO", "JENGA"]),
 });
 
 export const getPaymentGatewayConfigurationSchema = z.object({

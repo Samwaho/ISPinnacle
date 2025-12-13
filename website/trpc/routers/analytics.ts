@@ -753,10 +753,16 @@ export const analyticsRouter = createTRPCRouter({
 
       // Classify by gateway preferring explicit field, fallback to invoice prefix
       const k2 = transactions.filter(tx => tx.paymentGateway === 'KOPOKOPO' || tx.invoiceNumber?.startsWith('K2-'));
-      const mpesa = transactions.filter(tx => tx.paymentGateway === 'MPESA' || !tx.invoiceNumber?.startsWith('K2-'));
+      const jenga = transactions.filter(tx => tx.paymentGateway === 'JENGA');
+      const mpesa = transactions.filter(
+        tx =>
+          tx.paymentGateway === 'MPESA' ||
+          (!tx.paymentGateway && !tx.invoiceNumber?.startsWith('K2-'))
+      );
 
       const mpesaTotal = mpesa.reduce((sum, tx) => sum + (tx.amount || 0), 0);
       const k2Total = k2.reduce((sum, tx) => sum + (tx.amount || 0), 0);
+      const jengaTotal = jenga.reduce((sum, tx) => sum + (tx.amount || 0), 0);
 
       return {
         mpesa: {
@@ -767,7 +773,11 @@ export const analyticsRouter = createTRPCRouter({
           count: k2.length,
           amount: k2Total,
         },
-        total: mpesaTotal + k2Total,
+        jenga: {
+          count: jenga.length,
+          amount: jengaTotal,
+        },
+        total: mpesaTotal + k2Total + jengaTotal,
       };
     }),
   // Real-time network and customer stats
